@@ -1,0 +1,604 @@
+{% extends 'home.html' %}
+
+{% load static %}
+{% block title %}
+Animal Bite and Rabies Monitoring System with GEO Mapping
+{% endblock %}
+
+{% block content %}
+
+<div class="card shadow mb-2 p-4">
+    <div id="mama-container">
+       <div id="mama"></div>
+    </div>
+</div>
+
+<!-- Row for the distribution of muni,patients and animals -->
+<div class="row">
+    <!-- Municipality Chart -->
+    <div class="col-xl-6 col-lg-6" id="distributionMunicipality">
+        <div class="card shadow mb-4">
+            <!-- Card Header - Dropdown -->
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">Distribution of Municipality</h6>
+            </div>
+            <!-- Card Body -->
+            <div class="card-body">
+                <div class="chart-area">
+                    <canvas id="municipalityChart"></canvas>      
+                </div>
+            </div>
+            <div class="card-body">
+                <h2>Naval is the highest</h2>
+            </div>
+        </div>
+    </div>
+    <!-- Patients and Animals Chart -->
+    <div class="col-xl-6 col-lg-6">
+        <div class="card shadow mb-2">
+            <!-- Card Header -->
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">Distribution of Patients and Animals</h6>
+            </div>
+            <!-- Card Body -->
+            <div class="card-body mt-4 mb-4 " id="scrollGender">
+                <div class="row justify-content-center" >
+                    <div class="col-md-6 d-flex flex-column align-items-center border-right" >
+                        <h6 class="text-center">Sex Distribution</h6>
+                        <canvas id="genderChart"canvas>
+                    </div>
+                    <div class="col-md-6 d-flex flex-column align-items-center" id="scrollAnimal">
+                        <h6 class="text-center">Animal Source of Exposure</h6>
+                        <canvas id="animalChart"></canvas>
+                    </div>
+                </div>  
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<!-- <script src="{% static 'assets/js/distribution.js' %}"></script> -->
+
+
+<script>
+    //Cases per Municipality
+    var ctx = document.getElementById('municipalityChart').getContext('2d');
+    var muni = {{ municipalities|safe }};
+    var countMuni = {{ municipality_case_counts|safe }};
+    var totalCasesPerMuni = countMuni.reduce((acc, val) => acc + val, 0); // Calculate total cases
+
+    // Define an array of colors
+    var colors = [
+        'rgba(54, 162, 235, 1)',
+        'rgba(255, 99, 132, 1)', 
+        'rgba(75, 192, 192, 1)', 
+        'rgba(255, 206, 86, 1)',  
+        'rgba(153, 102, 255,1)',
+        'rgba(255, 159, 64, 1)', 
+        'rgba(228, 228, 128,1)',
+        'rgba(178, 12, 128, 1)',
+    ];
+
+    var backgroundColors = colors.slice(0, muni.length);
+
+
+    var municipalityChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: muni,
+            datasets: [{
+                label: 'Number of Cases per Municiaplity    ',
+                    data: countMuni ,
+                    backgroundColor: backgroundColors,
+                    borderColor: colors,
+                    borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    title: {
+                    display: true,
+                    text: 'Municipality'
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: {
+                    display: true,
+                    text: 'Number of Cases'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top'
+                },
+                datalabels: {
+                    formatter: (value) => {
+                        /* let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                        let percentage = (value * 100 / sum).toFixed(2) + "%"; */
+                        return value;
+                    },
+                    color: '#fff',
+                    font: {
+                        weight: 'bold',
+                        size: '14'
+                    }
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+
+    // Gender Chart 
+    var ctxGender = document.getElementById('genderChart').getContext('2d');
+    var genderLabels = {{ gen|safe }};
+    var genderData = {{ dataGender|safe }};
+    var totalGenderCases = genderData.reduce((acc, val) => acc + val, 0); // Calculate total cases
+
+    var genderChart = new Chart(ctxGender, {
+        type: 'pie',
+        data: {
+            labels: genderLabels,
+            datasets: [{
+                label: 'Number of Cases',
+                data: genderData,
+                backgroundColor: [
+                    'rgba(54, 162, 235, 1)', // Color for males
+                    'rgba(255, 99, 132, 1)'  // Color for females
+                ],
+                borderColor: [
+                    'rgba(54, 162, 235, 1)',   // Border color for males
+                    'rgba(255, 99, 132, 1)'    // Border color for females
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                datalabels: {
+                    formatter: (value, ctx) => {
+                        let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                        let percentage = (value * 100 / sum).toFixed(2) + "%";
+                        return percentage;
+                    },
+                    color: '#fff',
+                    font: {
+                        weight: 'bold',
+                        size: '14'
+                    }
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+
+    // Animal Chart
+    var ctxAnimal = document.getElementById('animalChart').getContext('2d');
+    var animalLabels = {{ animal|safe }};
+    var animalData = {{ dataAnimal|safe }};
+    var totalAnimalCases = animalData.reduce((acc, val) => acc + val, 0); // Calculate total cases
+
+    var animalChart = new Chart(ctxAnimal, {
+        type: 'pie',
+        data: {
+            labels: animalLabels,
+            datasets: [{
+                label: 'Number of Cases',
+                data: animalData,
+                backgroundColor: [
+                    'rgba(255, 165, 0, 1)', // Color for cats (orange)
+                    'rgba(255, 0, 0, 1)',   // Color for dogs (red)
+                    'rgba(128, 128, 128, 1)' // Color for others (grey)
+                ],
+                borderColor: [
+                    'rgba(255, 165, 0, 1)', // Border color for cats (orange)
+                    'rgba(255, 0, 0, 1)',   // Border color for dogs (red)
+                    'rgba(128, 128, 128, 1)' // Border color for others (grey)
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                datalabels: {
+                    formatter: (value, ctx) => {
+                        let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                        let percentage = (value * 100 / sum).toFixed(2) + "%";
+                        return percentage;
+                    },
+                    color: '#fff',
+                    font: {
+                        weight: 'bold',
+                        size: '14'
+                    }
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+
+</script>
+
+{% endblock %}
+
+{% block chart %}
+
+<div class="container" id="monthlyCasesScroll">
+    <div class="row ">
+        <div class="col-12 d-flex justify-content-end">
+            <div class="btn-group" role="group" aria-label="Chart options">
+                <!-- <button type="button" class="btn btn-outline-secondary" id="showDaily">Daily</button> -->
+                <button type="button" class="btn btn-outline-secondary" id="showWeekly">Weekly</button>
+                <button type="button" class="btn btn-outline-secondary" id="showMonthly">Monthly</button>
+                <button type="button" class="btn btn-outline-secondary" id="showQuarterly">Quarterly</button>
+                <button type="button" class="btn btn-outline-secondary" id="showAnnual">Annual</button>
+            </div> 
+        </div>
+    </div>
+    <div class="row pb-5 ">
+        <div class="col-xl-12 col-md-12 mb-3" >
+            <div class="container card shadow mb-2 chart-container" id="monthlyCasesSection">
+                <div class="card-body">
+                    <h2>Monthly Cases</h2>
+                    <hr>
+                    <canvas id="monthlyCasesChart"></canvas>
+                </div>
+            </div>
+            <div class="container card shadow mb-2 chart-container" id="weeklyCasesSection" style="display: none;">
+                <div class="card-body">
+                    <h2>Weekly Cases</h2>
+                    <hr>
+                    <canvas id="weeklyCasesChart"></canvas>
+                </div>
+            </div>
+            <div class="container card shadow mb-2 chart-container" id="dailyCasesSection" style="display: none;">
+                <div class="card-body">
+                    <h2>Daily Cases</h2>
+                    <hr>
+                    <canvas id="dailyCasesChart"></canvas>
+                </div>
+            </div>
+            <div class="container card shadow mb-2 chart-container" id="quarterlyCasesSection" style="display: none;">
+                <div class="card-body">
+                    <h2>Quarterly Cases</h2>
+                    <hr>
+                    <canvas id="quarterlyCasesChart"></canvas>
+                </div>
+            </div>
+             <!-- Annual Cases Chart -->
+            <div class="container card shadow mb-2 chart-container" id="annualCasesSection" style="display: none;">
+                <div class="card-body">
+                    <h2>Annual Cases</h2>
+                    <hr>
+                    <canvas id="annualCasesChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+//Monthly Cases
+var ctx = document.getElementById('monthlyCasesChart').getContext('2d');
+    var months = {{ months|safe }};
+    var caseCounts = {{ case_counts|safe }};
+    var backgroundColors = [
+        'rgba(54, 162, 235, 0.6)',
+        'rgba(255, 99, 132, 0.6)', 
+        'rgba(255, 206, 86, 0.6)', 
+        'rgba(255, 159, 64, 0.6)',
+        'rgba(153, 102, 255, 0.6)', 
+        'rgba(75, 192, 192, 0.6)', 
+        'rgba(255, 99, 71, 0.6)'
+    ];
+
+    var borderColors = [
+        'rgba(54, 162, 235, 1)', 
+        'rgba(255, 99, 132, 1)', 
+        'rgba(255, 206, 86, 1)', 
+        'rgba(255, 159, 64, 1)', 
+        'rgba(153, 102, 255, 1)', 
+        'rgba(75, 192, 192, 0.9)', 
+        'rgba(255, 99, 71, 1)'
+    ];
+
+    var monthlyCasesChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: months,
+            datasets: [{
+                label: 'Monthly Cases',
+                data: caseCounts,
+                backgroundColor: backgroundColors,  
+                borderColor: borderColors,
+                borderWidth: 1,
+                
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Month'
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Number of Cases'
+                    }
+                }
+            }
+        }
+    });
+
+    // Weekly Cases Chart
+    var ctxWeekly = document.getElementById('weeklyCasesChart').getContext('2d');
+    var weeks = {{ weeks|safe }};
+    var weeklyCounts = {{ weekly_case_counts|safe }};
+    var weeklyCasesChart = new Chart(ctxWeekly, {
+        type: 'bar',
+        data: {
+            labels: weeks,
+            datasets: [{
+                label: 'Weekly Cases',
+                data: weeklyCounts,
+                backgroundColor: 'rgba(128, 128, 128, 0.6)',
+                borderColor: 'rgba(128, 128, 128, 0.7)',
+                borderWidth: 1,
+                borderRadius: 50,
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Week'
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Number of Cases'
+                    }
+                }
+            },
+            /* plugins: {
+                legend: {
+                    labels: {
+                        color: 'red' // Set the color of the label text to red
+                    }
+                }
+            } */
+        }
+    });
+
+
+    //Daily Chart
+    var ctxDaily = document.getElementById('dailyCasesChart').getContext('2d');
+    var days = {{ days|safe }};
+    var dailyCounts = {{ daily_case_counts|safe }};
+
+    var dailyCasesChart = new Chart(ctxDaily, {
+        type: 'bar',
+        data: {
+            labels: days,
+            datasets: [{
+                label: 'Daily Cases',
+                data: dailyCounts,
+                backgroundColor: 'rgba(128, 128, 128, 0.6)',
+                borderColor: 'rgba(128, 128, 128, 0.7)',
+                borderWidth: 1,
+                borderRadius: 50,
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Day'
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Number of Cases'
+                    }
+                }
+            },
+            /* plugins: {
+                legend: {
+                    labels: {
+                        color: 'red' // Set the color of the label text to red
+                    }
+                }
+            } */
+        }
+    });
+
+    // Quarterly Cases Chart
+    var ctxQuarterly = document.getElementById('quarterlyCasesChart').getContext('2d');
+    var quarters = {{ quarters|safe }};
+    var quarterlyCounts = {{ quarterly_case_counts|safe }};
+
+    var quarterlyCasesChart = new Chart(ctxQuarterly, {
+        type: 'bar',
+        data: {
+            labels: quarters,
+            datasets: [{
+                label: 'Quarterly Cases',
+                data: quarterlyCounts,
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.6)',   // Color for Quarter 1
+                    'rgba(54, 162, 235, 0.6)',   // Color for Quarter 2
+                    'rgba(255, 206, 86, 0.6)',   // Color for Quarter 3
+                    'rgba(75, 192, 192, 0.6)'    // Color for Quarter 4
+                ],
+                borderColor: [
+                    'rgba(255, 99, 132, 0.7)',   // Border color for Quarter 1
+                    'rgba(54, 162, 235, 0.7)',   // Border color for Quarter 2
+                    'rgba(255, 206, 86, 0.7)',   // Border color for Quarter 3
+                    'rgba(75, 192, 192, 0.7)'    // Border color for Quarter 4
+                ],
+                borderWidth: 1,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: 'black' // Set the color of the label text
+                    }
+                }
+            }
+        }
+    });
+
+
+    // Annual Cases Chart
+    var ctxAnnual = document.getElementById('annualCasesChart').getContext('2d');
+    var years = {{ years|safe }};
+    var annualCounts = {{ annual_case_counts|safe }};
+
+    var annualCasesChart = new Chart(ctxAnnual, {
+        type: 'bar',
+        data: {
+            labels: years,
+            datasets: [{
+                label: 'Annual Cases',
+                data: annualCounts,
+                backgroundColor: 'rgba(128, 128, 128, 0.6)', // Grey color
+                borderColor: 'rgba(128, 128, 128, 0.7)', // Grey color
+                borderWidth: 1,
+                borderRadius: 50,
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Year'
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Number of Cases'
+                    }
+                }
+            }
+        }
+    });
+
+
+//GenderScroll
+document.getElementById('scrollToGender').addEventListener('click', function () {
+    document.getElementById('scrollGender').scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'nearest' 
+    });
+
+});
+//AnimalScroll
+document.getElementById('scrollToAnimal').addEventListener('click', function () {
+    document.getElementById('scrollAnimal').scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'nearest'
+    });
+
+});
+
+//WeeklyScroll
+document.getElementById('scrollToWeeklyCases').addEventListener('click', function () {
+    document.getElementById('monthlyCasesScroll').scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'center' 
+    });
+});
+//MuniScroll
+document.getElementById('scrollToMunicipality').addEventListener('click', function () {
+    document.getElementById('distributionMunicipality').scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'center'
+    });
+
+});
+
+/* document.getElementById('showDaily').addEventListener('click', function() {
+    document.getElementById('dailyCasesSection').style.display = 'block';
+    document.getElementById('weeklyCasesSection').style.display = 'none';
+    document.getElementById('monthlyCasesSection').style.display = 'none';
+    document.getElementById('quarterlyCasesSection').style.display = 'none';
+    document.getElementById('annualCasesSection').style.display = 'none';
+});
+ */
+document.getElementById('showWeekly').addEventListener('click', function() {
+    /* document.getElementById('dailyCasesSection').style.display = 'none'; */
+    document.getElementById('weeklyCasesSection').style.display = 'block';
+    document.getElementById('monthlyCasesSection').style.display = 'none';
+    document.getElementById('quarterlyCasesSection').style.display = 'none';
+    document.getElementById('annualCasesSection').style.display = 'none';
+});
+
+document.getElementById('showMonthly').addEventListener('click', function() {
+    /* document.getElementById('dailyCasesSection').style.display = 'none'; */
+    document.getElementById('weeklyCasesSection').style.display = 'none';
+    document.getElementById('monthlyCasesSection').style.display = 'block';
+    document.getElementById('quarterlyCasesSection').style.display = 'none';
+    document.getElementById('annualCasesSection').style.display = 'none';
+});
+
+document.getElementById('showQuarterly').addEventListener('click', function() {
+    /* document.getElementById('dailyCasesSection').style.display = 'none'; */
+    document.getElementById('weeklyCasesSection').style.display = 'none';
+    document.getElementById('monthlyCasesSection').style.display = 'none';
+    document.getElementById('quarterlyCasesSection').style.display = 'block';
+    document.getElementById('annualCasesSection').style.display = 'none';
+});
+
+document.getElementById('showAnnual').addEventListener('click', function() {
+    /* document.getElementById('dailyCasesSection').style.display = 'none'; */
+    document.getElementById('weeklyCasesSection').style.display = 'none';
+    document.getElementById('monthlyCasesSection').style.display = 'none';
+    document.getElementById('quarterlyCasesSection').style.display = 'none';
+    document.getElementById('annualCasesSection').style.display = 'block';
+});
+
+
+
+</script>
+
+{% endblock%}
+
+
