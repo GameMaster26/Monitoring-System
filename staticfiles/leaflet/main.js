@@ -72,22 +72,22 @@ function init(){
 
 
     //object in baselayers
-    /* const baselayers = {
+    const baselayers = {
         'Dark':Dark,
         'Streep Map':StreetMap,
         'Light':Light
-    } */
+    }
 
 
     // Adding layer control with expanded option
-    /* L.control.layers(baselayers, {
+    L.control.layers(baselayers, {
         'Heat Overlay': heatOverlayImage,
         'Found Cases': foundCasesImage,
         'Legend': legendImage
     }, {
         collapsed: false,
         position: 'topright' // Adjust position of layer control
-    }).addTo(mymap); */
+    }).addTo(mymap);
 
 
     //function to view latlng
@@ -103,6 +103,8 @@ function init(){
         shadowSize: [68, 95],
         shadowAnchor: [22, 94] */
     });
+
+}
     
 
     //markers in each municipalities
@@ -205,7 +207,7 @@ function init(){
     
 
 
-}
+
 
 /* var maxBounds = L.latLngBounds(
     L.latLng(11.358607609157232, 123.91744935882099), // Southwest corner
