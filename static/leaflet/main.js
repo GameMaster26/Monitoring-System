@@ -3,15 +3,16 @@ window.onload = init;
 function init(){
 
 
-    //creating variables each baselayers
+    //creating variables for each base layer
     const Dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        attribution: 'Animal Bite and Rabies Monitoring with GEO Mappping',
+        attribution: 'Animal Bite and Rabies Monitoring with GEO Mapping &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        //attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        //attribution: 'Animal Bite and Rabies Monitoring with GEO Mappping',
         maxZoom: 19, // Specify maxZoom to prevent users from zooming beyond the max level of the tile layer
     })
     const StreetMap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
         attribution: '&copy; <ahref="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        attribution: 'Animal Bite and Rabies Monitoring with GEO Mappping',
+        //attribution: 'Animal Bite and Rabies Monitoring with GEO Mappping',
     })
     const Light = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
@@ -24,7 +25,7 @@ function init(){
         L.latLng(11.897821676214718, 125.01560057070333) // Northeast corner
         );
 
-    //creating the center of the map 
+    //Creating the center of the map 
     const mymap = L.map('mama',{
         center:[11.6400,124.4642],
         zoom:10.8,
@@ -33,13 +34,11 @@ function init(){
         layers:[Dark],
         zoomControl:false,
         doubleClickZoom: false,
-        
         scrollWheelZoom: false,
         attributionControl:false,
         doubleClickZoom: false,
         dragging: false, // Disable panning
         touchZoom: false, 
-        
     }).setMaxBounds(maxBounds);
 
     // Add zoom control manually to the bottom left
@@ -74,7 +73,7 @@ function init(){
     //object in baselayers
     const baselayers = {
         'Dark':Dark,
-        'Streep Map':StreetMap,
+        'Street Map':StreetMap,
         'Light':Light
     }
 
