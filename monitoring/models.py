@@ -17,6 +17,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser
 from django.db.models import Max
+#from django.contrib.gis.db import models
 
 
 """ User = get_user_model()
@@ -46,6 +47,9 @@ for user in users:
 class Municipality(models.Model):
     muni_id = models.AutoField(primary_key=True)
     muni_name = models.CharField(max_length=100, verbose_name="Municipality Name")
+    #latitude = models.PointField(verbose_name="Latitude", null=True, blank=True)
+    #longitude = models.PointField(verbose_name="Longitude", null=True, blank=True)
+    
 
     def __str__(self):
         return f"{self.muni_name}"
@@ -58,7 +62,7 @@ class Barangay(models.Model):
     brgy_id = models.AutoField(primary_key=True)
     brgy_name = models.CharField(max_length=100, verbose_name="Barangay Name")
     muni_id = models.ForeignKey(Municipality, on_delete=models.CASCADE, verbose_name="Municipality Name", related_name='barangays',db_column='muni_id')
-
+    tmp_muni = models.CharField(max_length=100, verbose_name="Tmp muni",)
 
     class Meta:
         verbose_name_plural = "Barangays"
@@ -88,6 +92,7 @@ class Patient(models.Model):
     last_name = models.CharField(max_length=200, verbose_name="Last Name", blank=False)
     muni_id = models.ForeignKey(Municipality, on_delete=models.CASCADE, verbose_name="Municipality",default=1, related_name='patients_muni')
     brgy_id = models.ForeignKey(Barangay, on_delete=models.CASCADE, verbose_name="Barangay",default=1, related_name='patients_brgy')
+    #street = models.CharField(max_length=100, verbose_name="Street",)
     birthday = models.DateField(verbose_name="Birthday", default=date(1999, 6, 25))
     sex_choice =(
         ('male','Male'),
@@ -104,8 +109,8 @@ class Patient(models.Model):
         super().save(*args, **kwargs)
     
     def code(self):
-        return self.user.code
-    code.short_description = 'Code'
+        return self.user.username
+    code.short_description = 'Username'
 
     def registration_no(self):
         history = History.objects.filter(patient_id=self.patient_id).first()
@@ -126,8 +131,8 @@ class History(models.Model):
     patient_id = models.ForeignKey(Patient, on_delete=models.CASCADE, verbose_name="Patient", related_name='histories',db_column='patient_id')
     registration_no = models.CharField(max_length=200,verbose_name='Registration Number', blank=True, null=True,)#unique=True, 
     #treatment_id = models.ForeignKey(Treatment, on_delete=models.CASCADE, verbose_name="Treatment",default=1,  related_name='history_treatment', db_column='treatment_id')
-    date_registered = models.DateField(default=date(2024,4,11),verbose_name="Date Registered")
-    date_of_exposure = models.DateField(blank=True, null=True,default=date(2024, 3, 18), verbose_name="Date of Exposure")
+    date_registered = models.DateField(default=date(2024,1,1),verbose_name="Date Registered")
+    date_of_exposure = models.DateField(blank=True, null=True,default=date(2024, 1, 1), verbose_name="Date of Exposure")
     muni_id = models.ForeignKey(Municipality, on_delete=models.CASCADE, verbose_name="Municipality of Exposure",default=1, related_name='history_muni',db_column='muni_id')
     brgy_id = models.ForeignKey(Barangay, on_delete=models.CASCADE, verbose_name="Barangay of Exposure",default=1, related_name='history_brgy',db_column='brgy_id')
     

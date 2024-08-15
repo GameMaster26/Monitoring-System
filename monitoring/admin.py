@@ -118,7 +118,7 @@ class PatientAdmin(admin.ModelAdmin):
     
     #form = HistoryForm
     
-    list_display = ('code','registration_no',  'first_name','last_name', 'brgy_id','muni_id','age', 'sex','contactNumber', )  # Changed 'birthday' to 'get_age'
+    list_display = ('code','registration_no',  'first_name','last_name', 'brgy_id','muni_id', 'age', 'sex','contactNumber', )  # Changed 'birthday' to 'get_age','street',
     list_per_page = 10
     search_fields = ['first_name','last_name',]
     list_filter = ('user__code', AgeFilter,BarangayFilter,MunicipalityFilter,)  # Changed 'birthday' to 'get_age'
@@ -360,11 +360,9 @@ class TreatmentAdmin(admin.ModelAdmin):
             treatment.save()
     mark_day7.short_description = "Day 7"
 
-    def alive_animal(self,request,queryset):
-        queryset.update(animal_alive=False)
-    alive_animal.short_description = "Mark animal as dead"
 
-    actions = ['mark_day0','mark_day3','mark_day7','alive_animal']
+
+    actions = ['mark_day0','mark_day3','mark_day7',]
 
     
     
@@ -460,7 +458,7 @@ class TreatmentAdmin(admin.ModelAdmin):
 
 @admin.register(Barangay)
 class BarangayAdmin(admin.ModelAdmin):
-    list_display = ('brgy_name','muni_id')
+    list_display = ('brgy_name','muni_id',)
     list_filter = ['brgy_name','muni_id__muni_name']
     list_per_page = 10
     #exclude = ('brgy_name',) 
