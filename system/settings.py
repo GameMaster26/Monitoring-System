@@ -40,15 +40,15 @@ INSTALLED_APPS = [
     #packages
     'jazzmin',
 
-
-    
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    #'django.contrib.gis',
+    'django.contrib.gis',
+    'leaflet',
+    #'djgeojson',
 
     #installed apps
     'monitoring',
@@ -95,7 +95,7 @@ WSGI_APPLICATION = 'system.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
+        'ENGINE': 'django.contrib.gis.db.backends.mysql',
         'NAME': 'monitoring',
         'USER': 'root',
         'PASSWORD': '',
@@ -103,6 +103,15 @@ DATABASES = {
         'HOST': 'localhost',
     }
 }
+
+#GDAL_LIBRARY_PATH = os.path.join("C:\\", "OSGeo4W", "bin", "geos.dll")
+#GDAL_LIBRARY_PATH = os.path.join("C:\\", "OSGeo4W", "bin", "geos_c.dll")
+GDAL_LIBRARY_PATH = os.path.join("C:\\", "OSGeo4W", "bin", "gdal309.dll")
+
+""" SERIALIZATION_MODULES= {
+    'geojson':'djgeojson.serializers',
+
+} """
 
 
 # Password validation
@@ -145,6 +154,35 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = (os.path.join(BASE_DIR,'static'),)
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
+""" LEAFLET_CONFIG = {
+    'DEFAULT_CENTER' : (11.6400,124.4642),
+    'DEFAULT_ZOOM':11,
+    'MAX_ZOOM':30,
+    'MIN_ZOOM':3,
+    'SCALE':'both',
+    'ATTRIBUTION_PREFIX':'Powered by Game Master',
+    'TILES':[('Terrain Map', 'http://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {'attribution':'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community','maxZoom':30})],
+    'MAP_HEIGHT': '50px',  # Set the height here
+    'MAP_WIDTH': '50px',  # Set the width here
+} """
+
+
+
+LEAFLET_CONFIG = {
+    'DEFAULT_CENTER': (11.6400,124.4642),  # Center of Manila, Philippines
+    'DEFAULT_ZOOM': 8,
+    'MIN_ZOOM': 3,
+    'MAX_ZOOM': 18,
+    'TILES': [
+        ('Mapbox', 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {'attribution': '&copy; OpenStreetMap contributors'}),
+    ],
+    'DEFAULT_CENTER': (11.6400,124.4642),  # Adjust as needed
+    'DEFAULT_ZOOM': 10,  # Adjust as needed
+    # Set the height here'MAP_HEIGHT': '400px',  
+    # Set the width here MAP_WIDTH': '100%',  
+}
+
+
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -164,3 +202,5 @@ SESSION_COOKIE_HTTPONLY = True  # Set to True for security
 # Login URL setting to redirect non-authenticated users
 LOGIN_URL = '/admin/login/'
 #AUTH_USER_MODEL = 'monitoring.CustomUser'
+
+

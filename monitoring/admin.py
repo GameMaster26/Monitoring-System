@@ -16,6 +16,8 @@ from django.db.models import Max,OuterRef, Subquery
 from django.contrib.admin import AdminSite
 from django.urls import path
 from . import views
+from leaflet.admin import LeafletGeoAdmin
+from leaflet.forms.widgets import LeafletWidget  # Import the Leaflet widget
 
 """ class CustomAdminSite(AdminSite):
     site_header = 'My Admin'
@@ -29,6 +31,20 @@ from . import views
 
 custom_admin_site = CustomAdminSite(name='custom_admin')
  """
+
+
+class CustomLeafletGeoAdmin(LeafletGeoAdmin):
+    class Media:
+        css = {
+            'all': (
+                'https://unpkg.com/leaflet/dist/leaflet.css',  # Leaflet CSS
+                'assets/css/muni.css',  # Your custom CSS if needed
+            ),
+        }
+        js = (
+            'https://unpkg.com/leaflet/dist/leaflet.js',  # Leaflet JS
+            'assets/js/admin.js',  # Your custom JS
+        )
 
 
 
@@ -45,10 +61,22 @@ class PatientInline(admin.StackedInline):
             return readonly_fields
         return self.readonly_fields
 
+
+# Define a custom form for the inline model to use LeafletWidget
+class HistoryInlineForm(forms.ModelForm):
+    class Meta:
+        model = History
+        fields = '__all__'
+        widgets = {
+            'geom': LeafletWidget(),  # Apply the LeafletWidget to the 'geom' field
+        }
+
+
 class HistoryInline(admin.StackedInline):
     model = History
+    form = HistoryInlineForm  # Assign the custom form
     extra = 0
-    fields = ('date_registered', 'date_of_exposure','muni_id','brgy_id', 'source_of_exposure', 'exposure_type', 'bite_site','provoked_status', 'immunization_status','status_of_animal', 'confinement_status', 'category_of_exposure')
+    fields = ('date_registered', 'date_of_exposure','muni_id','brgy_id', 'source_of_exposure', 'exposure_type', 'bite_site','provoked_status', 'immunization_status','status_of_animal', 'confinement_status', 'category_of_exposure','geom')
     
     def get_formset(self, request, obj=None, **kwargs):
         formset = super().get_formset(request, obj, **kwargs)
@@ -121,7 +149,7 @@ class PatientAdmin(admin.ModelAdmin):
     list_display = ('code','registration_no',  'first_name','last_name', 'brgy_id','muni_id', 'age', 'sex','contactNumber', )  # Changed 'birthday' to 'get_age','street',
     list_per_page = 10
     search_fields = ['first_name','last_name',]
-    list_filter = ('user__code', AgeFilter,BarangayFilter,MunicipalityFilter,)  # Changed 'birthday' to 'get_age'
+    list_filter = ( AgeFilter,BarangayFilter,MunicipalityFilter,)  # Changed 'birthday' to 'get_age''user__code',
     inlines = [HistoryInline, TreatmentInline] 
     #list_display_links = ['code',]
     exclude = ('registration_no','user',) 
@@ -218,14 +246,23 @@ class PatientAdmin(admin.ModelAdmin):
     
 
 @admin.register(History)
-class HistoryAdmin(admin.ModelAdmin):
+class HistoryAdmin(CustomLeafletGeoAdmin):
     
-    #form = HistoryForm
-
-    
+    #form = HistoryForm    
     list_display = ('code','registration_no', 'patient_name', 'date_registered','date_of_exposure','muni_id', 'brgy_id','category_of_exposure', 
                     'exposure_type', 'source_of_exposure','status_of_animal', 'bite_site',
-                    'immunization_status','washing_hands',)#
+                    'immunization_status','washing_hands','get_latitude', 'get_longitude')#
+
+
+    def get_latitude(self, obj):
+        return obj.latitude
+
+    get_latitude.short_description = 'Latitude'
+
+    def get_longitude(self, obj):
+        return obj.longitude
+
+    get_longitude.short_description = 'Longitude'
     
     #list_display_links = ['code',]
     search_fields = ['patient_id', 'source_of_exposure']
@@ -234,7 +271,8 @@ class HistoryAdmin(admin.ModelAdmin):
     exclude = ('registration_no','washing_hands',)
     ordering = ('-registration_no',)
 
-    #inlines = [HistoryInline, TreatmentInline] 
+    #inlines = [HistoryInline, TreatmentInline]
+    
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
@@ -360,8 +398,6 @@ class TreatmentAdmin(admin.ModelAdmin):
             treatment.save()
     mark_day7.short_description = "Day 7"
 
-
-
     actions = ['mark_day0','mark_day3','mark_day7',]
 
     
@@ -457,7 +493,7 @@ class TreatmentAdmin(admin.ModelAdmin):
 
 
 @admin.register(Barangay)
-class BarangayAdmin(admin.ModelAdmin):
+class BarangayAdmin(CustomLeafletGeoAdmin):
     list_display = ('brgy_name','muni_id',)
     list_filter = ['brgy_name','muni_id__muni_name']
     list_per_page = 10
@@ -475,10 +511,11 @@ class BarangayAdmin(admin.ModelAdmin):
         css = {
             'all': ('assets/css/admin.css',),
         }
+
         
 @admin.register(Municipality)
-class MunicipalityAdmin(admin.ModelAdmin):
-    list_display = ['muni_name']
+class MunicipalityAdmin(CustomLeafletGeoAdmin):
+    list_display = ('muni_name','latitude', 'longitude')#'latitude', 'longitude'
     
 
 class LogEntryAdmin(admin.ModelAdmin):

@@ -17,7 +17,8 @@ from django.contrib.auth.models import User
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser
 from django.db.models import Max
-#from django.contrib.gis.db import models
+from django.contrib.gis.db import models
+from django.db.models.signals import post_save
 
 
 """ User = get_user_model()
@@ -47,8 +48,16 @@ for user in users:
 class Municipality(models.Model):
     muni_id = models.AutoField(primary_key=True)
     muni_name = models.CharField(max_length=100, verbose_name="Municipality Name")
-    #latitude = models.PointField(verbose_name="Latitude", null=True, blank=True)
-    #longitude = models.PointField(verbose_name="Longitude", null=True, blank=True)
+    geom= models.PointField(verbose_name="Geometry", null=True, blank=True)
+
+
+    @property
+    def latitude(self):
+        return self.geom.y if self.geom else None
+
+    @property
+    def longitude(self):
+        return self.geom.x if self.geom else None
     
 
     def __str__(self):
@@ -63,6 +72,9 @@ class Barangay(models.Model):
     brgy_name = models.CharField(max_length=100, verbose_name="Barangay Name")
     muni_id = models.ForeignKey(Municipality, on_delete=models.CASCADE, verbose_name="Municipality Name", related_name='barangays',db_column='muni_id')
     tmp_muni = models.CharField(max_length=100, verbose_name="Tmp muni",)
+    """ latitude = models.DecimalField(verbose_name="Latitude" ,max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(verbose_name="Longitude" ,max_digits=9, decimal_places=6, null=True, blank=True) """
+    #geom= models.GeometryField(verbose_name="Geometry", null=True, blank=True)
 
     class Meta:
         verbose_name_plural = "Barangays"
@@ -71,6 +83,15 @@ class Barangay(models.Model):
 
     def __str__(self):
         return f"{self.brgy_name}"
+    
+# Signal to automatically update latitude and longitude fields
+""" @receiver(post_save, sender=Barangay)
+def update_lat_lon(sender, instance, **kwargs):
+    if instance.geom:
+        # Update latitude and longitude based on the PointField
+        instance.latitude = instance.geom.y
+        instance.longitude = instance.geom.x
+        instance.save(update_fields=['latitude', 'longitude']) """
 
 
 
@@ -194,7 +215,16 @@ class History(models.Model):
         ('No','No'),
     )
     washing_hands = models.CharField(max_length=10,choices=washing,default='Yes' ,verbose_name="Washing Wound") 
-    
+    geom= models.PointField(verbose_name="Geometry", null=True, blank=True)
+
+
+    @property
+    def latitude(self):
+        return self.geom.y if self.geom else None
+
+    @property
+    def longitude(self):
+        return self.geom.x if self.geom else None
     
     
 

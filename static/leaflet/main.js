@@ -1,6 +1,8 @@
 window.onload = init;
 
+
 function init(){
+    
 
 
     //creating variables for each base layer
@@ -11,7 +13,7 @@ function init(){
         maxZoom: 19, // Specify maxZoom to prevent users from zooming beyond the max level of the tile layer
     })
     const StreetMap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
-        attribution: '&copy; <ahref="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         //attribution: 'Animal Bite and Rabies Monitoring with GEO Mappping',
     })
     const Light = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
@@ -46,6 +48,7 @@ function init(){
         position: 'bottomright'
     }).addTo(mymap);
 
+    
 
     
     // Define the image paths
@@ -64,11 +67,9 @@ function init(){
     const legendImage = L.imageOverlay(legend, legendBounds);
 
     // Add image overlays to the map
-    heatOverlayImage.addTo(mymap);
+    /* heatOverlayImage.addTo(mymap);
     foundCasesImage.addTo(mymap);
-    legendImage.addTo(mymap);
-
-
+    legendImage.addTo(mymap); */
 
     //object in baselayers
     const baselayers = {
@@ -76,8 +77,7 @@ function init(){
         'Street Map':StreetMap,
         'Light':Light
     }
-
-
+    
     // Adding layer control with expanded option
     L.control.layers(baselayers, {
         'Heat Overlay': heatOverlayImage,
@@ -102,149 +102,7 @@ function init(){
         shadowSize: [68, 95],
         shadowAnchor: [22, 94] */
     });
+
+    
 }
     
-
-    //markers in each municipalities
-    /* const naval = L.marker([11.561764897288604,124.39667725158918],{
-        icon:myIcon 
-    }).addTo(mymap);
-    const caibiran = L.marker([11.57217612592074,124.5810353065212],{
-        icon:myIcon 
-    }).addTo(mymap);
-    const cabucgayan = L.marker([11.47299164012432, 124.57429111741462],{
-        icon:myIcon 
-    }).addTo(mymap);
-    const biliran = L.marker([11.466502523017203, 124.47400191198957],{
-        icon:myIcon 
-    }).addTo(mymap);
-    const culaba = L.marker([11.655595334022552, 124.54057110047455],{
-        icon:myIcon 
-    }).addTo(mymap);
-    const almeria = L.marker([11.620206819741039,124.38116267356257],{
-        icon:myIcon 
-    }).addTo(mymap);
-    const kawayan = L.marker([11.679731941619234, 124.35706958965689],{
-        icon:myIcon 
-    }).addTo(mymap);
-    const maripipi = L.marker([11.77825522135924,124.34892830192959],{
-        icon:myIcon 
-    }).addTo(mymap); */
-
-
-    //popup and tooltip in each muni
-    /* const navalpopup = naval.bindPopup('Lavan');
-    const navaltooltip = naval.bindTooltip("Naval");
-
-    const caibiranpopup = caibiran.bindPopup('naribiac');
-    const caibirantooltip = caibiran.bindTooltip("Caibiran");
-
-    const cabucgayanpopup = cabucgayan.bindPopup('nayagcubac');
-    const cabucgayantooltip = cabucgayan.bindTooltip("Cabucgayan");
-    
-    const biliranpopup = biliran.bindPopup('narilib');
-    const bilirantooltip = biliran.bindTooltip("Biliran");
-
-    const culabapopup = culaba.bindPopup('abaluc');
-    const culabatooltip = culaba.bindTooltip("Culaba");
-
-    const almeriapopup = almeria.bindPopup('airemla');
-    const almeriatooltip = almeria.bindTooltip("Almeria");
-
-    const kawayanpopup = kawayan.bindPopup('nayawak');
-    const kawayantooltip = kawayan.bindTooltip('Kawayan');
-
-    const maripipipopup = maripipi.bindPopup('ipipiram');
-    const maripipitooltip = maripipi.bindTooltip('Maripipi'); */
-
-
-    /* mymap.locate({
-        setView:true,
-        maxZoom:18
-    })
- */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    /* const papa = L.map('papa',{
-
-        
-        center:[11.625615518023677,124.49623869990828],
-        zoom:10.2,
-        zoomControl:false,
-        scrollWheelZoom: false,
-        attributionControl:false,
-        doubleClickZoom: false,
-        dragging: false, // Disable panning
-        touchZoom: false, 
-        layers:[StreetMap]
-
-        
-    });
-     */
-    
-
-
-
-
-/* var maxBounds = L.latLngBounds(
-    L.latLng(11.358607609157232, 123.91744935882099), // Southwest corner
-    L.latLng(11.897821676214718, 125.01560057070333) // Northeast corner
-    );
-    
-    var map = L.map('mama',{
-    //scrollWheelZoom: false,
-    doubleClickZoom: false
-    }).setView([11.6400,124.4642],11).setMaxBounds(maxBounds);
-    
-    map.on('dblclick', function(e) {
-    map.setZoom(10);
-    });
-    map.removeControl(map.zoomControl);
-    L.control.zoom({
-    position: 'bottomright'
-    }).addTo(map);
-    
-    var Dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: 'abcd',
-    attribution: 'Animal Bite and Rabies Monitoring with GEO Mappping',
-    minZoom: 10,
-    maxZoom: 20, 
-    //className: 'map-tiles'
-    }).addTo(map)
-    var OSM = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    minZoom: 10,
-    attribution: 'Animal Bite and Rabies Monitoring with GEO Mappping',
-    attribution: '&copy; <ahref="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    
-    })
-    var Light = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: 'abcd',
-    attribution: 'Animal Bite and Rabies Monitoring with GEO Mappping',
-    minZoom: 10,
-    maxZoom: 20,
-    
-    }) */

@@ -1,7 +1,7 @@
 from django.shortcuts import render,redirect
 from django.http import HttpResponse
 from .models import Patient, History, Treatment,Barangay,Municipality
-from django.db.models import Count
+from django.db.models import Count, F
 import json
 from django.db.models.functions import ExtractWeek, ExtractYear, ExtractDay, ExtractMonth
 from datetime import datetime, timedelta,date
@@ -152,6 +152,9 @@ def index(request):
     years = [data['year'].strftime('%Y') for data in annual_cases]
     annual_case_counts = [data['count'] for data in annual_cases]
 
+    
+
+
     context = {
         'total_patients': total_patients,
         'total_history': total_history,
@@ -180,29 +183,16 @@ def index(request):
         'quarterly_case_counts': quarterly_case_counts,
         'years': years,
         'annual_case_counts': annual_case_counts,
+        
+
     }
     return render(request, 'monitoring/index.html', context)
 
-def notification(request):
-    patient = Patient.objects.first()
-    if patient:
-            print(f"Patient found: {patient.first_name}")
-            notification_message = f"Patient {patient.first_name} has an appointment"
-    else:
-            print("No patients found")
-            notification_message = "No patients found"
 
-    context = {
-        'notification_message': notification_message,
-    }
-
-    return render(request, 'admin/base.html', context)
 
 def admin_redirect(request):
     return redirect('/admin/')
 
-def download(request):
-    return redirect('monitoring/table.html')
 
 
 # Function to calculate the age of the patient
@@ -338,55 +328,24 @@ def table(request):
     return render(request, 'monitoring/download.html', context)
 
 
-def download_pdf(request):
-    template = get_template('template_name.html')  # Your template file for PDF
-    histories = History.objects.all()
-    html = template.render({'histories': histories})
-    
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="report.pdf"'
-
-    #HTML(string=html).write_pdf(response)
-    
-    return response
-
-def download_excel(request):
-    histories = History.objects.all()
-    data = []
-
-    for history in histories:
-        data.append({
-            'Registration Date': history.date_registered,
-            'First Name': history.patient_id.first_name,
-            'Last Name': history.patient_id.last_name,
-            'Barangay': history.brgy_id.brgy_name,
-            'Municipality': history.muni_id.muni_name,
-            'Age': history.age,
-            'Sex': history.patient_id.sex,
-            'Date of Exposure': history.date_of_exposure,
-            'Biting Animal': history.source_of_exposure,
-            'Status of Biting Animal': history.status_of_animal,
-            'Category of Bite': history.category_of_exposure,
-            'Anatomical Location': history.bite_site,
-            'Animal Vaccination': history.immunization_status,
-            'Date of Birth': history.patient_id.birthday,
-            'D0': history.treatment.day0,
-            'D3': history.treatment.day3,
-            'D7': history.treatment.day7,
-            'D28': history.treatment.day28,
-            'ERIG': history.treatment.rig_given,
-            'HRIG': history.treatment.hrig,
-        })
-
-    #df = pd.DataFrame(data)
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="report.xlsx"'
-    #df.to_excel(response, index=False)
-
-    return response
 
 
 
 
 
-# Create your views here.
+
+
+def notification(request):
+    patient = Patient.objects.first()
+    if patient:
+            print(f"Patient found: {patient.first_name}")
+            notification_message = f"Patient {patient.first_name} has an appointment"
+    else:
+            print("No patients found")
+            notification_message = "No patients found"
+
+    context = {
+        'notification_message': notification_message,
+    }
+
+    return render(request, 'admin/base.html', context)
