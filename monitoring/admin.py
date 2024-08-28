@@ -146,7 +146,7 @@ class PatientAdmin(admin.ModelAdmin):
     
     #form = HistoryForm
     
-    list_display = ('code','registration_no',  'first_name','last_name', 'brgy_id','muni_id', 'age', 'sex','contactNumber', )  # Changed 'birthday' to 'get_age','street',
+    list_display = ('code','registration_no',  'first_name','last_name', 'muni_id','brgy_id', 'age', 'sex','contactNumber', )  # Changed 'birthday' to 'get_age','street',
     list_per_page = 10
     search_fields = ['first_name','last_name',]
     list_filter = ( AgeFilter,BarangayFilter,MunicipalityFilter,)  # Changed 'birthday' to 'get_age''user__code',
@@ -231,13 +231,6 @@ class PatientAdmin(admin.ModelAdmin):
             ).order_by('-latest_registration_no')
         return queryset
 
-
-    
-
-
-
-    
-
     class Media:
         js = ('assets/js/admin.js',)
         css = {
@@ -251,19 +244,7 @@ class HistoryAdmin(CustomLeafletGeoAdmin):
     #form = HistoryForm    
     list_display = ('code','registration_no', 'patient_name', 'date_registered','date_of_exposure','muni_id', 'brgy_id','category_of_exposure', 
                     'exposure_type', 'source_of_exposure','status_of_animal', 'bite_site',
-                    'immunization_status','washing_hands','get_latitude', 'get_longitude')#
-
-
-    def get_latitude(self, obj):
-        return obj.latitude
-
-    get_latitude.short_description = 'Latitude'
-
-    def get_longitude(self, obj):
-        return obj.longitude
-
-    get_longitude.short_description = 'Longitude'
-    
+                    'immunization_status','washing_hands',)#'get_latitude', 'get_longitude'
     #list_display_links = ['code',]
     search_fields = ['patient_id', 'source_of_exposure']
     list_filter = ('patient_id__user',BarangayFilter,MunicipalityFilter,)
@@ -273,6 +254,15 @@ class HistoryAdmin(CustomLeafletGeoAdmin):
 
     #inlines = [HistoryInline, TreatmentInline]
     
+    def get_latitude(self, obj):
+        return obj.latitude
+
+    get_latitude.short_description = 'Latitude'
+
+    def get_longitude(self, obj):
+        return obj.longitude
+
+    get_longitude.short_description = 'Longitude'
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
@@ -298,7 +288,7 @@ class HistoryAdmin(CustomLeafletGeoAdmin):
             return self.list_display
         return ('registration_no', 'patient_name', 'date_registered','date_of_exposure','muni_id', 'brgy_id','category_of_exposure', 
                     'exposure_type', 'source_of_exposure','status_of_animal', 'bite_site',
-                    'immunization_status','washing_hands',)#
+                    'immunization_status','washing_hands','get_latitude','get_longitude')#
     def get_list_filter(self, request):
         if request.user.is_superuser:
             return self.list_filter
@@ -494,8 +484,8 @@ class TreatmentAdmin(admin.ModelAdmin):
 
 @admin.register(Barangay)
 class BarangayAdmin(CustomLeafletGeoAdmin):
-    list_display = ('brgy_name','muni_id',)
-    list_filter = ['brgy_name','muni_id__muni_name']
+    list_display = ('brgy_name','muni_id','tmp_muni')
+    list_filter = ['brgy_name',]
     list_per_page = 10
     #exclude = ('brgy_name',) 
 

@@ -96,7 +96,7 @@ WSGI_APPLICATION = 'system.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.mysql',
-        'NAME': 'monitoring',
+        'NAME': 'bite',
         'USER': 'root',
         'PASSWORD': '',
         'PORT': '3306',
@@ -201,6 +201,6 @@ SESSION_COOKIE_HTTPONLY = True  # Set to True for security
 
 # Login URL setting to redirect non-authenticated users
 LOGIN_URL = '/admin/login/'
-#AUTH_USER_MODEL = 'monitoring.CustomUser'
+#AUTH_USER_MODEL = 'auth.User'
 
 
