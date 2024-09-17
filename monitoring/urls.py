@@ -12,7 +12,9 @@ urlpatterns = [
     path('admin/', views.admin_redirect, name='admin_redirect'),
     path('admin/logout/', admin.site.logout, name='logout'),
     #path('admin/downloads/', views.table, name='table'),
-    path('monitor/download/', views.table, name='table'),
+    path('reports/download/', views.table, name='table'),
+    path('reports/tab/', views.tab, name='tab'),
+    path('reports/down/', views.download, name='download'),
     path('admin/', views.notification, name='notification'),
     path('admin/notifications/',views.notification, name='notification'),
 ]

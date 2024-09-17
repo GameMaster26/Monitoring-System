@@ -3,7 +3,12 @@ window.onload = init;
 
 function init(){
     
+    // Get the total cases from Django context and convert it to a number
+    const totalCases = parseInt("{{ total_cases }}", 10);
 
+    // Get heatmap data from script tag
+    var heatmapDataScript = document.getElementById('heatmap-data');
+    var heatmapData = JSON.parse(heatmapDataScript.textContent);
 
     //creating variables for each base layer
     const Dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
@@ -34,13 +39,13 @@ function init(){
         zoomSnap:0.75,
         zoomDelta:1,
         layers:[Dark],
-        zoomControl:false,
+        /* zoomControl:false,
         doubleClickZoom: false,
         scrollWheelZoom: false,
         attributionControl:false,
         doubleClickZoom: false,
-        dragging: false, // Disable panning
-        touchZoom: false, 
+        dragging: false, 
+        touchZoom: false,  */
     }).setMaxBounds(maxBounds);
 
     // Add zoom control manually to the bottom left
@@ -81,12 +86,35 @@ function init(){
     // Adding layer control with expanded option
     L.control.layers(baselayers, {
         'Heat Overlay': heatOverlayImage,
-        'Found Cases': foundCasesImage,
-        'Legend': legendImage
+        /* 'Found Cases': foundCasesImage,
+        'Legend': legendImage */
     }, {
         collapsed: false,
         position: 'topright' // Adjust position of layer control
     }).addTo(mymap);
+
+    // Example heatmap data from Django context
+    /* var heatmapData = {{ heatmap_data|safe }}; */
+
+    // Create a heatmap layer and add it to the map
+    var heat = L.heatLayer(heatmapData, {
+        radius: 15,
+        blur: 5,
+        maxZoom: 20,
+        gradient: {
+            0.1: 'red',
+            0.2: 'cyan',
+            0.3: 'lime',
+            0.4: 'yellow',
+            0.5: 'orange',
+            1: 'red',
+        },
+        minOpacity: 0.1,
+        maxIntensity: 100,
+        opacity: 0.8
+        
+    }).addTo(mymap);
+    
 
 
     //function to view latlng
@@ -103,6 +131,7 @@ function init(){
         shadowAnchor: [22, 94] */
     });
 
+    
     
 }
     

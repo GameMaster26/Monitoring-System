@@ -152,6 +152,12 @@ def index(request):
     years = [data['year'].strftime('%Y') for data in annual_cases]
     annual_case_counts = [data['count'] for data in annual_cases]
 
+
+    total_cases = History.objects.count()
+
+    # Retrieve latitude, longitude, and metric data for heatmap
+    heatmap_data = History.objects.values('latitude', 'longitude').annotate(count=Count('history_id'))
+    heatmap_data = [[entry['latitude'], entry['longitude'], entry['count']] for entry in heatmap_data]
     
 
 
@@ -183,6 +189,9 @@ def index(request):
         'quarterly_case_counts': quarterly_case_counts,
         'years': years,
         'annual_case_counts': annual_case_counts,
+        'total_cases': total_cases,
+        'heatmap_data': json.dumps(heatmap_data),
+
         
 
     }
@@ -268,8 +277,14 @@ def table(request):
 
     
     # Count the number of male and female patients
-    male = histories.filter(patient_id__sex='Male').count()
-    female = histories.filter(patient_id__sex='Female').count()
+    """ male = histories.filter(patient_id__sex='Male').count()
+    female = histories.filter(patient_id__sex='Female').count() """
+
+    # Count the number of male and female patients
+    male = histories.filter(patient_id__sex__iexact='Male').count()
+    female = histories.filter(patient_id__sex__iexact='Female').count()
+
+
 
     # Calculate the number of age
     age_15_or_less_count = 0
@@ -329,7 +344,11 @@ def table(request):
 
 
 
+def tab(request):
+    return render(request, 'monitoring/tab.html')
 
+def download(request):
+    return render(request, 'monitoring/down.html')
 
 
 

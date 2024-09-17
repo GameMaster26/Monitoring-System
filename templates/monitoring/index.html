@@ -28,9 +28,9 @@ Animal Bite and Rabies Monitoring System with GEO Mapping
                     <canvas id="municipalityChart"></canvas>      
                 </div>
             </div>
-            <div class="card-body">
+            <!-- <div class="card-body">
                 <h2>Naval is the highest</h2>
-            </div>
+            </div> -->
         </div>
     </div>
     <!-- Patients and Animals Chart -->
@@ -60,6 +60,11 @@ Animal Bite and Rabies Monitoring System with GEO Mapping
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <!-- <script src="{% static 'assets/js/distribution.js' %}"></script> -->
+
+<script src="{% static 'leaflet/leaflet-heat.js' %}"></script>
+
+<script id="heatmap-data" type="application/json">{{ heatmap_data|safe }}</script>
+
 
 
 <script>
@@ -93,7 +98,12 @@ Animal Bite and Rabies Monitoring System with GEO Mapping
                     data: countMuni ,
                     backgroundColor: backgroundColors,
                     borderColor: colors,
-                    borderWidth: 1
+
+                    /* backgroundColor: 'rgba(128, 128, 128, 0.6)',
+                    borderColor: 'rgba(128, 128, 128, 0.7)', */
+                    borderWidth: 1,
+                    borderRadius: 30,
+                    
             }]
         },
         options: {
@@ -155,7 +165,7 @@ Animal Bite and Rabies Monitoring System with GEO Mapping
                     'rgba(54, 162, 235, 1)',   // Border color for males
                     'rgba(255, 99, 132, 1)'    // Border color for females
                 ],
-                borderWidth: 1
+                borderWidth: 1,
             }]
         },
         options: {
@@ -195,16 +205,18 @@ Animal Bite and Rabies Monitoring System with GEO Mapping
                 label: 'Number of Cases',
                 data: animalData,
                 backgroundColor: [
-                    'rgba(255, 165, 0, 1)', // Color for cats (orange)
-                    'rgba(255, 0, 0, 1)',   // Color for dogs (red)
-                    'rgba(128, 128, 128, 1)' // Color for others (grey)
+                    'rgba(255, 165, 0, 1)', 
+                    'rgba(255, 0, 0, 1)',   
+                    'rgba(128, 128, 128, 1)' 
                 ],
                 borderColor: [
-                    'rgba(255, 165, 0, 1)', // Border color for cats (orange)
-                    'rgba(255, 0, 0, 1)',   // Border color for dogs (red)
-                    'rgba(128, 128, 128, 1)' // Border color for others (grey)
+                    'rgba(255, 165, 0, 1)', 
+                    'rgba(255, 0, 0, 1)',  
+                    'rgba(128, 128, 128, 1)' 
                 ],
-                borderWidth: 1
+                /* backgroundColor: 'rgba(128, 128, 128, 0.6)',
+                borderColor: 'rgba(128, 128, 128, 0.7)', */
+                borderWidth: 1,
             }]
         },
         options: {
@@ -323,9 +335,12 @@ var ctx = document.getElementById('monthlyCasesChart').getContext('2d');
             datasets: [{
                 label: 'Monthly Cases',
                 data: caseCounts,
-                backgroundColor: backgroundColors,  
-                borderColor: borderColors,
+                /* backgroundColor: backgroundColors,  
+                borderColor: borderColors, */
+                backgroundColor: 'rgba(128, 128, 128, 0.6)',
+                borderColor: 'rgba(128, 128, 128, 0.7)',
                 borderWidth: 1,
+                borderRadius: 30,
                 
             }]
         },
@@ -451,19 +466,22 @@ var ctx = document.getElementById('monthlyCasesChart').getContext('2d');
             datasets: [{
                 label: 'Quarterly Cases',
                 data: quarterlyCounts,
-                backgroundColor: [
-                    'rgba(255, 99, 132, 0.6)',   // Color for Quarter 1
-                    'rgba(54, 162, 235, 0.6)',   // Color for Quarter 2
-                    'rgba(255, 206, 86, 0.6)',   // Color for Quarter 3
-                    'rgba(75, 192, 192, 0.6)'    // Color for Quarter 4
+                /* backgroundColor: [
+                    'rgba(255, 99, 132, 0.6)',   
+                    'rgba(54, 162, 235, 0.6)',   
+                    'rgba(255, 206, 86, 0.6)',   
+                    'rgba(75, 192, 192, 0.6)'    
                 ],
                 borderColor: [
-                    'rgba(255, 99, 132, 0.7)',   // Border color for Quarter 1
-                    'rgba(54, 162, 235, 0.7)',   // Border color for Quarter 2
-                    'rgba(255, 206, 86, 0.7)',   // Border color for Quarter 3
-                    'rgba(75, 192, 192, 0.7)'    // Border color for Quarter 4
-                ],
+                    'rgba(255, 99, 132, 0.7)',   
+                    'rgba(54, 162, 235, 0.7)',   
+                    'rgba(255, 206, 86, 0.7)',   
+                    'rgba(75, 192, 192, 0.7)'    
+                ], */
+                backgroundColor: 'rgba(128, 128, 128, 0.6)',
+                borderColor: 'rgba(128, 128, 128, 0.7)',
                 borderWidth: 1,
+                borderRadius: 30,
             }]
         },
         options: {

@@ -14,7 +14,7 @@
     <link href="{% static 'assets/images/seal.png' %}" rel="icon" type="image/png">
 
     <!-- Custom fonts for this template-->
-    <link href="{% static 'strap/vendor/fontawesome-free/css/all.min.css' %}" rel="stylesheet" type="text/css">
+    <!-- <link href="{% static 'strap/vendor/fontawesome-free/css/all.min.css' %}" rel="stylesheet" type="text/css"> -->
     <link
         href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i"
         rel="stylesheet">
@@ -32,7 +32,7 @@
     <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
 
     <!-- Custom styles for this template-->
-    <link href="{% static 'strap/css/sb-admin-2.min.css' %}" rel="stylesheet">
+    <!-- <link href="{% static 'strap/css/sb-admin-2.min.css' %}" rel="stylesheet"> -->
 
     <!-- link for chartJs Library -->
     <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.min.js" integrity="sha512-L0Shl7nXXzIlBSUUPpxrokqq4ojqgZFQczTYlGjzONGTDAcLremjwaWv5A+EDLnxhQzY5xUZPWLOLqYRkY0Cbw==" crossorigin="anonymous"></script> -->
@@ -40,8 +40,9 @@
 
     <!-- Include Leaflet.heat.js -->
 
+    <!-- Include Leaflet and Leaflet.heat.js -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/leaflet.heat/0.2.0/leaflet-heat.js"></script>
 
 
 
@@ -129,7 +130,7 @@
                         <div class="topbar-divider d-none d-sm-block"></div>
 
                         <li class="nav-item dropdown no-arrow">
-                            <a class="nav-link dropdown-toggle m-3" href="" id="userDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <a class="nav-link dropdown-toggle m-3" href="" id="" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                 <span class="mr-2 d-none d-lg-inline text-gray-600" id="home-admin">Admin</span>
                                 <i class="fas fa-user" id="home-icon-admin"></i>
                             </a>
@@ -301,13 +302,78 @@
         </div>
     </div>
 
+    <footer class="py-4 mt-4">
+        <div class="container">
+            <!-- Province of Biliran Section with Green Background and Underline -->
+            <div class="text-center mb-3" style="background-color: green;">
+                <h5 class="font-weight-bold text-white" style="text-decoration: underline;">Province of Biliran</h5>
+                <h6 class="text-white">Animal Bite Treatment Center (ABTC)</h6>
+                <h6 class="text-white">CLINIC SCHEDULE</h6>
+            </div>
     
+            <div class="row">
+                <div class="col-12">
+                    <!-- Table with Red Header Background -->
+                    <table class="table table-bordered table-striped text-center">
+                        <thead style="background-color: red; color: white;">
+                            <tr>
+                                <th>ABTC</th>
+                                <th>ADDRESS</th>
+                                <th>SCHEDULE</th>
+                                <th>CONTACT PERSON</th>
+                                <th>HOTLINE NUMBER</th>
+                            </tr>
+                        </thead>
+                        <tbody style="color: black;">
+                            <tr>
+                                <td class="font-weight-bold">Caibiran</td>
+                                <td>RHU Caibiran,<br> Brgy. Palenque, Caibiran</td>
+                                <td class="font-weight-bold">Monday and Thursday</td>
+                                <td>Ms. Famela Verana</td>
+                                <td>0917-124-8588</td>
+                            </tr>
+                            <tr>
+                                <td class="font-weight-bold">Maripipi</td>
+                                <td>RHU Maripipi,<br>Brgy. Ermita, Maripipi, Biliran</td>
+                                <td class="font-weight-bold">Monday and Thursday</td>
+                                <td>Mr. Sidney Gutierrez</td>
+                                <td>0927-602-407</td>
+                            </tr>
+                            <tr>
+                                <td class="font-weight-bold">Kawayan</td>
+                                <td>RHU Kawayan,<br>Brgy.Poblacion,Kawayan,Biliran</td>
+                                <td class="font-weight-bold">Tuesday and Friday</td>
+                                <td>Ms. Ma. Queena Lynn Gonzales</td>
+                                <td>0915-490-2732</td>
+                            </tr>
+                            <tr>
+                                <td class="font-weight-bold">Biliran Province Hospital</td>
+                                <td>Biliran Province Hospital, <br>Castin St, Naval, Biliran</td>
+                                <td class="font-weight-bold">Wednesday and Saturday</td>
+                                <td>Ms. Melissa Astillo <br> Ms. Janice C. Horca</td>
+                                <td>0915-490-2732</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+    
+            <div class="text-center mt-3">
+                <p class="mb-0">For any inquiries, please contact the hotline numbers provided above.</p>
+            </div>
+        </div>
+    </footer>
     
    <!--  <script src="{% static 'assets/js/distribution.js'  %}"></script> -->
 
 <!--     <script src="{% static 'assets/index.js' %}"></script> -->
     <script src="{% static 'leaflet/main.js' %}"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <!-- leaflet heat plugin -->
+    <script src="{% static 'leaflet/leaflet-heat.js' %}"></script>
+    <script id="heatmap-data" type="application/json">{{ heatmap_data|json_script:"heatmap-data" }}</script>
+    <script id="address-points" type="application/json">{{ address_points|json_script:"address-points" }}</script>
 
 
     <!-- Bootstrap core JavaScript-->
@@ -316,20 +382,9 @@
 
     <!-- Core plugin JavaScript-->
     <script src="{% static 'strap/vendor/jquery-easing/jquery.easing.min.js' %}"></script>
-
-    <!-- <script src="{% static 'leaflet/chart.js' %}"></script> -->
-
-    <!-- Custom scripts for all pages-->
-    <!-- <script src="{% static 'strap/js/sb-admin-2.min.js' %}"></script> -->
-
-    <!-- Page level plugins -->
-    <!-- <script src="{% static 'strap/vendor/chart.js/Chart.min.js' %}"></script> -->
-
-    <!-- Page level custom scripts -->
-    <!-- <script src="{% static 'strap/js/demo/chart-area-demo.js' %}"></script>
-    <script src="{% static 'strap/js/demo/chart-pie-demo.js' %}"></script> -->
     
 
 </body>
 
 </html>
+
