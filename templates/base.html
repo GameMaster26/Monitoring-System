@@ -24,7 +24,8 @@
 
 
     <!-- style for mapping -->
-    <link rel="stylesheet" href="{% static 'leaflet/style.css' %}">
+    <link rel="stylesheet" href="{% static 'leaflet/css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'leaflet/css/total_cases.css' %}">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 
     <!-- Custom fonts for this template-->
@@ -314,7 +315,7 @@
             <div class="row">
                 <div class="col-12">
                     <!-- Table with Red Header Background -->
-                    <table class="table table-bordered table-striped text-center">
+                    <table class="table table-bordered table-responsive table-striped text-center">
                         <thead style="background-color: red; color: white;">
                             <tr>
                                 <th>ABTC</th>
@@ -367,13 +368,13 @@
    <!--  <script src="{% static 'assets/js/distribution.js'  %}"></script> -->
 
 <!--     <script src="{% static 'assets/index.js' %}"></script> -->
-    <script src="{% static 'leaflet/main.js' %}"></script>
+    <script src="{% static 'leaflet/js/main.js' %}"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
     <!-- leaflet heat plugin -->
-    <script src="{% static 'leaflet/leaflet-heat.js' %}"></script>
-    <script id="heatmap-data" type="application/json">{{ heatmap_data|json_script:"heatmap-data" }}</script>
-    <script id="address-points" type="application/json">{{ address_points|json_script:"address-points" }}</script>
+    <script src="{% static 'leaflet/js/leaflet-heat.js' %}"></script>
+    <!-- <script id="heatmap-data" type="application/json">{{ heatmap_data|json_script:"heatmap-data" }}</script>
+    <script id="address-points" type="application/json">{{ address_points|json_script:"address-points" }}</script> -->
 
 
     <!-- Bootstrap core JavaScript-->

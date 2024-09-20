@@ -1,0 +1,58 @@
+/* Filter section on the left */
+#filterForm {
+    max-width: 100%;
+    padding: 10px; /* Add some padding for spacing */
+    background: none; /* Remove background to make it plain */
+    border: none; /* Remove border to make it plain */
+}
+
+/* Base styles for mama-container */
+#mama-container {
+    display: flex; /* Use flexbox to align items */
+    justify-content: center; /* Center the map horizontally */
+    align-items: center; /* Center the map vertically */
+    width: 100%;
+    height: 85vh; /* Adjust height for the map container */
+    box-sizing: border-box;
+}
+
+/* Ensure mama fits inside mama-container */
+#mama {
+    width: 70%; /* Map takes 70% of the width */
+    height: 100%;
+    box-sizing: border-box;
+    margin: 0 auto; /* Center the map inside its container */
+}
+
+/* Adjustments for smaller screens */
+@media (max-width: 768px) {
+    #mama-container {
+        flex-direction: column; /* Stack filter and map vertically on smaller screens */
+        height: 60vh;
+    }
+
+    #mama {
+        width: 100%; /* Map takes full width on smaller screens */
+        height: 50vh; /* Adjust height for smaller screens */
+    }
+}
+
+/* Further adjustments for very small screens */
+@media (max-width: 480px) {
+    #mama-container {
+        height: 40vh;
+    }
+
+    #mama {
+        width: 100%;
+        height: 40vh; /* Smaller height for mobile devices */
+    }
+}
+.total-cases-control {
+    text-align: center;
+    background-color: rgba(255, 255, 255, 0.9); /* Slight transparency */
+    border-radius: 8px;
+    padding: 5px;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.2); /* Light shadow */
+    font-family: Arial, sans-serif;
+}

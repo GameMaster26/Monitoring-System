@@ -1,0 +1,118 @@
+{% extends 'monitoring/base.html' %}
+
+{% load static %}
+
+{% block title %}
+Tables
+{% endblock %}
+
+{% block content %}
+
+    {% include 'partials/_navlink.html' %}
+
+    <div class="container filter">
+        <div class="filter-container">
+            <label for="municipality">Select Municipality:</label>
+            <select id="municipality" onchange="filterTable()">
+                <option value="">--Select--</option>
+                <!-- Options will be populated by JavaScript -->
+            </select>
+            <label for="search-barangay">Search Barangay:</label>
+            <input type="text" id="search-barangay" onkeyup="filterTable()" placeholder="Search Barangay">
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Municipality</th>
+                    <th>Barangay</th>
+                    <th>Total Patient</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Data rows will be populated by JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+<style>
+    .filter{
+    margin-top: 10px;
+    }
+
+    table {
+        border-collapse: collapse; /* Ensure borders are collapsed for a cleaner look */
+        width: 100%; /* Optional: adjust table width as needed */
+        margin-top: 5px;
+    }
+    th {
+        border-bottom: 1px solid blue; /* Add border below header cells */
+        border-left: none;
+        border-right: none;
+        border-top: none;
+        padding: 2px; /* Optional: add padding for better spacing */
+        text-align: center;
+    }
+    td {
+        padding: 8px; /* Optional: add padding for better spacing */
+    }
+    tbody th, tbody td {
+        border: none; /* Ensure no border for cells in tbody */
+    }
+</style>
+    
+
+<script>
+    // Sample data for the table
+    const data = [
+        { municipality: 'Municipality A', barangay: 'Barangay 1', totalPatient: 10 },
+        { municipality: 'Municipality A', barangay: 'Barangay 2', totalPatient: 15 },
+        { municipality: 'Municipality B', barangay: 'Barangay 3', totalPatient: 8 },
+        { municipality: 'Municipality B', barangay: 'Barangay 4', totalPatient: 5 },
+        // Add more data as needed
+    ];
+
+    // Populate municipality dropdown
+    function populateMunicipalityOptions() {
+        const municipalitySelect = document.getElementById('municipality');
+        const municipalities = [...new Set(data.map(item => item.municipality))];
+        municipalities.forEach(muni => {
+            const option = document.createElement('option');
+            option.value = muni;
+            option.textContent = muni;
+            municipalitySelect.appendChild(option);
+        });
+    }
+
+    // Populate table with data
+    function populateTable(filteredData) {
+        const tbody = document.querySelector('table tbody');
+        tbody.innerHTML = ''; // Clear existing rows
+        filteredData.forEach(item => {
+            const row = tbody.insertRow();
+            row.insertCell(0).textContent = item.municipality;
+            row.insertCell(1).textContent = item.barangay;
+            row.insertCell(2).textContent = item.totalPatient;
+        });
+    }
+
+    // Filter table based on selected municipality and search input
+    function filterTable() {
+        const selectedMunicipality = document.getElementById('municipality').value;
+        const searchBarangay = document.getElementById('search-barangay').value.toLowerCase();
+        const filteredData = data.filter(item => {
+            const matchesMunicipality = selectedMunicipality ? item.municipality === selectedMunicipality : true;
+            const matchesBarangay = item.barangay.toLowerCase().includes(searchBarangay);
+            return matchesMunicipality && matchesBarangay;
+        });
+        populateTable(filteredData);
+    }
+
+    // Initialize the table and filters
+    document.addEventListener('DOMContentLoaded', () => {
+        populateMunicipalityOptions();
+        populateTable(data);
+    });
+</script>
+
+{% endblock %}

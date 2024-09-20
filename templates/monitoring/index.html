@@ -1,4 +1,4 @@
-{% extends 'home.html' %}
+{% extends 'base.html' %}
 
 {% load static %}
 {% block title %}
@@ -61,8 +61,8 @@ Animal Bite and Rabies Monitoring System with GEO Mapping
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <!-- <script src="{% static 'assets/js/distribution.js' %}"></script> -->
 
-<script src="{% static 'leaflet/leaflet-heat.js' %}"></script>
 
+<div id="total-cases-data" data-total-cases="{{ total_cases|default:'0' }}"></div>
 <script id="heatmap-data" type="application/json">{{ heatmap_data|safe }}</script>
 
 

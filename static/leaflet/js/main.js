@@ -1,10 +1,27 @@
+
 window.onload = init;
 
 
 function init(){
     
-    // Get the total cases from Django context and convert it to a number
-    const totalCases = parseInt("{{ total_cases }}", 10);
+    // Get total_cases from the data attribute in HTML
+    const totalCasesElement = document.getElementById('total-cases-data');
+    const totalCases = parseInt(totalCasesElement.getAttribute('data-total-cases'), 10);
+
+    // Check for screen width to adjust zoom and control sizes for mobile
+    const isMobile = window.innerWidth <= 600;
+    const minZoom = isMobile ? 9 : 10; // Set lower zoom for smaller screens
+
+    // Debug the value
+    console.log("Total Cases: ", totalCases);
+
+    // Check if the value is valid
+    if (isNaN(totalCases)) {
+        console.error("Total cases value is NaN!");
+        return;
+    }
+
+
 
     // Get heatmap data from script tag
     var heatmapDataScript = document.getElementById('heatmap-data');
@@ -35,10 +52,12 @@ function init(){
     //Creating the center of the map 
     const mymap = L.map('mama',{
         center:[11.6400,124.4642],
-        zoom:10.8,
+        zoom: isMobile ? 9 : 10.8,  // Adjust default zoom based on screen size
+        minZoom: minZoom, // Dynamic min zoom 
         zoomSnap:0.75,
         zoomDelta:1,
         layers:[Dark],
+        zoomControl:false,
         /* zoomControl:false,
         doubleClickZoom: false,
         scrollWheelZoom: false,
@@ -54,27 +73,16 @@ function init(){
     }).addTo(mymap);
 
     
-
-    
     // Define the image paths
     const heatOverlay = 'static/leaflet/images/over.png';
-    const foundCases = 'static/leaflet/images/foundCases.png';
-    const legend = 'static/leaflet/images/legend.png';
+
 
     // Define the bounds for each image
     const heatbounds = [[11.816501751176341, 124.27882890611566], [11.468813149687769, 124.62549853623533]];
-    const foundCasesBounds = [[11.862441599374863, 123.87604124101928], [11.772764806345831, 124.01967042198523]];
-    const legendBounds = [[11.463685022849134, 123.88335525231034], [11.426345482253387, 123.9751614939354]];
 
     // Create image overlays
     const heatOverlayImage = L.imageOverlay(heatOverlay, heatbounds);
-    const foundCasesImage = L.imageOverlay(foundCases, foundCasesBounds);
-    const legendImage = L.imageOverlay(legend, legendBounds);
 
-    // Add image overlays to the map
-    /* heatOverlayImage.addTo(mymap);
-    foundCasesImage.addTo(mymap);
-    legendImage.addTo(mymap); */
 
     //object in baselayers
     const baselayers = {
@@ -86,34 +94,54 @@ function init(){
     // Adding layer control with expanded option
     L.control.layers(baselayers, {
         'Heat Overlay': heatOverlayImage,
-        /* 'Found Cases': foundCasesImage,
-        'Legend': legendImage */
     }, {
         collapsed: false,
         position: 'topright' // Adjust position of layer control
     }).addTo(mymap);
 
-    // Example heatmap data from Django context
-    /* var heatmapData = {{ heatmap_data|safe }}; */
 
     // Create a heatmap layer and add it to the map
     var heat = L.heatLayer(heatmapData, {
-        radius: 15,
-        blur: 5,
+        radius: 3,
+        blur: 1,
         maxZoom: 20,
         gradient: {
-            0.1: 'red',
+            0.0: 'blue',     // Lowest intensity
             0.2: 'cyan',
-            0.3: 'lime',
-            0.4: 'yellow',
-            0.5: 'orange',
-            1: 'red',
+            0.4: 'lime',
+            0.6: 'yellow',
+            0.8: 'orange',  
+            1.0: 'red',
+   
         },
-        minOpacity: 0.1,
+        minOpacity: 0.5,
         maxIntensity: 100,
-        opacity: 0.8
+        opacity: 0.1
         
     }).addTo(mymap);
+
+    // Create a custom control to display total cases
+    var totalCasesControl = L.control({ position: 'topleft' });
+
+    totalCasesControl.onAdd = function (map) {
+        var div = L.DomUtil.create('div', 'total-cases-control'); 
+        div.innerHTML = `
+        <div style="text-align: center;">
+            <h2 style="color: red; margin: 0;">${totalCases}</h2> 
+            <h4 style="color: black; margin: 0;">Total Patients</h4>  
+        </div>
+        `;
+        div.style.backgroundColor = 'rgba(255, 255, 255, 1)';
+        div.style.padding = isMobile ? '5px' : '10px'; // Adjust padding for mobile
+        div.style.borderRadius = '8px';
+        div.style.fontFamily = 'Arial, sans-serif';
+        div.style.fontSize = '14px';
+        div.style.boxShadow = '0 0 5px rgba(0, 0, 0, 0.3)'; // Optional: Add shadow
+        return div;
+    };
+
+    // Add the custom control to the map
+    totalCasesControl.addTo(mymap);
     
 
 
@@ -122,16 +150,8 @@ function init(){
         console.log(e.latlng)
     })
 
-    var myIcon = L.icon({
-        iconUrl: 'static/assets/images/marker.png',
-        iconSize: [20, 30],
-        iconAnchor: [5, 30],
-        /* popupAnchor: [-3, -76],
-        shadowSize: [68, 95],
-        shadowAnchor: [22, 94] */
-    });
+
 
     
     
 }
-    

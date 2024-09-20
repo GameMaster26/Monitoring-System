@@ -226,9 +226,34 @@ def superuser_required(view_func):
         return view_func(request, *args, **kwargs)
     return login_required(_wrapped_view_func)
 
-@superuser_required
+#@superuser_required
 #@staff_or_superuser_required
-def table(request):
+@login_required
+def overview(request):
+    total_cases = History.objects.count()
+    
+    # Retrieve latitude, longitude, and metric data for heatmap
+    heatmap_data = History.objects.values('latitude', 'longitude').annotate(count=Count('history_id'))
+    heatmap_data = [[entry['latitude'], entry['longitude'], entry['count']] for entry in heatmap_data]
+
+    context = {
+        'heatmap_data': json.dumps(heatmap_data),
+        'total_cases':  total_cases,
+    }
+    return render(request, 'monitoring/overview.html', context)
+
+@login_required
+def reports(request):
+    
+
+    return render(request, 'monitoring/report.html')
+
+@login_required
+def tables(request):
+    return render(request, 'monitoring/table.html')
+
+@login_required
+def download(request):
     # Get selected filters from request
     selected_municipality = request.GET.get('municipality')
     selected_barangay = request.GET.get('barangay')
@@ -339,16 +364,7 @@ def table(request):
         'users':users
     }
 
-
-    return render(request, 'monitoring/download.html', context)
-
-
-
-def tab(request):
-    return render(request, 'monitoring/tab.html')
-
-def download(request):
-    return render(request, 'monitoring/down.html')
+    return render(request, 'monitoring/download.html',context)
 
 
 

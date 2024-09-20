@@ -1,0 +1,23 @@
+.filter{
+    margin-top: 10px;
+}
+
+table {
+    border-collapse: collapse; /* Ensure borders are collapsed for a cleaner look */
+    width: 100%; /* Optional: adjust table width as needed */
+    margin-top: 5px;
+}
+th {
+    border-bottom: 1px solid blue; /* Add border below header cells */
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    padding: 2px; /* Optional: add padding for better spacing */
+    text-align: center;
+}
+td {
+    padding: 8px; /* Optional: add padding for better spacing */
+}
+tbody th, tbody td {
+    border: none; /* Ensure no border for cells in tbody */
+}

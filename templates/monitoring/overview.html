@@ -1,0 +1,44 @@
+{% extends 'monitoring/base.html' %}
+
+{% load static %}
+
+{% block title %}
+Overview
+{% endblock %}
+    
+{% block content %}
+
+{% include 'partials/_navlink.html' %}
+<div class="container-fluid mt-2">
+    <div class="row">
+        <!-- Filter Section (Left Side) -->
+        <div class="col-md-3">
+            <div id="filterForm">
+                <h5>Filter Data</h5>
+                <form>
+                    <div class="form-group mb-3">
+                        <label for="startDate">Start Date</label>
+                        <input type="date" class="form-control" id="startDate">
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="endDate">End Date</label>
+                        <input type="date" class="form-control" id="endDate">
+                    </div>
+                    <button type="button" class="btn btn-primary" id="filterButton">Filter</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Map Section (Right Side) -->
+        <div class="col-md-9">
+            <div id="mama-container">
+                <div id="mama"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+{% endblock %}
+

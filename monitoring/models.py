@@ -74,9 +74,10 @@ class Patient(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="User", related_name='patients')
     patient_id = models.AutoField(primary_key=True)
     first_name = models.CharField(max_length=200, verbose_name="First Name", blank=False,)
+    
     last_name = models.CharField(max_length=200, verbose_name="Last Name", blank=False)
     muni_id = models.ForeignKey(Municipality, on_delete=models.CASCADE, verbose_name="Municipality",default=1, related_name='patients_muni')#7 cabucgayan,6 culaba, 5 almeria, 8 kaw
-    brgy_id = models.ForeignKey(Barangay, on_delete=models.CASCADE, verbose_name="Barangay",default=11, related_name='patients_brgy')#88 Caib, 50 cabuc, 47 kaw, 67 cula
+    brgy_id = models.ForeignKey(Barangay, on_delete=models.CASCADE, verbose_name="Barangay",default=1, related_name='patients_brgy')#88 Caib, 50 cabuc, 47 kaw, 67 cula
     birthday = models.DateField(verbose_name="Birthday", default=date(2001, 12, 2))
     sex_choice =(
         ('male','Male'),
@@ -114,7 +115,7 @@ class History(models.Model):
     date_registered = models.DateField(default=date(2024,9,1),verbose_name="Date Registered")
     date_of_exposure = models.DateField(blank=True, null=True,default=date(2024, 8, 16), verbose_name="Date of Exposure")
     muni_id = models.ForeignKey(Municipality, on_delete=models.CASCADE, verbose_name="Municipality of Exposure",default=1, related_name='history_muni',db_column='muni_id')
-    brgy_id = models.ForeignKey(Barangay, on_delete=models.CASCADE, verbose_name="Barangay Exposure",default=11, related_name='history_brgy',db_column='brgy_id')
+    brgy_id = models.ForeignKey(Barangay, on_delete=models.CASCADE, verbose_name="Barangay Exposure",default=1, related_name='history_brgy',db_column='brgy_id')
     
     category = (
         ('I','I'),
