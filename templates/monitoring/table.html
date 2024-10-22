@@ -6,113 +6,167 @@
 Tables
 {% endblock %}
 
+{% block style %}
+
+<link rel="stylesheet" href="{% static 'assets/css/table.css' %}">
+{% endblock %}
+
 {% block content %}
-
     {% include 'partials/_navlink.html' %}
-
-    <div class="container filter">
-        <div class="filter-container">
-            <label for="municipality">Select Municipality:</label>
-            <select id="municipality" onchange="filterTable()">
-                <option value="">--Select--</option>
-                <!-- Options will be populated by JavaScript -->
-            </select>
-            <label for="search-barangay">Search Barangay:</label>
-            <input type="text" id="search-barangay" onkeyup="filterTable()" placeholder="Search Barangay">
+    
+    <div class="container filter mb-4 ms-5">
+        <div class="d-flex flex-column flex-md-row">
+            <div class="filter-container me-4 p-3 shadow-sm rounded" style="background-color: #ffffff;">
+                <form method="POST" action="">
+                    {% csrf_token %}
+                    <label for="municipalitySelect" class="form-label d-flex align-items-center mb-2" style="font-weight: bold;">
+                        <i class="fas fa-paw" style="color: blue; margin-right: 6px;"></i> Select Municipality
+                    </label>
+                    <select id="municipalitySelect" name="municipality" class="form-select mb-2 p-1 custom-select" style="width: 150px; transition: all 0.3s ease;">
+                        <option value="ALL" {% if selected_municipality == "ALL" %}selected{% endif %}>ALL</option>
+                        {% for municipality in all_municipalities %}
+                            <option value="{{ municipality.muni_name }}" {% if selected_municipality == municipality.muni_name %}selected{% endif %}>{{ municipality.muni_name }}</option>
+                        {% endfor %}
+                    </select>
+                
+                    <!-- Barangay Search Input -->
+                    <input id="barangaySearch" name="barangay" type="text" class="form-control mb-3 p-1" 
+                           placeholder="Search Barangay..." style="width: 150px;"
+                           value="{{ barangay_search }}">  <!-- Retain the search value -->
+                
+                    <span class="mx-2 span-patient">
+                        Total Patients: 
+                        <span id="totalPatients" style="color: red; font-weight: bold;" data-bs-toggle="tooltip" title="Total reported cases for selected area">
+                            {{ total_patients }}
+                        </span>
+                    </span>
+                
+                    <button type="submit" class="btn btn-primary mt-2 filter-btn" style="position: relative; overflow: hidden;">
+                        <i class="fas fa-filter me-2"></i>
+                        <span class="btn-text">Filter</span>
+                    </button>
+                </form>
+                
+            </div>
+    
+            <div class="table-container table-responsive flex-grow-1">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Municipality</th>
+                            <th>Barangay</th>
+                            <th>Total Patients</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if barangay_search %}
+                            <!-- Show search results for barangays matching the search term -->
+                            {% for record in barangay_summary %}
+                                <tr>
+                                    <td>{{ record.muni_name }}</td>
+                                    <td class="{% if record.total_patients > 0 %}red-text{% endif %}">
+                                        {{ record.brgy_name }}
+                                    </td>
+                                    <td class="{% if record.total_patients > 0 %}red-text{% endif %}">
+                                        {{ record.total_patients }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                            <tr class="total">
+                                <td><strong>Total</strong></td>
+                                <td><strong>{{ total_barangays }}</strong></td>
+                                <td class="total-patients"><strong>{{ total_patients }}</strong></td>
+                            </tr>
+                        {% elif selected_municipality == "ALL" %}
+                            <!-- Show municipality-level summary when "ALL" is selected -->
+                            {% for record in municipality_summary %}
+                                <tr>
+                                    <td>{{ record.muni_id__muni_name }}</td>
+                                    <td>{{ record.total_barangays }}</td>
+                                    <td>{{ record.total_cases }}</td>
+                                </tr>
+                            {% endfor %}
+                            <tr class="total">
+                                <td><strong>Total</strong></td>
+                                <td><strong>{{ total_barangays }}</strong></td>
+                                <td class="total-patients"><strong>{{ total_patients }}</strong></td>
+                            </tr>
+                        {% else %}
+                            <!-- Show barangay-level summary for selected municipality -->
+                            {% for record in barangay_summary %}
+                                <tr>
+                                    <td>{{ selected_municipality }}</td>
+                                    <td class="{% if record.total_patients > 0 %}red-text{% endif %}">
+                                        {{ record.brgy_name }}
+                                    </td>
+                                    <td class="{% if record.total_patients > 0 %}red-text{% endif %}">
+                                        {{ record.total_patients }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                            <tr class="total">
+                                <td><strong>Total</strong></td>
+                                <td><strong>{{ total_barangays }}</strong></td>
+                                <td class="total-patients"><strong>{{ total_patients }}</strong></td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
         </div>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>Municipality</th>
-                    <th>Barangay</th>
-                    <th>Total Patient</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Data rows will be populated by JavaScript -->
-            </tbody>
-        </table>
     </div>
-
-<style>
-    .filter{
-    margin-top: 10px;
-    }
-
-    table {
-        border-collapse: collapse; /* Ensure borders are collapsed for a cleaner look */
-        width: 100%; /* Optional: adjust table width as needed */
-        margin-top: 5px;
-    }
-    th {
-        border-bottom: 1px solid blue; /* Add border below header cells */
-        border-left: none;
-        border-right: none;
-        border-top: none;
-        padding: 2px; /* Optional: add padding for better spacing */
-        text-align: center;
-    }
-    td {
-        padding: 8px; /* Optional: add padding for better spacing */
-    }
-    tbody th, tbody td {
-        border: none; /* Ensure no border for cells in tbody */
-    }
-</style>
     
 
+    
+{% endblock %}
+
+{% block script %}
+
 <script>
-    // Sample data for the table
-    const data = [
-        { municipality: 'Municipality A', barangay: 'Barangay 1', totalPatient: 10 },
-        { municipality: 'Municipality A', barangay: 'Barangay 2', totalPatient: 15 },
-        { municipality: 'Municipality B', barangay: 'Barangay 3', totalPatient: 8 },
-        { municipality: 'Municipality B', barangay: 'Barangay 4', totalPatient: 5 },
-        // Add more data as needed
-    ];
+    document.getElementById('filterButton').addEventListener('click', function() {
+        const municipality = document.getElementById('municipalitySelect').value;
+        const barangay = document.getElementById('barangaySearch').value;
+        const form = document.createElement('form');
+        form.method = 'GET';
+        form.action = window.location.href;
 
-    // Populate municipality dropdown
-    function populateMunicipalityOptions() {
-        const municipalitySelect = document.getElementById('municipality');
-        const municipalities = [...new Set(data.map(item => item.municipality))];
-        municipalities.forEach(muni => {
-            const option = document.createElement('option');
-            option.value = muni;
-            option.textContent = muni;
-            municipalitySelect.appendChild(option);
-        });
-    }
+        const municipalityInput = document.createElement('input');
+        municipalityInput.type = 'hidden';
+        municipalityInput.name = 'municipality';
+        municipalityInput.value = municipality;
 
-    // Populate table with data
-    function populateTable(filteredData) {
-        const tbody = document.querySelector('table tbody');
-        tbody.innerHTML = ''; // Clear existing rows
-        filteredData.forEach(item => {
-            const row = tbody.insertRow();
-            row.insertCell(0).textContent = item.municipality;
-            row.insertCell(1).textContent = item.barangay;
-            row.insertCell(2).textContent = item.totalPatient;
-        });
-    }
+        const barangayInput = document.createElement('input');
+        barangayInput.type = 'hidden';
+        barangayInput.name = 'barangay';
+        barangayInput.value = barangay;
 
-    // Filter table based on selected municipality and search input
-    function filterTable() {
-        const selectedMunicipality = document.getElementById('municipality').value;
-        const searchBarangay = document.getElementById('search-barangay').value.toLowerCase();
-        const filteredData = data.filter(item => {
-            const matchesMunicipality = selectedMunicipality ? item.municipality === selectedMunicipality : true;
-            const matchesBarangay = item.barangay.toLowerCase().includes(searchBarangay);
-            return matchesMunicipality && matchesBarangay;
-        });
-        populateTable(filteredData);
-    }
-
-    // Initialize the table and filters
-    document.addEventListener('DOMContentLoaded', () => {
-        populateMunicipalityOptions();
-        populateTable(data);
+        form.appendChild(municipalityInput);
+        form.appendChild(barangayInput);
+        document.body.appendChild(form);
+        form.submit();
     });
 </script>
+<script>
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
 
+    // Smooth filter button animation
+    document.querySelector('.filter-btn').addEventListener('click', function() {
+        const btn = this;
+        const icon = btn.querySelector('img');
+        const text = btn.querySelector('.btn-text');
+
+        // Add temporary loading effect
+        text.textContent = "Filtering...";
+        icon.style.opacity = '0.7';
+        
+        setTimeout(function() {
+            text.textContent = "Filter"; // Reset button text after a brief period
+            icon.style.opacity = '0.2';
+        }, 1500);
+    });
+</script>
 {% endblock %}

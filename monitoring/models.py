@@ -21,11 +21,25 @@ from django.contrib.gis.db import models
 from django.contrib.gis.db import models as geomodels
 from django.db.models.signals import post_save
 from django.db.models import OuterRef, Subquery
+from django.utils.safestring import mark_safe as safe_mark
+
+class UserMessage(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="messages")
+    subject = models.CharField(max_length=255)
+    message = models.TextField()
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Message to {self.user.get_full_name()} - {self.subject}"
+
+    class Meta:
+        ordering = ['-sent_at']
 
 class Municipality(models.Model):
     muni_id = models.AutoField(primary_key=True)
     muni_name = models.CharField(max_length=100, verbose_name="Municipality Name")
     geom = geomodels.MultiPolygonField(verbose_name="Geom", null=True, blank=True)
+    #logo = models.ImageField(upload_to='municipality_logo', null=True, blank=True, verbose_name="Municipality Logo") # Specify the directory
 
     @property
     def latitude(self):
@@ -34,6 +48,13 @@ class Municipality(models.Model):
     @property
     def longitude(self):
         return self.geom.x if self.geom else None
+
+    """ def admin_logo(self):
+        if self.logo:
+            return mark_safe('<img src="{}" width="50" />'.format(self.logo.url))
+        return "No Logo"
+    admin_logo.short_description = "Image"
+    admin_logo.allow_tags =True """
     
     def __str__(self):
         return f"{self.muni_name}"
@@ -43,14 +64,16 @@ class Municipality(models.Model):
 class Barangay(models.Model):
     brgy_id = models.AutoField(primary_key=True)
     brgy_name = models.CharField(max_length=100, verbose_name="Barangay Name")
-    muni_id = models.ForeignKey(Municipality, on_delete=models.CASCADE, verbose_name="Municipality Name",default=9, related_name='barangays',db_column='muni_id')
-    #tmp_muni = models.CharField(max_length=100, verbose_name="Tmp muni",)
-    """ latitude = models.DecimalField(verbose_name="Latitude" ,max_digits=9, decimal_places=6, null=True, blank=True)
-    longitude = models.DecimalField(verbose_name="Longitude" ,max_digits=9, decimal_places=6, null=True, blank=True) """
-    #geom= models.GeometryField(verbose_name="Geometry", null=True, blank=True)
+    muni_id = models.ForeignKey(Municipality, on_delete=models.CASCADE, verbose_name="Municipality Name",related_name='barangays',db_column='muni_id')
+    boundary = geomodels.MultiPolygonField(verbose_name="Boundary", srid=4326,null=True)  # SRID 4326 is the standard for WGS 84, used by GPS
 
     def save(self, *args, **kwargs):
-        self.brgy_name = self.brgy_name.title()  # Capitalize first letter
+        exceptions = ['lo-ok',]  # Add other barangays that need specific casing
+        if self.brgy_name.lower() in exceptions:
+            self.brgy_name = self.brgy_name.lower()  # retain original casing
+        else:
+            # Capitalize only the first letter of the entire barangay name
+            self.brgy_name = ' '.join([word.capitalize() if '-' not in word else word for word in self.brgy_name.split()])
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -74,37 +97,38 @@ class Patient(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="User", related_name='patients')
     patient_id = models.AutoField(primary_key=True)
     first_name = models.CharField(max_length=200, verbose_name="First Name", blank=False,)
-    
+    middle_name = models.CharField(max_length=200, verbose_name="Middle Name",blank=False,)
     last_name = models.CharField(max_length=200, verbose_name="Last Name", blank=False)
-    muni_id = models.ForeignKey(Municipality, on_delete=models.CASCADE, verbose_name="Municipality",default=1, related_name='patients_muni')#7 cabucgayan,6 culaba, 5 almeria, 8 kaw
-    brgy_id = models.ForeignKey(Barangay, on_delete=models.CASCADE, verbose_name="Barangay",default=1, related_name='patients_brgy')#88 Caib, 50 cabuc, 47 kaw, 67 cula
-    birthday = models.DateField(verbose_name="Birthday", default=date(2001, 12, 2))
+    muni_id = models.ForeignKey(Municipality, on_delete=models.CASCADE, verbose_name="Municipality", related_name='patients_muni')#7 cabucgayan,6 culaba, 5 almeria, 8 kaw
+    brgy_id = models.ForeignKey(Barangay, on_delete=models.CASCADE, verbose_name="Barangay",related_name='patients_brgy')#88 Caib, 50 cabuc, 47 kaw, 67 cula
+    birthday = models.DateField(verbose_name="Birthday", )#default=date(2001, 12, 2)
     sex_choice =(
         ('male','Male'),
         ('female','Female'),
     )
-    sex = models.CharField(choices=sex_choice, max_length=20,default='male', verbose_name="Sex")
-    contactNumber = models.CharField(max_length=12, blank=False, verbose_name="Contact Number",validators=[validate_contact_number],default= '09582488441',)   
+    sex = models.CharField(choices=sex_choice, max_length=20, verbose_name="Sex")#default='male',
+    contactNumber = models.CharField(max_length=12, blank=False, verbose_name="Contact Number",validators=[validate_contact_number],)#default= '09582488441',
 
     def save(self, *args, **kwargs):
         self.first_name = self.first_name.title()  # Capitalize first letter
+        self.middle_name = self.middle_name.title()
         self.last_name = self.last_name.title()  
         super().save(*args, **kwargs)
     
     def code(self):
-        return self.user.username
-    code.short_description = 'Username'
+        return self.user.code
+    code.short_description = 'Code'
 
     """ def registration_no(self):
         history = History.objects.filter(patient_id=self.patient_id).first()
         return history.registration_no if history else 'N/A' """
 
     def __str__(self):
-        return f"{self.first_name} {self.last_name}"
+        return f"{self.first_name} {self.middle_name} {self.last_name}"
     class Meta:
         
         #ordering = ['-patient_id__registration_no']
-        verbose_name_plural = "Patients"
+        verbose_name_plural = "Patient Records"
 
 class History(models.Model):
 
@@ -112,27 +136,135 @@ class History(models.Model):
     patient_id = models.ForeignKey(Patient, on_delete=models.CASCADE, verbose_name="Patient", related_name='histories',db_column='patient_id')
     registration_no = models.CharField(max_length=200,verbose_name='Registration Number', blank=True, null=True,)#unique=True, 
     #treatment_id = models.ForeignKey(Treatment, on_delete=models.CASCADE, verbose_name="Treatment",default=1,  related_name='history_treatment', db_column='treatment_id')
-    date_registered = models.DateField(default=date(2024,9,1),verbose_name="Date Registered")
-    date_of_exposure = models.DateField(blank=True, null=True,default=date(2024, 8, 16), verbose_name="Date of Exposure")
-    muni_id = models.ForeignKey(Municipality, on_delete=models.CASCADE, verbose_name="Municipality of Exposure",default=1, related_name='history_muni',db_column='muni_id')
-    brgy_id = models.ForeignKey(Barangay, on_delete=models.CASCADE, verbose_name="Barangay Exposure",default=1, related_name='history_brgy',db_column='brgy_id')
+    date_registered = models.DateField(verbose_name="Date Registered")#default=date(2024,9,1),
+    date_of_exposure = models.DateField(blank=True, null=True, verbose_name="Date of Exposure")#default=date(2024, 8, 16),
+    muni_id = models.ForeignKey(Municipality, on_delete=models.CASCADE, verbose_name="Municipality of Exposure", related_name='history_muni',db_column='muni_id')#default=1,
+    brgy_id = models.ForeignKey(Barangay, on_delete=models.CASCADE, verbose_name="Barangay Exposure", related_name='history_brgy',db_column='brgy_id')#default=1,
     
     category = (
         ('I','I'),
         ('II',"II"),
         ('III','III'),
     )
-    category_of_exposure = models.CharField(max_length=10, choices=category,default="II",verbose_name="Exposure Category" )
+    category_of_exposure = models.CharField(max_length=10, choices=category,verbose_name="Exposure Category" )#default="II",
 
     source_of_exposure_choices = (
         ('Dog', 'Dog'),
         ('Cat', 'Cat'),
-        ('Others', 'Others'),
+        ('Bat', 'Bat'),
+        ('Monkey', 'Monkey'),
+        ('Human', 'Human'),
+        ('Horse', 'Horse'),
+        ('Cow', 'Cow'),
+        ('Goat', 'Goat'),
+        ('Pig', 'Pig'),
+        ('Sheep', 'Sheep'),
+        ('Chicken', 'Chicken'),
+        ('Rabbit', 'Rabbit'),
+        ('Guinea Pig', 'Guinea Pig'),
+        ('Ferret', 'Ferret'),
+        ('Parrot', 'Parrot'),
+        ('Turkey', 'Turkey'),
     )
+
     exposure_type_choices = (
         ('Bite', 'Bite'),
         ('Non-Bite', 'Non-Bite'),
     )
+
+    bite_site_choices = (
+        # Head and Face
+        ('Front of Head', 'Front of Head'),
+        ('Back of Head', 'Back of Head'),
+        ('Face', 'Face'),
+        ('Jaw', 'Jaw'),
+        ('Mouth', 'Mouth'),
+        ('Eye', 'Eye'),
+        ('Cheek', 'Cheek'),
+        ('Forehead', 'Forehead'),
+        ('Temple', 'Temple'),
+        ('Behind Ear', 'Behind Ear'),
+
+        # Neck and Shoulders
+        ('Front of Neck', 'Front of Neck'),
+        ('Back of Neck', 'Back of Neck'),
+        ('Shoulder (Left)', 'Shoulder (Left)'),
+        ('Shoulder (Right)', 'Shoulder (Right)'),
+
+        # Arms and Hands
+        ('Upper Arm (Left)', 'Upper Arm (Left)'),
+        ('Upper Arm (Right)', 'Upper Arm (Right)'),
+        ('Elbow (Left)', 'Elbow (Left)'),
+        ('Elbow (Right)', 'Elbow (Right)'),
+        ('Forearm (Left)', 'Forearm (Left)'),
+        ('Forearm (Right)', 'Forearm (Right)'),
+        ('Wrist (Left)', 'Wrist (Left)'),
+        ('Wrist (Right)', 'Wrist (Right)'),
+        ('Palm (Left)', 'Palm (Left)'),
+        ('Palm (Right)', 'Palm (Right)'),
+        ('Back of Hand (Left)', 'Back of Hand (Left)'),
+        ('Back of Hand (Right)', 'Back of Hand (Right)'),
+        ('Thumb (Left)', 'Thumb (Left)'),
+        ('Thumb (Right)', 'Thumb (Right)'),
+        ('Index Finger (Left)', 'Index Finger (Left)'),
+        ('Index Finger (Right)', 'Index Finger (Right)'),
+        ('Middle Finger (Left)', 'Middle Finger (Left)'),
+        ('Middle Finger (Right)', 'Middle Finger (Right)'),
+        ('Ring Finger (Left)', 'Ring Finger (Left)'),
+        ('Ring Finger (Right)', 'Ring Finger (Right)'),
+        ('Little Finger (Left)', 'Little Finger (Left)'),
+        ('Little Finger (Right)', 'Little Finger (Right)'),
+
+        # Chest and Abdomen
+        ('Chest (Front)', 'Chest (Front)'),
+        ('Chest (Side)', 'Chest (Side)'),
+        ('Abdomen (Front)', 'Abdomen (Front)'),
+        ('Lower Back', 'Lower Back'),
+
+        # Hips and Legs
+        ('Hip (Left)', 'Hip (Left)'),
+        ('Hip (Right)', 'Hip (Right)'),
+        ('Thigh (Left, Front)', 'Thigh (Left, Front)'),
+        ('Thigh (Left, Back)', 'Thigh (Left, Back)'),
+        ('Thigh (Right, Front)', 'Thigh (Right, Front)'),
+        ('Thigh (Right, Back)', 'Thigh (Right, Back)'),
+        ('Knee (Left, Front)', 'Knee (Left, Front)'),
+        ('Knee (Left, Back)', 'Knee (Left, Back)'),
+        ('Knee (Right, Front)', 'Knee (Right, Front)'),
+        ('Knee (Right, Back)', 'Knee (Right, Back)'),
+        ('Calf (Left)', 'Calf (Left)'),
+        ('Calf (Right)', 'Calf (Right)'),
+        
+        ('Leg (Left)', 'Leg (Left)'),
+        ('Leg (Right)', 'Leg (Right)'),
+        ('Leg Lower(Left)', 'Leg Lower(Left)'),
+        ('Leg Lower(Right)', 'Leg Lower(Right)'),
+        ('Leg Upper(Left)', 'Leg Upper(Left)'),
+        ('Leg Upper(Right)', 'Leg Upper(Right)'),
+        ('Leg Anterior(Left)', 'Leg Anterior(Left)'),
+        ('Leg Anterior(Right)', 'Leg Anterior(Right)'),
+        ('Leg Posterior(Left)', 'Leg Posterior(Left)'),
+        ('Leg Posterior(Right)', 'Leg Posterior(Right)'),
+
+        
+
+
+        # Ankles and Feet
+        ('Ankle (Left)', 'Ankle (Left)'),
+        ('Ankle (Right)', 'Ankle (Right)'),
+        ('Foot (Left)', 'Foot (Left)'),
+        ('Foot (Right)', 'Foot (Right)'),
+        ('Toes (Left)', 'Toes (Left)'),
+        ('Toes (Right)', 'Toes (Right)'),
+        ('Ball of Foot (Left)', 'Ball of Foot (Left)'),
+        ('Ball of Foot (Right)', 'Ball of Foot (Right)'),
+        ('Heel (Left)', 'Heel (Left)'),
+        ('Heel (Right)', 'Heel (Right)'),
+    )
+
+
+
+
     provoked_choices = (
         ('Provoked', 'Provoked'),
         ('Unprovoked', 'Unprovoked'),
@@ -156,15 +288,15 @@ class History(models.Model):
         ('Yes','Yes'),
         ('No','No'),
     )
-    source_of_exposure = models.CharField(max_length=10 ,choices=source_of_exposure_choices,default='Cat',  blank=False, verbose_name="Animal")
-    exposure_type = models.CharField(max_length=10, choices=exposure_type_choices, default='Bite', blank=False, verbose_name="Type of Exposure")
-    bite_site = models.CharField(max_length=100,blank=False,default='right thigh', verbose_name="Bite Site")
-    provoked_status = models.CharField(max_length=20, choices=provoked_choices,default='Unprovoked' ,verbose_name="Provocation Status")
-    immunization_status = models.CharField(max_length=20, choices=immunization_choices,default='Unimmunized', verbose_name="Animal Vaccination")
-    status_of_animal = models.CharField(max_length=20,choices=status_of_animal_choices,blank=False,default='Lost', verbose_name="Animal Status")
-    confinement_status = models.CharField(max_length=20,choices=animal_status,blank=False,default='Stray', verbose_name="Confinement Status")
-    
-    washing_hands = models.CharField(max_length=10,choices=washing,default='Yes' ,verbose_name="Washing Wound") 
+    source_of_exposure = models.CharField(max_length=10 ,choices=source_of_exposure_choices,  blank=False, verbose_name="Animal")#default='Cat',
+    exposure_type = models.CharField(max_length=10, choices=exposure_type_choices,  blank=False, verbose_name="Type of Exposure")#default='Bite',
+    bite_site = models.CharField(max_length=50, choices=bite_site_choices, blank=False, verbose_name="Bite Site")
+    provoked_status = models.CharField(max_length=20, choices=provoked_choices,blank=False,verbose_name="Provocation Status")#default='Unprovoked' ,
+    immunization_status = models.CharField(max_length=20, choices=immunization_choices,blank=False, verbose_name="Animal Vaccination")#default='Unimmunized',
+    status_of_animal = models.CharField(max_length=20,choices=status_of_animal_choices,blank=False, verbose_name="Animal Status")#default='Lost',
+    confinement_status = models.CharField(max_length=20,choices=animal_status,blank=False, verbose_name="Confinement Status")#default='Stray',
+    washing_hands = models.CharField(max_length=10,choices=washing,blank=False,verbose_name="Washing Wound")#default='Yes' ,
+    human_rabies = models.BooleanField(default=False,verbose_name="Human Rabies")
     latitude = models.FloatField(verbose_name="Latitude", blank=True, null=False, default=0.0)
     longitude = models.FloatField(verbose_name="Longitude", blank=True, null=False, default=0.0)
     geom= geomodels.PointField(verbose_name="Geometry",  null=False, blank=False)
@@ -185,6 +317,7 @@ class History(models.Model):
             self.registration_no = self.generate_registration_no()
         self.registration_no = self.registration_no.upper()  # Convert to uppercase
         self.bite_site = self.bite_site.title()  # Capitalize first letter
+
         super().save(*args, **kwargs)
 
     def generate_registration_no(self):
@@ -223,8 +356,8 @@ class History(models.Model):
         return queryset, use_distinct
     
     def code(self):
-        return self.patient_id.user.username
-    code.short_description = 'Username'
+        return self.patient_id.user.code
+    code.short_description = 'Code'
 
     def __str__(self):
         return '{} - Registered on {} - Source: {}'.format(
@@ -260,35 +393,41 @@ class Treatment(models.Model):
         ('intramuscular', 'Intramuscular'),
         ('intradermal', 'Intradermal')
     )
-    vaccine_generic_name = models.CharField(max_length=10, choices=GENERIC_NAME, default='PCECCV', verbose_name='Vaccine Generic Name')  # PCECCV or PVRV
-    vaccine_brand_name = models.CharField(max_length=10, choices=BRAND_NAME,default='Vaxirab', verbose_name='Vaccine Brand Name')  # Verorab, Speeda, etc.
-    vaccine_route = models.CharField(max_length=50, choices=route, default='intradermal', verbose_name='Vaccine Route')  # Route of administration
+    vaccine_generic_name = models.CharField(max_length=10, choices=GENERIC_NAME,  verbose_name='Vaccine Generic Name')  # PCECCV or PVRV
+    vaccine_brand_name = models.CharField(max_length=10, choices=BRAND_NAME, verbose_name='Vaccine Brand Name')  # Verorab, Speeda, etc.
+    vaccine_route = models.CharField(max_length=50, choices=route, verbose_name='Vaccine Route')  # Route of administration
 
-    day0 = models.DateField(default=date(2024,9,4), blank=True, null=True, verbose_name="Day 0")#default=date(2024,4,3),
+    tcv_given = models.DateField(blank=True, null=True, verbose_name="TCV")
+
+    day0 = models.DateField( blank=True, null=True, verbose_name="Day 0")#default=date(2024,4,3),
     day0_arrived = models.BooleanField(default=False, verbose_name="") 
 
-    day3 = models.DateField(default=date(2024,9,7), blank=True, null=True, verbose_name="Day 3")#default=date(2024,4,6),
+    day3 = models.DateField( blank=True, null=True, verbose_name="Day 3")#default=date(2024,4,6),
     day3_arrived = models.BooleanField(default=False, verbose_name="")
 
-    day7 = models.DateField(default=date(2024,9,11),blank=True, null=True, verbose_name="Day 7")#default=day7_str, default=date(2024,4,10), 
+    day7 = models.DateField(blank=True, null=True, verbose_name="Day 7")#default=day7_str, default=date(2024,4,10), 
     day7_arrived = models.BooleanField(default=False, verbose_name="")
 
     day14 = models.DateField(blank=True, null=True, verbose_name="Day 14")
     
     day28 = models.DateField(blank=True, null=True, verbose_name="Day 28")
-    day28_arrived = models.BooleanField(default=False, verbose_name="")
+    
+    #day28_arrived = models.BooleanField(default=False, verbose_name="")
 
-    rig_given = models.DateField(blank=True, null=True, verbose_name="RIG")
+    booster1 = models.DateField(blank=True,null=True, verbose_name="Booster1")
+    booster2 = models.DateField(blank=True,null=True, verbose_name="Booster2")
 
-    animal_alive = models.BooleanField(default=True, null=True, verbose_name='Animal alive')
+    
+    hrig_given = models.DateField(blank=True, null=True, verbose_name="HRIG")
+    rig_given = models.DateField(blank=True, null=True, verbose_name="ERIG")
+
+    animal_alive = models.BooleanField( null=True, verbose_name='Animal alive')#default=True,
     remarks = models.TextField(blank=True)
 
-    def code(self):
-        return self.patient_id.user.username
-    code.short_description = 'Username'
 
-    def __str__(self):
-        return f"Treatment for {self.patient_id.first_name} {self.patient_id.last_name}"
+    def code(self):
+        return self.patient_id.user.code
+    code.short_description = 'Code'
     
     def get_category_of_exposure(self):
         history = History.objects.filter(patient_id=self.patient_id).first()
@@ -302,3 +441,6 @@ class Treatment(models.Model):
     class Meta:
         ordering = ['-patient_id']
         verbose_name_plural = "Patient's Treatment"
+
+    def __str__(self):
+        return f"Treatment for {self.patient_id.first_name} {self.patient_id.last_name}"

@@ -155,21 +155,3 @@ custom-select-width{
   width: 150px ;
 }
 
-.nav-link{
-  color:black !important;
-  font-size: 15px !important;
-  margin-right: 2px !important;
-}
-
-.nav-link:hover {
-  color: #007bff !important; /* Asul na kulay para sa active na link */
-  font-weight: bold;
-  border-bottom: 2px solid #007bff; /* Underline effect */
-}
-
-/* Active state */
-.nav-link.active {
-  color: #007bff !important; /* Blue color for active link */
-  font-weight: bold;
-  border-bottom: 2px solid #007bff; /* Underline effect for active link */
-}

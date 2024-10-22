@@ -48,17 +48,22 @@
     {% block extrastyle %} {% endblock %}
     {% block extrahead %} {% endblock %}
     <style>
+        html, body {
+            height: 100%; /* Ensure full height */
+            margin: 0; /* Remove default margin */
+            overflow: hidden; /* Prevent overflow if needed */
+        }
         .login-page-background {
-        /* Set the background image */
-        background-image: url("{% static 'assets/images/cat.jpeg' %}");
-        /* Adjust background properties */
-        background-size: cover; /* Cover the entire background */
-        background-position: center; /* Center the background image */
-        /* Optionally, you can add more background properties */
-    }
+            /* Set the gradient background */
+            background: linear-gradient(to bottom, white, rgb(199, 218, 237)); /* Gradient from white to blue */
+            min-height: 100vh; /* Ensure it fills the entire viewport height */
+            display: flex; /* Use flexbox to center content */
+            justify-content: center; /* Center horizontally */
+            align-items: center; /* Center vertically */
+        }
         .login-box .card {
             /* Set the opacity of the form */
-            opacity: 0.7; /* Adjust the value between 0 (completely transparent) and 1 (fully opaque) */
+            opacity: 1; /* Adjust the value between 0 (completely transparent) and 1 (fully opaque) */
         }
     </style>
     

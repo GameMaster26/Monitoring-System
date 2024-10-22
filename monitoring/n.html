@@ -1,0 +1,140 @@
+
+
+
+
+    {% extends 'monitoring/base.html' %}
+
+    {% load static %}
+    
+    {% block title %}
+    Tables
+    {% endblock %}
+    
+    {% block content %}
+        {% include 'partials/_navlink.html' %}
+        <div class="container filter mb-4 ms-5">
+            <div class="d-flex flex-column flex-md-row">
+                <div class="filter-container me-4">
+                    <form method="GET" action="">
+                        <select id="municipalitySelect" name="municipality" class="form-select mb-2 p-1" style="width: 150px;">
+                            <option value="">ALL</option>
+                            {% for municipality in municipalities %}
+                                <option value="{{ municipality.muni_name }}" {% if selected_municipality == municipality.muni_name %}selected{% endif %}>{{ municipality.muni_name }}</option>
+                            {% endfor %}
+                        </select>
+                        <span class="mx-2">Total Patients: <span id="totalPatients" style="color: red; font-weight: bold;">{{ total_cases }}</span></span>
+                        <button type="submit" class="btn btn-primary mt-2">Filter</button>
+                    </form>
+                </div>
+    
+                <div class="table-container table-responsive flex-grow-1">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Municipality</th>
+                                <th>Number of Barangays</th>
+                                <th>Total Patients</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in municipality_summary %}
+                                <tr>
+                                    <td>{{ record.muni_id__muni_name }}</td>
+                                    <td class="red-text">{{ record.total_barangays }}</td>
+                                    <td class="red-text">{{ record.total_cases }}</td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="3">No data available for the selected filter.</td>
+                                </tr>
+                            {% endfor %}
+                            
+                            <tr class="total">
+                                <td><strong>Total</strong></td>
+                                <td><strong>{{ total_barangays }}</strong></td> <!-- Dynamic total barangays -->
+                                <td class="total-patients"><strong>{{ total_cases }}</strong></td> <!-- Dynamic total cases -->
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+    
+        <style>
+            
+            .filter {
+                margin-top: 10px;
+            }
+    
+            table {
+                border-collapse: collapse;
+                width: 100%;
+                margin-top: 5px;
+            }
+            thead {
+                border-bottom: 1px solid blue; /* Blue bottom border for thead */
+            }
+            th {
+                padding: 2px;
+                text-align: center;
+                border: none; /* Remove all borders from th */
+            }
+            td {
+                padding: 8px;
+            }
+            tbody th, tbody td {
+                border: none; /* Ensure no border for cells in tbody */
+            }
+    
+            .total-patients {
+                color: red; /* Set color to red for total patients */
+                font-weight: bold; /* Optional: make it bold */
+            }
+            
+            .red-text {
+                color: rgb(159, 20, 20); /* Change row color to red for patient cases */
+                font-weight: bold; /* Make it bold */
+            }
+            .total {
+                border-top: 1px blue solid;
+            }
+    
+            @media (max-width: 576px) {
+                .filter-container {
+                    width: 100%; /* Full width on small screens */
+                }
+    
+                #municipalitySelect,
+                #barangaySearch {
+                    width: 100%; /* Make dropdown and input full width */
+                }
+            }
+        </style>
+    
+        <script>
+            document.getElementById('filterButton').addEventListener('click', function() {
+                const municipality = document.getElementById('municipalitySelect').value;
+                const barangay = document.getElementById('barangaySearch').value;
+                const form = document.createElement('form');
+                form.method = 'GET';
+                form.action = window.location.href;
+    
+                const municipalityInput = document.createElement('input');
+                municipalityInput.type = 'hidden';
+                municipalityInput.name = 'municipality';
+                municipalityInput.value = municipality;
+    
+                const barangayInput = document.createElement('input');
+                barangayInput.type = 'hidden';
+                barangayInput.name = 'barangay';
+                barangayInput.value = barangay;
+    
+                form.appendChild(municipalityInput);
+                form.appendChild(barangayInput);
+                document.body.appendChild(form);
+                form.submit();
+            });
+        </script>
+    {% endblock %}
+    

@@ -4,21 +4,73 @@
 
 {% block title %}
 Reports
+
 {% endblock %}
     
+
+{% block style %}
+<link rel="stylesheet" href="{% static 'assets/css/report.css' %}">
+{% endblock %}
+
 {% block content %}
 
 {% include 'partials/_navlink.html' %}
 
-    <div class="container mt-4">
-        <h1 class="text-center h1">MUNICIPAL REPORT FORM ON ANIMAL BITE/HUMAN RABIES CASES</h1>
-        <h2 class="text-center h2">{{ municipality_name }}</h2>
-        <h3 class="text-center"><u>2nd Quarter 2024</u></h3>
+    <div class="text-end mb-3 me-5 mt-5">  <!-- Align to the right -->
+        <a href="{% url 'monitoring:download_report_pdf' %}" class="btn btn-danger me-2">Download PDF</a>
+        <a href="{% url 'monitoring:download_report_excel' %}" class="btn btn-success me-2">Download Excel</a>
+        <!-- <a href="{% url 'monitoring:exp_excel' %}?quarter={{ selected_quarter }}" class="btn btn-success me-2">Download to Excel</a> -->
+    </div>
 
-        <table border="2">
+    <form method="get" class="form-group mb-4 ms-5">
+        <div class="mb-3 text-center">
+            <!-- <label for="quarter" class="form-label">Select Quarter:</label> -->
+            <div class="input-group justify-content-center select-width">
+                <select name="quarter" id="quarter" class="form-select"   onchange="this.form.submit()">
+                    <option value="1" {% if selected_quarter == '1' %}selected{% endif %}>1st Quarter</option>
+                    <option value="2" {% if selected_quarter == '2' %}selected{% endif %}>2nd Quarter</option>
+                    <option value="3" {% if selected_quarter == '3' %}selected{% endif %}>3rd Quarter</option>
+                    <option value="4" {% if selected_quarter == '4' %}selected{% endif %}>4th Quarter</option>
+                </select>
+                <span class="input-group-text"><i class="bi bi-calendar2-check"></i></span>
+            </div>
+        </div>
+    </form>
+
+
+    <!-- Title area -->
+    <div class="container mt-4 mb-4">
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div class="d-flex align-items-center">
+                {% if user.is_superuser %}
+                    <img src="{% static 'assets/images/report_logo/province.png' %}" alt="Superuser Logo" style="height: 120px; margin-right: 20px; margin-left: 20px;">
+                {% elif user.code == 'MAR' %}
+                    <img src="{% static 'assets/images/report_logo/maripipi.png' %}" alt="Maripipi Logo" style="height: 150px; margin-right: 20px;">
+                {% elif user.code == 'KAW' %}
+                    <img src="{% static 'assets/images/report_logo/kawayan.png' %}" alt="Kawayan Logo" style="height: 150px; margin-right: 20px;">
+                {% elif user.code == 'NAV' %}
+                    <img src="{% static 'assets/images/report_logo/naval.png' %}" alt="Naval Logo" style="height: 150px; margin-right: 20px;">
+                {% elif user.code == 'CAIB' %}
+                    <img src="{% static 'assets/images/report_logo/caibiran.png' %}" alt="Caibiran Logo" style="height: 150px; margin-right: 20px;">
+                {% endif %}
+                <div class="flex-grow-1 text-center quarter"> <!-- Centered text -->
+                    <h1 class="h1">MUNICIPAL REPORT FORM ON ANIMAL BITE/HUMAN RABIES CASES</h1>
+                    <h2 class="h2" style="margin: 0;">Municipality of {{ municipality_name }}</h2>
+                    <h3 class="h3" style="margin: 0;">
+                        <u>
+                            {{ selected_quarter }}{% if selected_quarter == '1' %}st{% elif selected_quarter == '2' %}nd{% elif selected_quarter == '3' %}rd{% elif selected_quarter == '4' %}th{% endif %} Quarter 2024
+                        </u>
+                    </h3>
+                    
+                </div>
+            </div>
+        </div>    
+        
+        <!-- Table area -->
+        <table class="" border="2">
             <thead>
                 <tr>
-                    <th rowspan="4">Barangay</th>
+                    <th rowspan="4">{% if user.is_superuser %}ABTC{% else %}Barangay{% endif %}</th>
                     <th colspan="15">Human Case</th>
                     <th colspan="4" rowspan="3">Biting Animals</th>
                     <th colspan="2" rowspan="3">PEP Coverage</th>
@@ -30,7 +82,6 @@ Reports
                     <th colspan="5">Animal Bite</th>
                     <th rowspan="2">HR</th>
                     <th colspan="3" rowspan="2">Post Exposure Prophylaxis</th>
-                    
                 </tr>
                 <tr>
                     <th colspan="3">By Category</th>
@@ -56,86 +107,99 @@ Reports
                     <th>O</th>
                     <th>Total</th>
                     <th>%TCV</th>
-                    <th>$ERIG</th>
+                    <th>%ERIG</th>
                     <th>Yes</th>
                     <th>No</th>
                 </tr>
-
             </thead>
             <tbody>
-                {% for report in barangay_reports %}
+                {% for entry in data %}
                 <tr>
-                    <td>{{ report.barangay_name }}</td>
-                    <td>{{ report.male_cases }}</td>
-                    <td>{{ report.female_cases }}</td>
-                    <td>{{ report.male_cases|add:report.female_cases }}</td>
-                    <td>{{ report.age_below_15 }}</td>
-                    <td>{{ report.age_above_15 }}</td>
-                    <td>{{ report.age_below_15|add:report.age_above_15 }}</td>
-                    <td>{{ report.category_I }}</td>
-                    <td>{{ report.category_II }}</td>
-                    <td>{{ report.category_III }}</td>
-                    <td>{{ report.total_cases }}</td>
-                    <td>{{ report.total_cases|divisibleby:100 }}%</td>
-                    <td>{{ report.pep_tcv }}</td>
-                    <td>{{ report.pep_hrig }}</td>
-                    <td>{{ report.pep_erig }}</td>
-                    <td>{{ report.animal_alive }}</td>
-                    <td>{{ report.animal_dead }}</td>
-                    <td>{{ report.total_cases }}</td>
-                    <td>{{ report.pep_tcv }}</td>
-                    <td>{{ report.pep_erig }}</td>
-                    <td>{{ report.pep_tcv|yesno:"Yes,No" }}</td>
-                    <td>{{ report.pep_erig|yesno:"Yes,No" }}</td>
-                </tr>
+                    <th>{{ entry.barangay }}</th>
+                    <td>{{ entry.data_male }}</td> <!-- Male count -->
+                    <td>{{ entry.data_female }}</td> <!-- Female count -->
+                    <td>{{ entry.data_total }}</td> <!-- Total count -->
+                    <td>{{ entry.age_15_below }}</td> <!-- Age <= 15 count -->
+                    <td>{{ entry.age_above_15 }}</td> <!-- Age > 15 count -->
+                    <td>{{ entry.age_total }}</td> <!-- Total of age groups -->
+                    <td>{{ entry.total_animal_bite_I }}</td> <!-- Total Animal Bite I -->
+                    <td>{{ entry.total_animal_bite_II }}</td> <!-- Total Animal Bite II -->
+                    <td>{{ entry.total_animal_bite_III }}</td> <!-- Total Animal Bite III -->
+                    <td>{{ entry.total_animal }}</td> <!-- Total Animal Bites -->
+                    <td>{{ entry.percent_total }}%</td>
+                    <td>{{ entry.human_rabies_count }}</td>
+                    <td>{{ entry.total_tcv_given }}</td>
+                    <td>{{ entry.total_hrig_given }}</td>
+                    <td>{{ entry.total_erig_given }}</td>
+                    <td>{{ entry.total_dog_bites }}</td>
+                    <td>{{ entry.total_cat_bites }}</td>
+                    <td>{{ entry.total_other_bites }}</td>
+                    <td>{{ entry.total_animal_bites }}</td>
+                    <td>{{ entry.percent_tcv  }}%</td>
+                    <td>{{ entry.percent_erig  }}%</td>
+                    <td>{{ entry.immunized_count }}</td>
+                    <td>{{ entry.unimmunized_count }}</td>
 
-                {% empty %}
-                <tr>
-                    <td colspan="23">No data available</td>
                 </tr>
                 {% endfor %}
-
+                <tr class="grey">
+                    <th>Total</th>
+                    <td>{{ total_male }}</td> <!-- Total male count -->
+                    <td>{{ total_female }}</td> <!-- Total female count -->
+                    <td>{{ total_all }}</td> <!-- Total of male + female -->
+                    <td>{{ total_age_15_below }}</td> <!-- Total age <= 15 -->
+                    <td>{{ total_age_above_15 }}</td> <!-- Total age > 15 -->
+                    <td>{{ total_age_15_below|add:total_age_above_15 }}</td> 
+                    <td>{{ total_animal_bite_I }}</td> <!-- Total Animal Bite I -->
+                    <td>{{ total_animal_bite_II }}</td> <!-- Total Animal Bite II -->
+                    <td>{{ total_animal_bite_III }}</td> <!-- Total Animal Bite III -->
+                    <td>{{ total_all }}</td> <!-- Total Animal Bites -->
+                    <td>{{ total_percent }}%</td>
+                    <td>{{ total_human_rabies }}</td>
+                    <td>{{ total_tcv_given }}</td>
+                    <td>{{ total_hrig_given }}</td>
+                    <td>{{ total_rig_given }}</td>
+                    <td>{{ total_dog_bites }}</td>
+                    <td>{{ total_cat_bites }}</td>
+                    <td>{{ total_other_bites }}</td>
+                    <td>{{ total_dog_bites|add:total_cat_bites|add:total_other_bites }}</td>
+                    <td>{{ total_tcv_percent }}%</td>
+                    <td>{{ total_erig_percent }}%</td>
+                    <td>{{ total_immunized }}</td>
+                    <td>{{ total_unimmunized }}</td>
+                </tr>
+                <tr>
+                    <th>%</th>
+                    <td>{{ male_percentage }}%</td>
+                    <td>{{ female_percentage }}%</td>
+                    <td>{{ total_sex_percentage }}%</td> <!-- You can leave this blank or add total percentage if needed -->
+                    <td>{{ age_15_below_percentage }}%</td>
+                    <td>{{ age_above_15_percentage }}%</td>
+                    <td>{{ total_age_percentage }}%</td>
+                    <td>{{ total_animal_bite_I_percentage }}%</td>
+                    <td>{{ total_animal_bite_II_percentage }}%</td>
+                    <td>{{ total_animal_bite_III_percentage }}%</td>
+                    <td>{{ total_category_percentage }}%</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>{{ dog_bite_percentage }}%</td>
+                    <td>{{ cat_bite_percentage }}%</td>
+                    <td>{{ other_bite_percentage }}%</td>
+                    <td>{{ total_animal_type_percentage }}%</td>
+                    <td></td>
+                    <td></td>
+                    <td>{{ immunized_percentage }}%</td>
+                    <td>{{ unimmunized_percentage }}%</td>
+                </tr>
             </tbody>
-            
         </table>
     </div>
 
-<style>
-    .navbar {
-    padding: 0 20px; /* Add padding to the navbar */
-    }
-    .navbar-nav {
-        flex-direction: row;
-    }
-    .nav-item {
-        margin-right: 5px; /* Add margin to the nav items for spacing */
-    }
-    .nav-link {
-        font-size: 16px; /* Adjust font size if needed */
-    }
-    .dropdown-menu {
-        right: 0;
-        left: auto; /* Make sure the dropdown menu aligns to the right */
-    }
-    .dropdown-item {
-        font-size: 14px; /* Adjust font size if needed */
-    }
-    .navbar-toggler {
-        margin-right: 20px; /* Add margin to the toggler button if needed */
-    }
-    .navbar-brand-logo {
-        border: 1px solid #ddd; /* Add border if needed */
-    }
-    .text-primary {
-        color: #007bff; /* Adjust color if needed */
-    }
 
-    .h1{
-        font-size: 20px;
-    }
-    .h2{
-        font-size: 18px;
-    }
-</style>
+
+
     
 {% endblock %}

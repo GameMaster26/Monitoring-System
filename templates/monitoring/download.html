@@ -4,8 +4,12 @@
 
 {% block title %}
 Downloads
+
 {% endblock %}
 
+{% block style %}
+<link rel="stylesheet" href="{% static 'assets/css/download.css' %}">
+{% endblock %}
 
 {% block content %}
 
@@ -18,8 +22,8 @@ Downloads
                 <div class="col-12">
                     <!-- Filter Form -->
                     <form method="GET" class="form-inline filter-container d-flex justify-content-start" id="filterForm">
-
-                        <div class="form-group mr-5">
+                        {% if user.is_superuser %}
+                        <div class="form-group mr-2">
                             <select id="searchUsername" name="searchUsername" class="form-select shadow">
                                 <option value="">User</option>
                                 {% for user in users %}
@@ -27,7 +31,7 @@ Downloads
                                 {% endfor %}
                             </select>
                         </div>
-
+                        {% endif %}
                         <div class="form-group ">
                             <select id="municipality" name="municipality" class="form-select search-filter shadow select-hidden accessible" style="width: 150px;">
                                 <option value="">Municipality</option>
@@ -38,7 +42,7 @@ Downloads
                             </select>
                         </div>
 
-                        <div class="form-group mr-5">
+                        <div class="form-group mr-2">
                             <select id="barangay" name="barangay" class="form-select shadow" style="width: 150px;">
                                 <option value="">Barangay</option>
                                 <option value="">----------</option>
@@ -47,7 +51,6 @@ Downloads
                                 {% endfor %}
                             </select>
                         </div>
-
                         <!-- Start Month and End Month selectors -->
                         <div class="form-group">
                             <select id="startMonth" name="startMonth" class="form-select shadow">
@@ -57,39 +60,28 @@ Downloads
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="form-group mr-5">
+                        <div class="form-group mr-2">
                             <select id="endMonth" name="endMonth" class="form-select mr-5 shadow">
                                 <option value="">Month End</option>
                                 {% for month in months %}
                                 <option value="{{ month }}" {% if end_month == month %}selected{% endif %}>{{ month }}</option>
                                 {% endfor %}
                             </select>
-                        </div>
-
-                        
+                        </div>    
                         <div class="form-group">
                             <input type="text" id="searchName" name="searchName" class="form-control shadow" placeholder="Search by Name" value="{{ request.GET.searchName }}">
                         </div>
-
-                        
-
-                        <!-- <button type="submit" class="btn btn-outline-secondary ml-3 mr-5  filter-button">
-                            <i class="fas fa-filter"></i> FILTER
-                        </button> -->
-                        <button type="submit" class="btn btn-outline-primary ml-3 mr-5  filter-button">
-                            <i class=""></i> Search
-                        </button>
-
-
-                        <!-- Download Buttons -->
-                        <!-- <div class="d-flex justify-content-end my-3 ml-5">
-                            <a href="" class="btn btn-danger btn-sm me-2"><i class="fas fa-file-pdf"></i> Download PDF</a>
-                            <a href="" class="btn btn-success btn-sm"><i class="fas fa-file-excel"></i> Download Excel</a>
-                        </div> -->
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-outline-primary ml-3 mr-5  filter-button">
+                                <i class="mt-2"></i> Search
+                            </button>
+                        </div>
                     </form>
                 </div>
-                
-                
+                <div class="text-end mb-3 me-5 mt-2">  
+                    <a href="{% url 'monitoring:download_masterlist_pdf' %}" class="btn btn-danger me-2">Download PDF</a>
+                    <a href="{% url 'monitoring:download_masterlist_excel' %}" class="btn btn-success me-2">Download Excel</a>
+                </div>
                 <div class="col-12">
                     <!-- Table Section -->
                     <div class="content">
@@ -222,70 +214,9 @@ Downloads
     </div>
 </div>
 
-<style>
-    .navbar-container {
-    margin-bottom: 20px; /* Space between navbar and content */
-    margin-top: 10px; /* Adjust top margin as needed */
-    }
-    .navbar {
-        padding: 0 20px; /* Add padding to the navbar */
-    }
-    .navbar-nav {
-        flex-direction: row;
-    }
-    .nav-item {
-        margin-right: 5px; /* Add margin to the nav items for spacing */
-    }
-    .nav-link {
-        font-size: 16px; /* Adjust font size if needed */
-    }
-    .dropdown-menu {
-        right: 0;
-        left: auto; /* Make sure the dropdown menu aligns to the right */
-    }
-    .dropdown-item {
-        font-size: 14px; /* Adjust font size if needed */
-    }
-    .navbar-toggler {
-        margin-right: 20px; /* Add margin to the toggler button if needed */
-    }
-    .navbar-brand-logo {
-        border: 1px solid #ddd; /* Add border if needed */
-    }
-    .text-primary {
-        color: #007bff; /* Adjust color if needed */
-    }
 
-    /* Custom CSS for button width and icon size */
-    .filter-button {
-        width: 100px; /* Adjust width as needed */
-        height: 35px; /* Adjust height as needed */
-        /* background-color:grey;
-        color: white; */
-    }
+{% endblock %}
 
-    .filter-button .fas {
-        font-size: 16px; /* Adjust icon size */
-        margin-right: 8px; /* Add space between icon and text */
-    }
-
-
-    #userDropdown::after {
-        display: none !important;
-    }
-
-    #searchUsername{
-        width: 150px;
-    }
-    #startMonth{
-        width: 150px;
-    }
-    #endMonth{
-        width: 150px;
-    }
-    #searchName{
-        width: 150px;
-    }
-
-</style>
+{% block script %}
+<script src="{% static 'assets/js/download.js' %}"></script>
 {% endblock %}

@@ -1,0 +1,114 @@
+
+
+{% load static %}
+
+
+
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-lg fixed-top" id="fixed-navbar">
+    <div class="d-flex align-items-center">
+        <img src="{% static 'assets/images/3.jpeg' %}" alt="Logo" class="rounded-circle navbar-brand-logo ms-2" style="width: 50px; height: 50px;">
+        <span class="text-primary font-weight-bold ms-2" style="font-size: 24px; margin-left: 10px;">Animal Bite and Rabies Monitoring System-GEO Mapping</span>
+    </div>
+
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarNav">
+        <div class="mx-auto">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link links {% if request.path == '/' %}active{% endif %}" href="/">Overview</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link links {% if request.path == '/choropleth_map/' %}active{% endif %}" href="/choropleth_map">Choropleth Map</a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Admin dropdown on the right -->
+        <ul class="navbar-nav ml-auto">
+            <div class="topbar-divider d-none d-sm-block"></div>
+            <li class="nav-item no-arrow">
+                <a class="nav-link m-3" href="{% url 'monitoring:admin_redirect' %}" id="home-admin">
+                    <span class="mr-2 text-gray-600">Login</span>
+                    <i class="fas fa-user" id="home-icon-admin"></i>
+                </a>
+            </li>
+        </ul>
+    </div>
+</nav>
+
+<style>
+    /* General Styles for Navbar Links */
+    .links {
+        font-weight: 500;
+        color: #333 !important;
+        font-size: 15px !important;
+        margin-right: 2px !important;
+    }
+
+    .links:hover {
+        color: #007bff !important;
+        font-weight: bold;
+        border-bottom: 2px solid #007bff;
+    }
+
+    .links.active {
+        color: #007bff !important;
+        font-weight: bold;
+        border-bottom: 2px solid #007bff;
+    }
+
+    /* Admin button styles */
+    .admin {
+        font-size: 18px;
+        color: #333;
+    }
+
+    /* Adjust the navbar size */
+    #fixed-navbar {
+        padding: 10px 30px;
+        background-color: #fff;
+        transition: all 0.3s ease; /* Smooth transitions */
+        z-index: 1030;
+    }
+
+    /* Reduce height of the navbar */
+    .navbar {
+        height: 70px;
+    }
+
+    /* Adjust the logo size */
+    .navbar-brand-logo {
+        width: 50px;
+        height: 50px;
+    }
+
+    /* Adjust the font size of the brand text */
+    .navbar-brand span {
+        font-size: 26px;
+        color: #007bff;
+        font-weight: bold;
+    }
+
+
+
+    /* Mobile styles */
+    .navbar-toggler {
+        border: none;
+        outline: none;
+    }
+
+    /* Remove the default margin from the collapse menu */
+    .navbar-collapse {
+        margin-top: 10px;
+    }
+
+    /* Navbar shadow on scroll */
+    #fixed-navbar.scrolled {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+</style>
+
+

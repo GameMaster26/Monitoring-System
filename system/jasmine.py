@@ -61,7 +61,7 @@ JAZZMIN_SETTINGS = {
         #{"app" : "monitoring"},
         
         # Custom link to 'monitoring:table'
-        {"name": "Access Site", "url": "monitoring:overview"},
+        {"name": "Overview", "url": "overview"},
     ],
 
     #############

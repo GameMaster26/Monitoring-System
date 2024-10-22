@@ -48,6 +48,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.gis',
+    'rest_framework',
+    'rest_framework_gis',
     
 
     #installed apps
@@ -114,7 +116,6 @@ GEOS_LIBRARY_PATH = os.path.join("C:\\", "OSGeo4W", "bin", "geos_c.dll")
 
 SERIALIZATION_MODULES= {
     'geojson':'djgeojson.serializers',
-
 }
 
 
@@ -163,7 +164,7 @@ LEAFLET_CONFIG = {
     'DEFAULT_ZOOM': 10,
     'MIN_ZOOM': 3,
     'MAX_ZOOM': 18,
-    'RESET_VIEW': True,
+    'RESET_VIEW': False,
     'TILES': [
         ('Mapbox', 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {'attribution': '&copy; OpenStreetMap contributors'}),
     ],
@@ -186,8 +187,20 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Expire session when browser closes
 SESSION_COOKIE_SECURE = False  # Set to True if using HTTPS
 SESSION_COOKIE_HTTPONLY = True  # Set to True for security
 
+# Example email configuration in settings.py
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.yourmailserver.com'
+EMAIL_PORT = 587
+EMAIL_HOST_USER = 'your-email@domain.com'
+EMAIL_HOST_PASSWORD = 'your-password'
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = 'admin@yourdomain.com'
+
+
 # Login URL setting to redirect non-authenticated users
 LOGIN_URL = '/admin/login/'
 #AUTH_USER_MODEL = 'auth.User'
+LOGIN_REDIRECT_URL = '/admin/'  # Redirect to the overview page after login
+
 
 

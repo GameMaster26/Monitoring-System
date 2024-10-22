@@ -1,9 +1,22 @@
 from django import forms
-from .models import Patient, History, Barangay
+from .models import Patient, History, Barangay,UserMessage
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from datetime import datetime,date,timedelta
 from django.contrib.gis import forms as geoforms
 from leaflet.forms.widgets import LeafletWidget
+from django.core.mail import send_mail
+from django.contrib.auth import get_user_model
+
+class MessageUserForm(forms.Form):
+    subject = forms.CharField(max_length=100, label="Subject")
+    message = forms.CharField(widget=forms.Textarea, label="Message")
+
+    def send_message(self, user):
+        subject = self.cleaned_data['subject']
+        message = self.cleaned_data['message']
+        
+        # Save the message to the database
+        UserMessage.objects.create(user=user, subject=subject, message=message)
 
 
 
@@ -52,4 +65,20 @@ class PatientAdminForm(forms.ModelForm):
                 self.fields['brgy_id'].queryset = Barangay.objects.filter(muni_id=muni_id)
             except (ValueError, TypeError):
                 pass  # fallback to empty queryset if invalid muni_id
+
+class PatientSearch(forms.ModelForm):
+    class Meta:
+        model = Patient
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        # Extract the user from the kwargs
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
+        # Make fields readonly if the user does not own the data
+        if self.user and self.instance and self.instance.user != self.user:
+            for field in self.fields:
+                self.fields[field].widget.attrs['readonly'] = True
+                self.fields[field].disabled = True
 

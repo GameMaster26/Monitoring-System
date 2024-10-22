@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Monitoring Report</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        body {
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <h1>Monitoring Report</h1>
+    <p><strong>Selected Municipality:</strong> {{ selected_municipality }}</p>
+    <p><strong>Selected Barangay:</strong> {{ selected_barangay }}</p>
+    <p><strong>From:</strong> {{ start_month }} <strong>To:</strong> {{ end_month }}</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Registration No</th>
+                <th>Patient Name</th>
+                <th>Age</th>
+                <th>Gender</th>
+                <th>Source of Exposure</th>
+                <th>Date Registered</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for history in histories %}
+            <tr>
+                <td>{{ history.registration_no }}</td>
+                <td>{{ history.patient_id.first_name }} {{ history.patient_id.last_name }}</td>
+                <td>{{ history.age }}</td>
+                <td>{{ history.patient_id.sex }}</td>
+                <td>{{ history.source_of_exposure }}</td>
+                <td>{{ history.date_registered|date:"F d, Y" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h3>Statistics</h3>
+    <p>Male: {{ male }}</p>
+    <p>Female: {{ female }}</p>
+    <p>Dog Bites: {{ dog_count }}</p>
+    <p>Cat Bites: {{ cat_count }}</p>
+    <p>Other Animal Bites: {{ other_animal_count }}</p>
+    <p>Age 15 or Less: {{ age_15_or_less_count }}</p>
+    <p>Age Above 15: {{ age_above_15_count }}</p>
+</body>
+</html>

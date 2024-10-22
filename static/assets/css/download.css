@@ -1,3 +1,6 @@
+body {
+    padding-top: 75px ; 
+}
 .navbar-container {
     margin-bottom: 20px; /* Space between navbar and content */
     margin-top: 10px; /* Adjust top margin as needed */
@@ -44,7 +47,6 @@
     margin-right: 8px; /* Add space between icon and text */
 }
 
-
 #userDropdown::after {
     display: none !important;
 }
@@ -60,4 +62,11 @@
 }
 #searchName{
     width: 150px;
+}
+.card {
+    border: none; /* Remove any border from the card */
+}
+
+.card-body {
+    border: none; /* Ensure the card body doesn't have a border */
 }
