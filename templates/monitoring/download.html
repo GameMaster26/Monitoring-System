@@ -3,7 +3,7 @@
 {% load static %}
 
 {% block title %}
-Downloads
+Master List
 
 {% endblock %}
 
@@ -15,11 +15,8 @@ Downloads
 
 {% include 'partials/_navlink.html' %}
 
-<div class="container-fluid navbars">
-    <div class="container-fluid">
-        <section class="content">
-            <div class="row">
-                <div class="col-12">
+    <div class="row">
+        <div class="col-12">
                     <!-- Filter Form -->
                     <form method="GET" class="form-inline filter-container d-flex justify-content-start" id="filterForm">
                         {% if user.is_superuser %}
@@ -77,22 +74,15 @@ Downloads
                             </button>
                         </div>
                     </form>
-                </div>
-                <div class="text-end mb-3 me-5 mt-2">  
-                    <a href="{% url 'monitoring:download_masterlist_pdf' %}" class="btn btn-danger me-2">Download PDF</a>
-                    <a href="{% url 'monitoring:download_masterlist_excel' %}" class="btn btn-success me-2">Download Excel</a>
-                </div>
-                <div class="col-12">
-                    <!-- Table Section -->
-                    <div class="content">
-                        <div class="container-fluid">
-                            <section class="content">
-                                <div class="row">
-                                    <div class="col-12">                                     
-                                        <div class="card px-3">
-                                            <div class="card-body table-responsive">
-                                                <h4 class="text-center mb-4 text-primary">BILIRAN PROVINCIAL HOSPITAL <br>ANIMAL BITE TREATMENT CENTER</h4>  
-                                                <div class="d-flex justify-content-between mb-2">
+        </div>
+        <div class="text-end mb-3 me-5 mt-2">  
+                    <a href="{% url 'monitoring:download_masterlist_pdf' %}" target="_blank" class="btn btn-danger me-2">Download PDF</a>
+                    <!-- <a href="{% url 'monitoring:download_masterlist_excel' %}" class="btn btn-success me-2">Download Excel</a> -->
+        </div>
+        <div class="col-12">                                     
+            <div class="card-body table-responsive">
+                <h4 class="text-center mb-4 text-primary">BILIRAN PROVINCIAL HOSPITAL <br>ANIMAL BITE TREATMENT CENTER</h4>  
+                <div class="d-flex justify-content-between mb-2">
                                                     <span id="reportingPeriod"></span>
                                                     <div>
                                                         <strong class="ms-3">Total patients: </strong> <span style="color: red; font-size: 18px;">{{ histories.paginator.count }}</span>
@@ -104,71 +94,71 @@ Downloads
                                                         <strong class="ms-3">15 and Below: </strong> <span style="color: red; font-size: 18px;">{{ age_15_or_less_count }}</span>
                                                         <strong class="ms-3">Above 15: </strong> <span style="color: red; font-size: 18px;">{{ age_above_15_count }}</span>
                                                     </div>
-                                                </div>
-                                                <div id="table-content">
-                                                    <table class="table table-bordered table-striped table-hover">
-                                                        <thead class="thead-secondary">
-                                                            <tr>
-                                                                <th rowspan="2">Registration No.</th>
-                                                                <th rowspan="2">Registration Date</th>
-                                                                <th rowspan="2">First Name</th>
-                                                                <th rowspan="2">Last Name</th>
-                                                                <th rowspan="2">Barangay</th>
-                                                                <th rowspan="2">Municipality</th>
-                                                                <th colspan="2">Age</th> 
-                                                                <th rowspan="2">Sex</th>
-                                                                <th rowspan="2">Date of Exposure</th>
-                                                                <th rowspan="2">Biting Animal</th>
-                                                                <th rowspan="2">Status of Biting Animal</th>
-                                                                <th rowspan="2">Category of Bite</th>
-                                                                <th rowspan="2">Anatomical Location</th>
-                                                                <th rowspan="2">Animal Vaccination</th>
-                                                                <th rowspan="2">Date of Birth</th>
-                                                                <th colspan="6">Post Exposure Treatment</th>
-                                                            </tr>
-                                                            <tr>
-                                                                <th>≤15</th>
-                                                                <th>≥15</th>
-                                                                <th>D0</th>
-                                                                <th>D3</th>
-                                                                <th>D7</th>
-                                                                <th>D28</th>
-                                                                <th>ERIG</th>
-                                                                <th>HRIG</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {% for history in histories %}
-                                                            <tr>
-                                                                <td>{{ history.registration_no }}</td>
-                                                                <td>{{ history.date_registered }}</td>
-                                                                <td>{{ history.patient_id.first_name }}</td>
-                                                                <td>{{ history.patient_id.last_name }}</td>
-                                                                <td>{{ history.brgy_id.brgy_name }}</td>
-                                                                <td>{{ history.muni_id.muni_name }}</td>
-                                                                <td>{% if history.age <= 15 %}{{ history.age }}{% endif %}</td>
-                                                                <td>{% if history.age > 15 %}{{ history.age }}{% endif %}</td>
-                                                                <td>{{ history.patient_id.sex }}</td>
-                                                                <td>{{ history.date_of_exposure }}</td>
-                                                                <td>{{ history.source_of_exposure }}</td>
-                                                                <td>{{ history.status_of_animal }}</td>
-                                                                <td>{{ history.category_of_exposure }}</td>
-                                                                <td>{{ history.bite_site }}</td>
-                                                                <td>{{ history.immunization_status }}</td>
-                                                                <td>{{ history.patient_id.birthday }}</td>                                                            
-                                                                <td>{{ history.treatment.day0 }}</td>
-                                                                <td>{{ history.treatment.day3 }}</td>
-                                                                <td>{{ history.treatment.day7}}</td>
-                                                                <td>{{ history.treatment.day28}}</td>
-                                                                <td>{{ history.treatment.rig_given}}</td>
-                                                                <td>{{ history.treatment.hrig }}</td>
-                                                            </tr>   
-                                                            {% endfor %}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                                <!-- Pagination -->
-                                                <div id="pagination-content">
+                </div>
+                <div id="table-content">
+                    <table class="table table-bordered table-striped table-hover">
+                        <thead class="thead-secondary">
+                            <tr>
+                                <th rowspan="2">Registration No.</th>
+                                <th rowspan="2">Registration Date</th>
+                                <th rowspan="2">First Name</th>
+                                <th rowspan="2">Last Name</th>
+                                <th rowspan="2">Barangay</th>
+                                <th rowspan="2">Municipality</th>
+                                <th colspan="2">Age</th> 
+                                <th rowspan="2">Sex</th>
+                                <th rowspan="2">Date of Exposure</th>
+                                <th rowspan="2">Biting Animal</th>
+                                <th rowspan="2">Status of Biting Animal</th>
+                                <th rowspan="2">Category of Bite</th>
+                                <th rowspan="2">Anatomical Location</th>
+                                <th rowspan="2">Animal Vaccination</th>
+                                <th rowspan="2">Date of Birth</th>
+                                <th colspan="6">Post Exposure Treatment</th>
+                            </tr>
+                            <tr>
+                                <th>≤15</th>
+                                <th>≥15</th>
+                                <th>D0</th>
+                                <th>D3</th>
+                                <th>D7</th>
+                                <th>D28</th>
+                                <th>ERIG</th>
+                                <th>HRIG</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for history in histories %}
+                            <tr>
+                                <td>{{ history.registration_no }}</td>
+                                <td>{{ history.date_registered }}</td>
+                                <td>{{ history.patient_id.first_name }}</td>
+                                <td>{{ history.patient_id.last_name }}</td>
+                                <td>{{ history.brgy_id.brgy_name }}</td>
+                                <td>{{ history.muni_id.muni_name }}</td>
+                                <td>{% if history.age <= 15 %}{{ history.age }}{% endif %}</td>
+                                <td>{% if history.age > 15 %}{{ history.age }}{% endif %}</td>
+                                <td>{{ history.patient_id.sex }}</td>
+                                <td>{{ history.date_of_exposure }}</td>
+                                <td>{{ history.source_of_exposure }}</td>
+                                <td>{{ history.status_of_animal }}</td>
+                                <td>{{ history.category_of_exposure }}</td>
+                                <td>{{ history.bite_site }}</td>
+                                <td>{{ history.immunization_status }}</td>
+                                <td>{{ history.patient_id.birthday }}</td>                                                            
+                                <td>{{ history.treatment.day0 }}</td>
+                                <td>{{ history.treatment.day3 }}</td>
+                                <td>{{ history.treatment.day7}}</td>
+                                <td>{{ history.treatment.day28}}</td>
+                                <td>{{ history.treatment.rig_given}}</td>
+                                <td>{{ history.treatment.hrig }}</td>
+                            </tr>   
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Pagination -->
+                <div id="pagination-content">
                                                     <ul class="pagination justify-content-center">
                                                         {% if histories.has_previous %}
                                                             <li class="page-item">
@@ -200,23 +190,32 @@ Downloads
                                                             </li>
                                                         {% endif %}
                                                     </ul>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </section>
-                        </div>
-                    </div>
                 </div>
             </div>
-        </section>
+            <div class="signature-section mt-5 text-center">
+                <p>Prepared by:</p>
+                <div class="signature-line">
+                    <span class="signature-name">
+                        {% if user.first_name or user.last_name %}
+                            {{ user.first_name }} {% if user.last_name %}{{ user.last_name }}{% endif %}
+                        {% else %}
+                            {{ user.username }}
+                        {% endif %}
+                    </span>
+                </div>
+                <p class="signature-title">Municipality Report Master List</p>
+            </div>
+        </div>
+
     </div>
-</div>
 
 
 {% endblock %}
 
 {% block script %}
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
 <script src="{% static 'assets/js/download.js' %}"></script>
 {% endblock %}

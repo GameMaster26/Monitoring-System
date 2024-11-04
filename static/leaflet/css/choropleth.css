@@ -55,104 +55,205 @@ body {
     border-top-color: #ff3333;
 }
 
-
-body{
-    padding-top: 70px;
+.legend {
+    line-height: 18px;
+    color: #555;
+}
+.legend i {
+    width: 18px;
+    height: 18px;
+    float: left;
+    margin-right: 8px;
+    opacity: 0.7;
 }
 
-.filter {
+/* General styling */
+.bold-label {
+    font-weight: bold;
+    color: #333;
+}
+
+/* Styling the icon */
+.icon-blue {
+    color: #007bff;
+    font-size: 1.2rem;
+    margin-right: 10px;
+}
+
+.filter{
+    padding: 10px;
+}
+
+/* Fixed height for the filter container */
+.filter-container {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     margin-top: 10px;
+    padding: 25px;
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    height: 250px; /* Fixed height for the filter */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Distribute elements evenly */
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
-.custom-select {
-    border: 1px solid blue;
-    background-color: whitesmoke;
-    border-radius: 5px;
+
+.filter-container:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Select styling */
+.form-select {
+    border: 1px solid #007bff;
+    background-color: #f1f1f1;
+    border-radius: 8px;
     transition: all 0.3s ease;
-    margin-bottom: 15px; /* Add some spacing between the select and other elements */
+    margin-bottom: 20px;
+    padding: 0.75rem;
+    font-size: 1rem;
+    width: 180px;
 }
-.custom-select:hover, .custom-select:focus {
-    border-color: rgb(215, 215, 242);
-    background-color: rgb(254, 254, 254);
-    transform: scale(1.02);
+.form-select:hover, .form-select:focus {
+    border-color: #66afe9;
+    background-color: #ffffff;
+    transform: scale(1.03);
 }
+
+/* Input field styling */
+#barangaySearch {
+    border: 1px solid #007bff;
+    background-color: #f1f1f1;
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    margin-bottom: 20px;
+}
+#barangaySearch:hover, #barangaySearch:focus {
+    border-color: #66afe9;
+    background-color: #ffffff;
+    transform: scale(1.03);
+}
+
+/* Button styling */
 .filter-btn {
     background-color: #007bff;
     transition: all 0.3s ease-in-out;
     border-radius: 5px;
-    margin-top: 15px; /* Add margin to push the button down */
+    padding: 0.5rem 1.5rem;
+    font-size: 1rem;
+    color: white;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 .filter-btn:hover {
     background-color: #0056b3;
-}
-.filter-btn:hover .btn-text {
-    transform: scale(1.1);
-}
-/* Add subtle shadows */
-.filter-container {
-    box-shadow: 0px 4px 12px rgba(11, 11, 11, 0.1);
-}
-/* Tooltip styling */
-[data-bs-toggle="tooltip"] {
-    cursor: pointer;
-    text-decoration:dotted;
-}
-.form-select, .filter-btn {
-    transition: all 0.2s ease-in-out;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 .filter-btn:active {
     transform: scale(0.98);
 }
+.filter-btn .btn-text {
+    transition: transform 0.2s;
+}
+.filter-btn:hover .btn-text {
+    transform: scale(1.1);
+}
+
+.filter-btn i {
+    margin-right: 8px; /* Adjust this value to increase/decrease space */
+}
+/* Tooltip styling */
+[data-bs-toggle="tooltip"] {
+    cursor: pointer;
+    text-decoration: dotted;
+    color: #333;
+    font-weight: bold;
+}
+
+/* Table container with max height and scrollable content */
+.table-container {
+    margin-left: 20px;
+    margin-top: 10px;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    max-height: 700px; /* Limit the height of the table */
+    overflow-y: auto; /* Enable vertical scrolling if content exceeds height */
+}
+
 table {
     border-collapse: collapse;
     width: 100%;
-    margin-top: 5px;
+    margin: 0;
+    font-size: 1rem;
 }
 thead {
-    border-bottom: 1px solid blue; /* Blue bottom border for thead */
+    background-color: #0078f9;
+    color: white;
+}
+th, td {
+    padding: 15px;
+    text-align: center;
+    border-bottom: 1px solid #ddd;
 }
 th {
-    padding: 2px;
-    text-align: center;
-    border: none; /* Remove all borders from th */
+    font-weight: bold;
 }
-td {
-    padding: 8px;
+tbody td{
+    color: black;
 }
-tbody th, tbody td {
-    border: none; /* Ensure no border for cells in tbody */
+tbody tr:hover {
+    background-color: #f9f9f9;
 }
-.total-patients {
-    color: red; /* Set color to red for total patients */
-    font-weight: bold; /* Optional: make it bold */
+.red-text {
+    color: #b80000;
+    font-weight: bold;
 }
 
-.red-text {
-    color: rgb(159, 20, 20); /* Change row color to red for patient cases */
-    font-weight: bold; /* Make it bold */
-}
+/* Total row styling */
 .total {
-    border-top: 1px blue solid;
+    background-color: #f1f1f1;
+    font-weight: bold;
+    color: #333;
 }
+
+.span-patient{
+    color:black;
+}
+
+.total-patients-text{
+    color: #b80000;
+    font-weight: bold;
+}
+.total-patients {
+    color: #b80000;
+    font-weight: bold;
+}
+
+/* Responsive styling */
 @media (max-width: 576px) {
     .filter-container {
-        width: 100%; /* Full width on small screens */
+        width: 100%;
+        padding: 15px;
+        height: auto; /* Let the height adjust on small screens */
     }
     #municipalitySelect,
     #barangaySearch {
-        width: 100%; /* Make dropdown and input full width */
+        width: 100%;
+        font-size: 0.9rem;
+        padding: 0.5rem;
     }
-}
-#barangaySearch {
-    border: 1px solid blue;
-    background-color: whitesmoke;
-    border-radius: 5px;
-    transition: all 0.3s ease;
-}
-#barangaySearch:hover, #barangaySearch:focus {
-    border-color: rgb(215, 215, 242);
-    background-color: rgb(254, 254, 254);
-    transform: scale(1.02);
-}
-.belowBorder{
-    border-bottom: 1px solid blue;
+    .filter-btn {
+        width: 100%;
+        padding: 0.75rem;
+        font-size: 1rem;
+    }
+    .table-container {
+        margin-left: 0;
+        overflow-x: auto;
+    }
 }

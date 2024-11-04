@@ -1,0 +1,17 @@
+<!-- add_logo.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add Logo</title>
+</head>
+<body>
+    <h1>Add a New Logo</h1>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Add Logo</button>
+    </form>
+    <a href="{% url 'monitoring:logo_list' %}">View all logos</a>
+</body>
+</html>

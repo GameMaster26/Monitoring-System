@@ -107,15 +107,15 @@ function init() {
 
     // Color function to return color based on density
     function getColor(d) {
-        return d > 1000 ? '#ff3333' :   // Bright red
-               d > 500  ? '#ff6666' :   // Light red
-               d > 300  ? '#ff9999' :   // Soft red
-               d > 200  ? '#fdbb84' :   // Soft peach
-               d > 150  ? '#fdd49e' :   // Creamy peach
-               d > 100  ? '#fee8c8' :   // Very light peach
-               d > 50   ? '#fff0e0' :   // Pale peach
-               d > 10   ? '#fff5eb' :   // Almost white
-               '#ffffff';               // Pure white for the lowest range
+        return d > 1000 ? '#800026' :
+               d > 500  ? '#BD0026' :
+               d > 200  ? '#E31A1C' :
+               d > 100  ? '#FC4E2A' :
+               d > 50   ? '#FD8D3C' :
+               d > 20   ? '#FEB24C' :
+               d > 10   ? '#FED976' :
+               d > 0    ? '#FFFFCC' :
+                          '#FFFFFF';
     }
 
     // Create a control for displaying barangay patient data
@@ -174,36 +174,25 @@ function init() {
     var legend = L.control({ position: 'bottomleft' });
 
     legend.onAdd = function (map) {
-        // Create a container div with class 'info legend'
         var div = L.DomUtil.create('div', 'info legend'),
-            grades = [0, 1, 10, 50, 100, 150, 200, 300, 500, 1000], // Correct intervals
-            labels = [];
-
-        // Add a title for the legend
-        div.innerHTML += '<h4 style="text-align: center; margin-bottom: 10px;">Patient Density</h4>';
-
-        // Loop through the density intervals in **reverse order** (from top to bottom)
-        for (var i = grades.length - 1; i > 0; i--) {
+            grades = [1001, 501, 201, 101, 51, 21, 11, 1, 0];  // Reverse order
+        div.innerHTML += '<h6 style="text-align: center; margin-bottom: 10px;">Patient Density</h6>';
+        
+        // Loop through density intervals in reverse to generate labels
+        for (var i = 0; i < grades.length; i++) {
             div.innerHTML +=
-            '<i style="background:' + getColor(grades[i]) + '; width: 18px; height: 18px; float: left; margin-right: 8px; opacity: 0.9;"></i>' +
-            '<span style="line-height: 18px;">' + grades[i - 1] + '&ndash;' + grades[i] + (grades[i + 1] ? '' : '+') + '</span><br>';
+                '<i style="background:' + getColor(grades[i]) + '"></i> ' +
+                (grades[i] === 0 ? '0' : (grades[i] === 1001 ? '1000+' : grades[i] + '&ndash;' + (grades[i - 1] - 1))) + '<br>';
         }
-
-        // Handle the last range (0) separately so it appears only once at the bottom
-        div.innerHTML +=
-            '<i style="background:' + getColor(grades[0]) + '; width: 18px; height: 18px; float: left; margin-right: 8px; opacity: 0.9;"></i>' +
-            '<span style="line-height: 18px;">0</span><br>';
-
-        // Add additional inline styles for the legend
+    
         div.style.padding = '10px';
-        div.style.background = 'white'; // Background for the legend
+        div.style.background = 'white';
         div.style.borderRadius = '5px';
         div.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.3)';
         div.style.fontSize = '14px';
-        div.style.lineHeight = '18px';
-        div.style.color = '#333';
-        div.style.color = 'black'; // Adjusted text color for visibility
-
+        div.style.color = 'black';
+        div.style.width = '150px';
+    
         return div;
     };
 

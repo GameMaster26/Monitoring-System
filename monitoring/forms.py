@@ -1,5 +1,5 @@
 from django import forms
-from .models import Patient, History, Barangay,UserMessage
+from .models import Patient, History, Barangay,UserMessage,Logo
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from datetime import datetime,date,timedelta
 from django.contrib.gis import forms as geoforms
@@ -82,3 +82,8 @@ class PatientSearch(forms.ModelForm):
                 self.fields[field].widget.attrs['readonly'] = True
                 self.fields[field].disabled = True
 
+
+class LogoForm(forms.ModelForm):
+    class Meta:
+        model = Logo
+        fields = ['logo_name', 'logo_image']

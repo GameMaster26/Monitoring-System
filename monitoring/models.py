@@ -23,6 +23,14 @@ from django.db.models.signals import post_save
 from django.db.models import OuterRef, Subquery
 from django.utils.safestring import mark_safe as safe_mark
 
+def validate_contact_number(value):
+    if not value.startswith('09') or len(value) != 11:
+        raise ValidationError(
+            _('Invalid contact number: %(value)s. It should start with "09" and be 11 digits long.'),
+            params={'value': value},
+            
+        )
+    
 class UserMessage(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="messages")
     subject = models.CharField(max_length=255)
@@ -39,22 +47,14 @@ class Municipality(models.Model):
     muni_id = models.AutoField(primary_key=True)
     muni_name = models.CharField(max_length=100, verbose_name="Municipality Name")
     geom = geomodels.MultiPolygonField(verbose_name="Geom", null=True, blank=True)
-    #logo = models.ImageField(upload_to='municipality_logo', null=True, blank=True, verbose_name="Municipality Logo") # Specify the directory
+    #logo = models.ImageField(upload_to='municipality_logo', null=True, blank=True, verbose_name="Municipality Logo")
 
-    @property
-    def latitude(self):
-        return self.geom.y if self.geom else None
-
-    @property
-    def longitude(self):
-        return self.geom.x if self.geom else None
-
-    """ def admin_logo(self):
+    def muni_logo(self):
+        """Display the logo thumbnail in Django admin."""
         if self.logo:
-            return mark_safe('<img src="{}" width="50" />'.format(self.logo.url))
+            return mark_safe(f'<img src="{self.logo.url}" width="50" />')
         return "No Logo"
-    admin_logo.short_description = "Image"
-    admin_logo.allow_tags =True """
+    muni_logo.short_description = "Municipality Logo"
     
     def __str__(self):
         return f"{self.muni_name}"
@@ -84,17 +84,38 @@ class Barangay(models.Model):
         # Enforce uniqueness for the combination of brgy_name and muni_id
         unique_together = ['brgy_name', 'muni_id']  
 
-def validate_contact_number(value):
-    if not value.startswith('09') or len(value) != 11:
-        raise ValidationError(
-            _('Invalid contact number: %(value)s. It should start with "09" and be 11 digits long.'),
-            params={'value': value},
-        )
+class Doctor(models.Model):
+    #user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="User",default=1, related_name='doctors')
+    first_name = models.CharField(max_length=100, blank=False, null=False, verbose_name="First Name")
+    middle_name = models.CharField(max_length=100, blank=True, null=True, verbose_name="Middle Name")
+    last_name = models.CharField(max_length=100, blank=False, null=False, verbose_name="Last Name")
+    date_of_birth = models.DateField(blank=True, null=True, verbose_name="Date of Birth")
+    sex_choice =(
+        ('male','Male'),
+        ('female','Female'),
+    )
+    gender = models.CharField(choices=sex_choice, max_length=20,null=True, verbose_name="Sex")
     
+    contact_number = models.CharField(max_length=12, validators=[validate_contact_number], blank=True, verbose_name="Contact Number")
+    email = models.EmailField(unique=True, blank=False, null=False, verbose_name="Email")
+    muni_id = models.ForeignKey(Municipality, on_delete=models.CASCADE, verbose_name="Municipality", related_name='doctors_muni')#7 cabucgayan,6 culaba, 5 almeria, 8 kaw
+    brgy_id = models.ForeignKey(Barangay, on_delete=models.CASCADE, verbose_name="Barangay",related_name='doctors_brgy')
+    
+    def full_name(self):
+        return f"{self.first_name} {self.middle_name} {self.last_name}".strip()
+    full_name.short_description = "Full Name"
+
+    def __str__(self):
+        return f"Dr. {self.full_name()}"
+
+    class Meta:
+        verbose_name_plural = "Doctors"
+
 class Patient(models.Model):
     app_label = 'monitoring'
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="User", related_name='patients')
+    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, verbose_name="Doctor",null=True, related_name='doctors_patient')
     patient_id = models.AutoField(primary_key=True)
     first_name = models.CharField(max_length=200, verbose_name="First Name", blank=False,)
     middle_name = models.CharField(max_length=200, verbose_name="Middle Name",blank=False,)
@@ -126,7 +147,6 @@ class Patient(models.Model):
     def __str__(self):
         return f"{self.first_name} {self.middle_name} {self.last_name}"
     class Meta:
-        
         #ordering = ['-patient_id__registration_no']
         verbose_name_plural = "Patient Records"
 
@@ -234,7 +254,6 @@ class History(models.Model):
         ('Knee (Right, Back)', 'Knee (Right, Back)'),
         ('Calf (Left)', 'Calf (Left)'),
         ('Calf (Right)', 'Calf (Right)'),
-        
         ('Leg (Left)', 'Leg (Left)'),
         ('Leg (Right)', 'Leg (Right)'),
         ('Leg Lower(Left)', 'Leg Lower(Left)'),
@@ -245,10 +264,6 @@ class History(models.Model):
         ('Leg Anterior(Right)', 'Leg Anterior(Right)'),
         ('Leg Posterior(Left)', 'Leg Posterior(Left)'),
         ('Leg Posterior(Right)', 'Leg Posterior(Right)'),
-
-        
-
-
         # Ankles and Feet
         ('Ankle (Left)', 'Ankle (Left)'),
         ('Ankle (Right)', 'Ankle (Right)'),
@@ -262,23 +277,23 @@ class History(models.Model):
         ('Heel (Right)', 'Heel (Right)'),
     )
 
-
-
-
     provoked_choices = (
         ('Provoked', 'Provoked'),
         ('Unprovoked', 'Unprovoked'),
     )
+    
     immunization_choices = (
         ('Immunized', 'Immunized'),
         ('Unimmunized', 'Unimmunized'),
     )
+    
     status_of_animal_choices = (
         ('Alive','Alive'),
         ('Dead','Dead'),
         ('Killed','Killed'),
         ('Lost','Lost'),
     )
+    
     animal_status = (
         ('Stray','Stray'),
         ('Leashed/Caged','Leashed/Caged'),
@@ -371,7 +386,6 @@ class History(models.Model):
         ordering = ['-registration_no']
         unique_together = ('registration_no', 'patient_id')  # Ensure registration_no is unique per patient
 
-
 class Treatment(models.Model):
     
     treatment_id = models.AutoField(primary_key=True)
@@ -444,3 +458,24 @@ class Treatment(models.Model):
 
     def __str__(self):
         return f"Treatment for {self.patient_id.first_name} {self.patient_id.last_name}"
+
+class Logo(models.Model):
+    logo_name = models.CharField(max_length=150, verbose_name="Logo Name", null=False,blank=False)
+    logo_image = models.ImageField(upload_to='municipality_logo', null=True, blank=True, verbose_name="Municipality Logo")
+
+    def save(self, *args, **kwargs):
+        self.logo_name = self.logo_name.title()  # Capitalize first letter
+        super().save(*args, **kwargs)
+
+    def image_logo(self):
+        """Display the logo thumbnail in Django admin."""
+        if self.logo_image:
+            return mark_safe(f'<img src="{self.logo_image.url}" width="50" />')
+        return "No Logo"
+    image_logo.short_description = "Municipality Logo"
+
+    def __str__(self):
+        return f"{self.logo_name} municipality image"
+
+    class Meta:
+        verbose_name_plural = "Logos"

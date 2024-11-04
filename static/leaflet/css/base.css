@@ -1,155 +1,23 @@
 body {
-    padding-top: 80px; /* Adjust this value based on the actual height of your navbar */
-    background: linear-gradient(to top, rgb(246, 246, 254), rgb(238, 238, 248) 50%, rgb(246, 246, 254)); /* As per your design */
-}
-
-#responsive-text {
-    font-size: 20px; /* Base font size for smallest screens */
-    line-height: 24px;
-}
-
-@media (min-width: 576px) {
-    #responsive-text {
-        font-size: 20px; /* Slightly larger for small screens */
-    }
-}
-
-@media (min-width: 768px) {
-    #responsive-text {
-        font-size: 24px; /* Medium screen size */
-    }
-}
-
-@media (min-width: 992px) {
-    #responsive-text {
-        font-size: 28px; /* Larger screen size */
-    }
-}
-
-@media (min-width: 1200px) {
-    #responsive-text {
-        font-size: 30px; /* Extra-large screen size */
-    }
-}
-
-
-#responsive-image {
-    margin-left: 20px;
-}
-
-@media (min-width: 576px) {
-    #responsive-image {
-        margin-left: 20px;
-    }
-}
-
-@media (min-width: 768px) {
-    #responsive-image {
-        margin-left: 30px;
-    }
-}
-
-@media (min-width: 992px) {
-    #responsive-image {
-        margin-left: 40px;
-    }
-}
-
-@media (min-width: 1200px) {
-    #responsive-image {
-        margin-left: 50px;
-    }
-}
-
-/* #nav-up{
-    margin-top: 80px;
-} */
-/* Default table size */
-/* Default table size (large screens) */
-/* Default table size (large screens) */
-table {
-    width: 100%; /* Full width by default */
-    font-size: 16px; /* Default font size */
-    margin: 0 auto; /* Center the table */
-}
-td, th {
-    padding: 15px; /* Default padding for cells */
-    font-size: 16px; /* Default font size for cells */
-}
-
-/* Large desktops (max-width: 1200px) */
-@media (max-width: 1200px) {
-    table {
-        width: 95%; /* Slightly smaller on large desktops */
-        font-size: 15px; /* Slightly smaller font for table */
-    }
-    td, th {
-        padding: 12px; /* Adjust padding */
-        font-size: 15px; /* Slightly smaller font for table cells */
-    }
-}
-
-/* Medium desktops/laptops (max-width: 992px) */
-@media (max-width: 992px) {
-    table {
-        width: 90%; /* Reduce table width */
-        font-size: 14px; /* Adjust font size */
-    }
-    td, th {
-        padding: 10px; /* Adjust padding for medium desktops */
-        font-size: 14px; /* Slightly smaller font for cells */
-    }
-}
-
-/* Tablets (max-width: 768px) */
-@media (max-width: 768px) {
-    table {
-        width: 85%; /* Make the table smaller */
-        font-size: 13px; /* Reduce font size */
-    }
-    td, th {
-        padding: 8px; /* Reduce padding for tablets */
-        font-size: 13px; /* Adjust cell font size */
-    }
-}
-
-/* Small tablets/large phones (max-width: 576px) */
-@media (max-width: 576px) {
-    table {
-        width: 80%; /* Further reduce width */
-        font-size: 12px; /* Smaller font size for table */
-    }
-    td, th {
-        padding: 6px; /* Reduce padding for smaller screens */
-        font-size: 12px; /* Adjust font size for cells */
-    }
-}
-
-/* Mobile screens (max-width: 400px) */
-@media (max-width: 400px) {
-    table {
-        width: 75%; /* Narrowest width for small mobile */
-        font-size: 11px; /* Smallest font size for table */
-    }
-    td, th {
-        padding: 4px; /* Smallest padding for cells */
-        font-size: 11px; /* Smallest font size for cells */
-    }
+    padding-top: 80px;
+    background: linear-gradient(to top, rgb(246, 246, 254), rgb(238, 238, 248) 50%, rgb(246, 246, 254));
+    overflow-x: hidden;
 }
 
 .low-opacity {
-    opacity: 0.8; /* Set initial opacity to 0.7 */
-    transition: opacity 0.3s ease; /* Smooth transition */
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
 }
+
 .card:hover .low-opacity {
-    opacity: 1; /* Change to full opacity on hover */
+    opacity: 1;
 }
 
 .back-to-top {
     position: fixed;
     bottom: 40px;
     right: 40px;
-    display: none; /* Hidden by default */
+    display: none;
     background-color: #9ec5ee;
     color: white;
     text-align: center;
@@ -173,11 +41,10 @@ td, th {
 
 #genderChart, #animalChart {
     width: 100%;
-    max-width: 250px; /* Adjust max-width to control the canvas size */
+    max-width: 250px;
     height: 250px !important;
 }
 
-/* Optional: Additional styling for the card */
 a .card {
     transition: transform 0.2s;
 }
@@ -186,27 +53,88 @@ a:hover .card {
     transform: scale(1.05);
 }
 
-#home-admin {
-    font-size: 18px; /* Adjust the size as per your requirement */
-    color: #6c757d; /* Adjust the color if needed */
-}
-
-#home-icon-admin {
+/* #home-admin {
+    font-size: 18px;
     color: #6c757d;
-}
+} */
 
-/* Adjust the size of the chart containers */
-.canvaChart {
-    margin: 0px;
+/* #home-icon-admin {
+    color: #6c757d;
+} */
+
+.canvaChart, .chart-container, .canvasChart {
     width: 100%;
-
 }
 
 .chart-container {
-    width: 100%;
-    height: 500px; 
+    height: 500px;
 }
+
 .canvasChart {
-    width: 100% !important;
     height: 400px !important;
+    width: 100% !important;
+}
+
+#mama-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 85vh;
+    box-sizing: border-box;
+}
+
+#mama {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+#filterForm {
+    width: 100%;
+    padding: 20px;
+    background: #f9f9f9;
+    border: 1px solid #007bff;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.3s ease;
+}
+
+#filterForm:hover {
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
+}
+
+#filterForm h5 {
+    color: #007bff;
+    margin-bottom: 20px;
+    font-weight: bold;
+    font-size: 1.25rem;
+}
+
+.input-group {
+    margin-bottom: 15px;
+}
+
+.date-class {
+    background-color: rgba(45, 45, 241, 0.7);
+    color: white;
+    transition: background-color 0.3s;
+}
+
+.date-class:hover {
+    background-color: #0000ff;
+}
+
+.btn-primary {
+    background-color: rgba(45, 45, 241, 0.7);
+    border: none;
+    border-radius: 5px;
+    padding: 5px 10px;
+    transition: background-color 0.3s, transform 0.3s;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #0000ff;
+    transform: translateY(-2px);
 }

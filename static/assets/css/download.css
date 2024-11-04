@@ -1,38 +1,8 @@
 body {
     padding-top: 75px ; 
 }
-.navbar-container {
-    margin-bottom: 20px; /* Space between navbar and content */
-    margin-top: 10px; /* Adjust top margin as needed */
-}
-.navbar {
-    padding: 0 20px; /* Add padding to the navbar */
-}
-.navbar-nav {
-    flex-direction: row;
-}
-.nav-item {
-    margin-right: 5px; /* Add margin to the nav items for spacing */
-}
-.nav-link {
-    font-size: 16px; /* Adjust font size if needed */
-}
-.dropdown-menu {
-    right: 0;
-    left: auto; /* Make sure the dropdown menu aligns to the right */
-}
-.dropdown-item {
-    font-size: 14px; /* Adjust font size if needed */
-}
-.navbar-toggler {
-    margin-right: 20px; /* Add margin to the toggler button if needed */
-}
-.navbar-brand-logo {
-    border: 1px solid #ddd; /* Add border if needed */
-}
-.text-primary {
-    color: #007bff; /* Adjust color if needed */
-}
+
+
 
 /* Custom CSS for button width and icon size */
 .filter-button {
@@ -69,4 +39,26 @@ body {
 
 .card-body {
     border: none; /* Ensure the card body doesn't have a border */
+}
+
+.signature-section {
+    text-align: center;
+}
+
+.signature-line {
+    margin-top: 50px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid black;
+    width: 300px; /* Adjust width as needed */
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.signature-name {
+    font-weight: bold;
+    margin-top: -25px; /* Keeps it close to the line */
+}
+
+.signature-title {
+    margin-top: -10px; /* Adjusts spacing below the signature */
 }

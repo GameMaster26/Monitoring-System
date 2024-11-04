@@ -1,0 +1,24 @@
+<!-- logo_list.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Logo List</title>
+</head>
+<body>
+    <h1>Logos</h1>
+    <ul>
+        {% for logo in logos %}
+            <li>
+                {{ logo.logo_name }}
+                {% if logo.logo_image %}
+                    <img src="{{ logo.logo_image.url }}" width="50" alt="{{ logo.logo_name }}">
+                {% else %}
+                    No Logo
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+    <a href="{% url 'monitoring:add_logo' %}">Add a new logo</a>
+</body>
+</html>

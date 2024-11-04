@@ -3,7 +3,7 @@
 {% load static %}
 
 {% block title %}
-Tables
+Table
 {% endblock %}
 
 {% block style %}
@@ -12,8 +12,7 @@ Tables
 {% endblock %}
 
 {% block content %}
-    {% include 'partials/_navlink.html' %}
-    
+    {% include 'partials/_navlink.html' %} 
     <div class="container filter mb-4 ms-5">
         <div class="d-flex flex-column flex-md-row">
             <div class="filter-container me-4 p-3 shadow-sm rounded" style="background-color: #ffffff;">
@@ -43,7 +42,7 @@ Tables
                 
                     <button type="submit" class="btn btn-primary mt-2 filter-btn" style="position: relative; overflow: hidden;">
                         <i class="fas fa-filter me-2"></i>
-                        <span class="btn-text">Filter</span>
+                        <span class="btn-text" id="filterButton">Filter</span>
                     </button>
                 </form>
                 
@@ -114,13 +113,12 @@ Tables
                 </table>
             </div>
         </div>
-    </div>
-    
-
-    
+    </div>  
 {% endblock %}
 
 {% block script %}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
 <script>
     document.getElementById('filterButton').addEventListener('click', function() {

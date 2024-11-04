@@ -1,4 +1,4 @@
-from .models import Patient,History,Treatment,Municipality,Barangay,UserMessage
+from .models import Patient,History,Treatment,Municipality,Barangay,Doctor,UserMessage,Logo
 from django.contrib.contenttypes.admin import GenericTabularInline,GenericInlineModelAdmin,GenericInlineModelAdminChecks,GenericStackedInline
 from django.contrib.auth.models import Group, User,Permission
 from django.contrib.admin.models import LogEntry
@@ -27,6 +27,8 @@ from django.contrib.auth.admin import UserAdmin
 from django.utils.html import format_html
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+
+
 
 # Custom User Admin class
 """ class CustomUserAdmin(admin.ModelAdmin):
@@ -84,15 +86,37 @@ class UserMessageAdmin(admin.ModelAdmin):
 class CustomGeoAdmin(LeafletGeoAdmin):
     
     class Media:
-        # Include your custom CSS file here
         css = {
             'all': ('assets/css/muni.css',),  
         }
         js = ('assets/js/reset_view.js',
             'assets/js/municipality_center.js',
-            'https://code.jquery.com/jquery-3.6.0.min.js',  # Include jQuery if not already included
+            'https://code.jquery.com/jquery-3.6.0.min.js',
             'assets/js/mapHistory.js',   
         )
+
+@admin.register(Doctor) 
+class DoctorAdmin(admin.ModelAdmin):
+    list_display = ('full_name', 'email', 'muni_id', 'brgy_id', 'contact_number')
+    list_filter = ('gender', 'muni_id', 'brgy_id')
+    search_fields = ('first_name', 'middle_name', 'last_name', 'email', 'contact_number')
+    ordering = ('last_name', 'first_name')
+
+    # Group fields logically in the form view
+    fieldsets = (
+        ('Personal Information', {
+            'fields': ('first_name', 'middle_name', 'last_name', 'date_of_birth', 'gender')
+        }),
+        ('Contact Information', {
+            'fields': ('contact_number', 'email', 'muni_id', 'brgy_id')
+        }),
+    )
+
+    def full_name(self, obj):
+        return f"{obj.first_name} {obj.middle_name or ''} {obj.last_name}".strip()
+    full_name.short_description = "Full Name"
+
+    readonly_fields = ('full_name',)
 
 class PatientInline(admin.StackedInline):
     model = Patient
@@ -113,22 +137,20 @@ class HistoryInline(admin.StackedInline):
         fields = ['date_registered', 'date_of_exposure', 'muni_id', 'brgy_id','source_of_exposure','category_of_exposure', 
                     'exposure_type','bite_site', 'provoked_status', 'immunization_status',
                     'status_of_animal', 'confinement_status',  'washing_hands', 'human_rabies',]#'geom'
-                  
-        # Always add 'registration_no' if viewing an existing object
         if obj:
             fields.insert(0, 'registration_no')
         return fields
 
     def get_formset(self, request, obj=None, **kwargs):
         formset = super().get_formset(request, obj, **kwargs)
-        # If editing an existing object, control the behavior of 'registration_no'
+        
         if obj:
             if request.user.is_superuser and 'registration_no' in formset.form.base_fields:
-                # Set 'registration_no' as read-only and not required for superusers
+                
                 formset.form.base_fields['registration_no'].widget.attrs['readonly'] = True
                 formset.form.base_fields['registration_no'].required = False
         else:
-            # For a new object, ensure 'registration_no' is removed
+            
             formset.form.base_fields.pop('registration_no', None)
         return formset
 
@@ -142,20 +164,19 @@ class TreatmentInline(admin.StackedInline):
     model = Treatment
     extra = 0
 
-
 class AgeFilter(SimpleListFilter):
-    title = 'Age'  #Name for the filter
-    parameter_name = 'age'  # URL parameter name for the filter
+    title = 'Age' 
+    parameter_name = 'age' 
 
     def lookups(self, request, model_admin):
-        # Define filter options
+        
         return (
             ('below_15', 'Below or Equal 15'),
             ('above_16', 'Above 15'),
         )
     
     def queryset(self, request, queryset):
-        # Apply filter based on selected option
+        
         today = datetime.today()
         if self.value() == 'below_15':
             return queryset.filter(birthday__gt=today - timedelta(days=365*15))
@@ -167,7 +188,6 @@ class BarangayFilter(SimpleListFilter):
     parameter_name = 'brgy_id'
     
     def lookups(self, request, model_admin):
-        # Retrieve distinct barangay names from the Patient model
         return Patient.objects.values_list('brgy_id__brgy_name', 'brgy_id__brgy_name').distinct()
 
     def queryset(self, request, queryset):
@@ -179,7 +199,6 @@ class MunicipalityFilter(SimpleListFilter):
     parameter_name = 'muni_id'
 
     def lookups(self, request, model_admin):
-        # Retrieve distinct municipality names from the Patient model
         return Patient.objects.values_list('muni_id__muni_name', 'muni_id__muni_name').distinct()
 
     def queryset(self, request, queryset):
@@ -188,17 +207,17 @@ class MunicipalityFilter(SimpleListFilter):
 
 @admin.register(Patient)
 class PatientAdmin(LeafletGeoAdmin):
-    list_display = ('code', 'first_name','middle_name', 'last_name', 'muni_id','brgy_id', 'age', 'sex','contactNumber', )
+    list_display = ('code', 'first_name','middle_name', 'last_name', 'muni_id','brgy_id', 'age', 'sex','contactNumber','doctor' )
     list_per_page = 10
     
     search_fields = ['first_name','middle_name','last_name','muni_id__muni_name','brgy_id__brgy_name','sex__iexact']
-    list_filter = ('user__code', AgeFilter,'muni_id', 'brgy_id', 'sex')
+    list_filter = ('user__code','doctor', AgeFilter,'muni_id', 'brgy_id', 'sex')
     inlines = [HistoryInline, TreatmentInline] 
     exclude = ('user',) 
     ordering = ('-patient_id',)
 
 
-    """ def get_search_results(self, request, queryset, search_term):
+    def get_search_results(self, request, queryset, search_term):
         # Allow search across all patients for all users, also show user code during search
         if search_term:
             queryset = Patient.objects.filter(
@@ -206,23 +225,23 @@ class PatientAdmin(LeafletGeoAdmin):
                 Q(middle_name__icontains=search_term) |
                 Q(last_name__icontains=search_term)
             ).select_related('user')  
-        return queryset, False   """
+        return queryset, False  
 
-    """ def get_list_display(self, request):
+    def get_list_display(self, request):
         # If not searching or for regular users, remove 'code' from the list view
         if not request.GET.get('q'):  # When no search query
             if request.user.is_superuser:
-                return ('code', 'first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id', 'age', 'sex', 'contactNumber')
+                return ('code', 'first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id', 'age', 'sex', 'contactNumber','doctor')
             else:
-                return ('first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id', 'age', 'sex', 'contactNumber')
+                return ('first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id', 'age', 'sex', 'contactNumber','doctor')
         else:  # When search query is present
-            return ('code', 'first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id', 'age', 'sex', 'contactNumber') """
+            return ('code', 'first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id', 'age', 'sex', 'contactNumber','doctor')
     
-    def get_list_display(self, request):
+    """ def get_list_display(self, request):
         if request.user.is_superuser:
             return ('code', 'first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id', 'age', 'sex', 'contactNumber')
         else:
-            return ('first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id', 'age', 'sex', 'contactNumber')
+            return ('first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id', 'age', 'sex', 'contactNumber') """
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -263,7 +282,7 @@ class PatientAdmin(LeafletGeoAdmin):
     def has_change_permission(self, request, obj=None):
         if request.user.is_superuser and request.user.is_staff:
             return False
-        """ return super().has_change_permission(request,obj) """
+    """ return super().has_change_permission(request,obj) """
     
     def save_model(self, request, obj, form, change):
         if not obj.pk:
@@ -290,12 +309,10 @@ class PatientAdmin(LeafletGeoAdmin):
         return age
     age.short_description = 'Age'  # Display as 'Age' in the admin interface
 
-
     def get_list_filter(self, request):
         if request.user.is_superuser:
             return self.list_filter
         return (AgeFilter, 'muni_id', 'brgy_id')
-
 
     class Media:
         js = ('assets/js/admin.js',)
@@ -303,7 +320,6 @@ class PatientAdmin(LeafletGeoAdmin):
             'all': ('assets/css/admin.css',),
         }
     
-
 @admin.register(History)
 class HistoryAdmin(CustomGeoAdmin):
     
@@ -324,7 +340,7 @@ class HistoryAdmin(CustomGeoAdmin):
         'immunization_status', 'status_of_animal', 'confinement_status','washing_hands', 'human_rabies', 'latitude', 'longitude', 'geom'
     )#, 'latitude', 'longitude', 'geom'
 
-    list_filter = ('patient_id__user__code','muni_id', 'brgy_id','category_of_exposure',)
+    list_filter = ('patient_id__user__code','source_of_exposure','muni_id', 'brgy_id','category_of_exposure',)
     list_per_page = 10
     """ exclude = ('washing_hands',) """
     ordering = ('-patient_id',)
@@ -341,16 +357,16 @@ class HistoryAdmin(CustomGeoAdmin):
 
     get_longitude.short_description = 'Longitude'
 
-    """ def get_search_results(self, request, queryset, search_term):
+    def get_search_results(self, request, queryset, search_term):
         if search_term:
             queryset = queryset.filter(
                 Q(patient_id__first_name__icontains=search_term) |
                 Q(patient_id__middle_name__icontains=search_term) |
                 Q(patient_id__last_name__icontains=search_term)
             ).select_related('patient_id') 
-        return queryset, False   """
+        return queryset, False  
 
-    """ def get_list_display(self, request):
+    def get_list_display(self, request):
         if not request.GET.get('q'):  # When no search query
             if request.user.is_superuser:
                 return ('code','registration_no', 'patient_name', 'date_registered','date_of_exposure','muni_id', 'brgy_id','category_of_exposure', 
@@ -363,46 +379,48 @@ class HistoryAdmin(CustomGeoAdmin):
         else:  # When search query is present
             return ('code','registration_no', 'patient_name', 'date_registered','date_of_exposure','muni_id', 'brgy_id','category_of_exposure', 
                     'exposure_type', 'source_of_exposure','status_of_animal', 'bite_site',
-                    'immunization_status','washing_hands', 'human_rabies') """
+                    'immunization_status','washing_hands', 'human_rabies')
     
-    def get_list_display(self, request):
+    """ def get_list_display(self, request):
         if request.user.is_superuser:
             return ('code','registration_no', 'patient_name', 'date_registered','date_of_exposure','muni_id', 'brgy_id','category_of_exposure', 
                 'exposure_type', 'source_of_exposure','status_of_animal', 'bite_site',
                 'immunization_status','washing_hands', 'human_rabies')
-        else:
+        else:   
             return ('registration_no', 'patient_name', 'date_registered','date_of_exposure','muni_id', 'brgy_id','category_of_exposure', 
                 'exposure_type', 'source_of_exposure','status_of_animal', 'bite_site',
-                'immunization_status','washing_hands', 'human_rabies')
+                'immunization_status','washing_hands', 'human_rabies') """
+
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        
+        # If user is superuser, show all records
+        if request.user.is_superuser:
+            return qs     
+        # If not searching, filter by the current user (for regular users)
+        if not request.GET.get('q'):  # No search query
+            return qs.filter(patient_id__user=request.user)       
+        # Otherwise, show all records even if the user is not the owner (search case)
+        return qs
 
     # Modify the queryset to limit data visibility based on user
-    def get_queryset(self, request):
+    """ def get_queryset(self, request):
         qs = super().get_queryset(request)
         if request.user.is_superuser:
             return qs  # Superusers can see all records
         else:
-            return qs.filter(patient_id__user=request.user)  # Regular users only see their own records
+            return qs.filter(patient_id__user=request.user)  """
     
     def get_search_results(self, request, queryset, search_term):
-        
-        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
-
-        # Split the search term into individual parts for better flexibility
-        search_terms = search_term.split()
-
-        # Perform a case-insensitive search (icontains) across the patient names (first, middle, last)
-        for term in search_terms:
+        # Allow search across all patients for all users, also show user code during search
+        if search_term:
             queryset = queryset.filter(
-                Q(patient_id__first_name__icontains=term) |
-                Q(patient_id__middle_name__icontains=term) |
-                Q(patient_id__last_name__icontains=term)
-            )
-
-        # If the user is not a superuser, filter the results to only show their own data
-        if not request.user.is_superuser:
-            queryset = queryset.filter(patient_id__user=request.user)
-
-        return queryset, use_distinct
+                Q(patient_id__first_name__icontains=search_term) |
+                Q(patient_id__middle_name__icontains=search_term) |
+                Q(patient_id__last_name__icontains=search_term)
+            ).select_related('patient_id')  # Pre-fetch user data, including the user code
+        return queryset, False  # Return the modified queryset
 
     """ def get_search_results(self, request, queryset, search_term):
         queryset, use_distinct = super().get_search_results(request, queryset, search_term)
@@ -455,10 +473,10 @@ class HistoryAdmin(CustomGeoAdmin):
             return False
         """ return super().has_delete_permission(request, obj) """
     
-    def has_change_permission(self, request, obj=None):
+    """ def has_change_permission(self, request, obj=None):
         if request.user.is_superuser and request.user.is_staff:
-            return False
-        """ return super().has_change_permission(request, obj) """
+            return False """
+    """ return super().has_change_permission(request, obj) """
 
     def save_model(self, request, obj, form, change):
         if request.user.is_superuser:
@@ -475,15 +493,6 @@ class HistoryAdmin(CustomGeoAdmin):
 
     actions = ['']
 
-    """ class Media:
-        js = (
-            'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js',
-            'assets/js/admin_geom.js',  # Your custom script
-        )
-        css = {
-            'all': ('https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css',) 
-        }
- """
 @admin.register(Treatment)    
 class TreatmentAdmin(admin.ModelAdmin):
     list_display = ('code','registration_no', 'patient_name','category_of_exposure', 'vaccine_generic_name', 'vaccine_brand_name',
@@ -492,7 +501,7 @@ class TreatmentAdmin(admin.ModelAdmin):
                 
     search_fields = ['patient_id__first_name','patient_id__last_name','vaccine_route__iexact']
     list_per_page = 10
-    list_filter = ['patient_id__user__code','patient_id__histories__category_of_exposure', 'vaccine_brand_name','vaccine_generic_name']
+    list_filter = ['patient_id__user__code', 'patient_id__histories__category_of_exposure', 'vaccine_brand_name','vaccine_generic_name']
     #inlines = [HistoryInline,] 
 
     # Exclude the 'day0_arrived' field from the form
@@ -563,7 +572,7 @@ class TreatmentAdmin(admin.ModelAdmin):
     def get_list_filter(self, request):
         if request.user.is_superuser:
             return self.list_filter
-        return ('patient_id__histories__category_of_exposure','rig_given', 'vaccine_brand_name','vaccine_generic_name')
+        return ('patient_id__histories__category_of_exposure', 'vaccine_brand_name','vaccine_generic_name')
     
     def get_readonly_fields(self, request, obj=None):
         if request.user.is_superuser:
@@ -576,10 +585,10 @@ class TreatmentAdmin(admin.ModelAdmin):
             return False
         return super().has_add_permission(request)
     
-    def has_change_permission(self, request, obj=None):
+    """ def has_change_permission(self, request, obj=None):
         if request.user.is_superuser and request.user.is_staff:
-            return False
-        """ return super().has_change_permission(request, obj) """
+            return False """
+    """ return super().has_change_permission(request, obj) """
 
     def has_delete_permission(self, request, obj=None):
         if request.user.is_superuser and request.user.is_staff:
@@ -630,8 +639,6 @@ class TreatmentAdmin(admin.ModelAdmin):
 
     actions = ['mark_day0','mark_day3','mark_day7','mark_day28', 'mark_as_animal',]
 
-
-
 @admin.register(Barangay)
 class BarangayAdmin(CustomGeoAdmin):
     list_display = ('brgy_name','muni_id',)#'tmp_muni'
@@ -647,10 +654,10 @@ class BarangayAdmin(CustomGeoAdmin):
     def get_search_fields(self, request):
         return ['muni_id__muni_name','brgy_name']
 
-    def has_change_permission(self, request, obj=None):
+    """ def has_change_permission(self, request, obj=None):
         if request.user.is_superuser and request.user.is_staff:
-            return False
-        """ return super().has_change_permission(request, obj) """
+            return False """
+    """ return super().has_change_permission(request, obj) """
     
     def has_delete_permission(self, request, obj=None):
         return not request.user.is_superuser
@@ -663,13 +670,13 @@ class BarangayAdmin(CustomGeoAdmin):
         
 @admin.register(Municipality)
 class MunicipalityAdmin(CustomGeoAdmin):
-    list_display = ('muni_name',)#'latitude', 'longitude'
-    fields = ('muni_name','geom',)
+    list_display = ('muni_name',)#'muni_logo'
+    fields = ('muni_name','geom',)#'logo'
 
-    def has_change_permission(self, request, obj=None):
+    """ def has_change_permission(self, request, obj=None):
         if request.user.is_superuser and request.user.is_staff:
-            return False
-        """ return super().has_change_permission(request, obj) """
+            return False """
+    """ return super().has_change_permission(request, obj) """
 
     def has_delete_permission(self, request, obj=None):
         return not request.user.is_superuser
@@ -701,9 +708,13 @@ class LogEntryAdmin(admin.ModelAdmin):
         if request.user.is_superuser:
             return False
         return super().has_change_permission(request, obj)
-
 admin.site.register(LogEntry, LogEntryAdmin)
 
+""" @admin.register(Logo)
+class LogoAdmin(admin.ModelAdmin):
+    list_display = ('logo_name','image_logo')#'muni_logo'
+    fields = ('logo_name','logo_image',)
+ """
 # Override UserAdmin
 class CustomUserAdmin(UserAdmin):
     def get_form(self, request, obj=None, **kwargs):

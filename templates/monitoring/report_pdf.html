@@ -1,111 +1,343 @@
 {% load static %}
-<!-- report_pdf.html -->
-<div class="container mt-4 mb-4">
-    <div class="d-flex justify-content-between align-items-start mb-4">
-        <div class="d-flex align-items-center">
-            {% if user.is_superuser %}
-                <img src="{% static 'assets/images/report_logo/province.png' %}" alt="Superuser Logo" style="height: 120px; margin-right: 20px; margin-left: 20px;">
-            {% elif user.code == 'MAR' %}
-                <img src="{% static 'assets/images/report_logo/maripipi.png' %}" alt="Maripipi Logo" style="height: 150px; margin-right: 20px;">
-            {% elif user.code == 'KAW' %}
-                <img src="{% static 'assets/images/report_logo/kawayan.png' %}" alt="Kawayan Logo" style="height: 150px; margin-right: 20px;">
-            {% elif user.code == 'NAV' %}
-                <img src="{% static 'assets/images/report_logo/naval.png' %}" alt="Naval Logo" style="height: 150px; margin-right: 20px;">
-            {% elif user.code == 'CAIB' %}
-                <img src="{% static 'assets/images/report_logo/caibiran.png' %}" alt="Caibiran Logo" style="height: 150px; margin-right: 20px;">
-            {% endif %}
-            <div class="flex-grow-1 text-center quarter">
-                <h1 class="h1">MUNICIPAL REPORT FORM ON ANIMAL BITE/HUMAN RABIES CASES</h1>
-                <h2 class="h2" style="margin: 0;">Municipality of {{ municipality_name }}</h2>
-                <h3 class="h3" style="margin: 0;">
-                    <u>{{ selected_quarter }}{% if selected_quarter == '1' %}st{% elif selected_quarter == '2' %}nd{% elif selected_quarter == '3' %}rd{% elif selected_quarter == '4' %}th{% endif %} Quarter 2024</u>
-                </h3>
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report PDF</title>
+    <link href="{% static 'assets/images/seal.png' %}" rel="icon" type="image/png">
+</head>
+
+<style>
+/* Report Page Container */
+
+
+@page {
+    size: A4 landscape;
+    margin: 5mm;
+}
+
+body {
+    padding-top: 70px; 
+}
+.custom-center {
+    text-align: center; /* Center the text */
+    margin-left: auto; /* Center horizontally */
+    margin-right: auto; /* Center horizontally */
+    flex-grow: 1; /* Allow the div to grow in a flex container */
+}
+
+.quarter {
+    margin: 0 auto; /* Center the div in its container */
+    padding: 0; /* Remove any default padding */
+}
+
+.custom-h1 {
+    font-size: 20px; /* Equivalent to Bootstrap's h1 */
+    margin-top: 10px; /* Adjust top margin */
+    margin-bottom: 5px; /* Adjust bottom margin */
+}
+
+.custom-h2 {
+    font-size: 18px; /* Equivalent to Bootstrap's h2 */
+    margin: 0; /* Remove default margins */
+}
+
+.custom-h3 {
+    font-size: 18px; /* Equivalent to Bootstrap's h3 */
+    margin: 0; /* Remove default margins */
+}
+
+
+.grey th{
+    background-color: yellow;
+}
+.grey {
+    background-color: yellow;
+}
+
+
+.grey td {
+    color: black;
+    font-weight: bold;
+}
+
+.quarter {
+    margin-left: 200px;
+}
+
+.input-group {
+    max-width: 300px; /* Adjust width as needed */
+    margin: 0 auto; /* Center the dropdown */
+}
+
+.select-width {
+    max-width: 220px; /* Set the maximum width for the select dropdown */
+}
+
+.form-select {
+    width: 100%; /* Make the select fill the width of its parent */
+    border-radius: 0.375rem; /* Rounded corners */
+    border: 1px solid #ced4da; /* Custom border color */
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out; /* Smooth transition */
+}
+
+.form-select:focus {
+    border-color: #007bff; /* Highlight on focus */
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25); /* Focus shadow */
+}
+
+.input-group-text {
+    background-color: #007bff; /* Button color */
+    color: white; /* Icon color */
+    border: none; /* Remove border */
+    border-radius: 0; /* Match dropdown's border */
+}
+
+.input-group-text i {
+    font-size: 1.2rem; /* Icon size */
+}
+
+
+.text-end a {
+    transition: background-color 0.3s, transform 0.3s;
+    font-size: 0.875rem; /* Slightly smaller font */
+    padding: 0.25rem 0.5rem; /* Reduced padding */
+}
+
+.text-end a:hover {
+    transform: scale(1.05);
+}
+
+.text-end .btn-danger {
+    background-color: #dc3545; /* Red color */
+    border: none;
+    padding: 0.25rem 0.5rem; /* Reduced padding */
+    font-size: 0.875rem; /* Slightly smaller font */
+}
+
+.text-end .btn-danger:hover {
+    background-color: #c82333; /* Darker red on hover */
+}
+
+.text-end .btn-success {
+    background-color: #28a745; /* Green color */
+    border: none;
+    padding: 0.25rem 0.5rem; /* Reduced padding */
+    font-size: 0.875rem; /* Slightly smaller font */
+}
+
+.text-end .btn-success:hover {
+    background-color: #218838; /* Darker green on hover */
+}
+
+/* Add table border styling here */
+table {
+    width: 100%; /* Ensure the table spans the full width */
+    border-collapse: collapse; /* Ensure borders are collapsed */
+    border: 2px solid black; /* Border around the entire table */
+    
+}
+
+/* Style for table headers (th) */
+th {
+    border: 2px solid black; /* Border around each header */
+    padding: 8px; /* Add padding to the cells */
+    text-align: center; /* Align text to center */
+    background-color: #f8f9fa; /* Light background color for headers */
+}
+
+/* Style for table data (td) */
+td {
+    border: 1px solid black; /* Border around each cell */
+    padding: 8px; /* Add padding to the cells */
+    text-align: center; /* Align text to center */
+}
+
+.signature-section {
+    text-align: center;
+}
+
+.signature-line {
+    margin-top: 5px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid black;
+    width: 300px; /* Adjust width as needed */
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.signature-name {
+    font-weight: bold;
+    margin-top: -25px; /* Keeps it close to the line */
+}
+
+.signature-title {
+    margin-top: -10px; /* Adjusts spacing below the signature */
+}
+
+
+</style>
+<body>
+    <!-- report_pdf.html -->
+    <div class="container mt-4 mb-4">
+        <div class="d-flex justify-content-start align-items-start mb-4"> <!-- Logo on the left, text centered -->
+            <div class="d-flex align-items-center">
+                {% if logo_url %}
+                    <img src="{% static logo_url %}" alt="Logo" style="height: 150px; margin-right: 20px;">
+                {% endif %}
             </div>
+            <!-- Adjusted the text container to be centered -->
+            <div class="custom-center quarter">
+                <h1 class="custom-h1">MUNICIPAL REPORT FORM ON ANIMAL BITE/HUMAN RABIES CASES</h1>
+                <h2 class="custom-h2">Municipality of {{ municipality_name }}</h2>
+                <h3 class="custom-h3">
+                    <u>
+                        {{ selected_quarter }}{% if selected_quarter == '1' %}st{% elif selected_quarter == '2' %}nd{% elif selected_quarter == '3' %}rd{% elif selected_quarter == '4' %}th{% endif %} Quarter 2024
+                    </u>
+                </h3>
+            </div>            
         </div>
-    </div>    
-    <!-- Table area -->
-    <table border="2">
-        <thead>
-            <tr>
-                <th rowspan="4">{% if user.is_superuser %}ABTC{% else %}Barangay{% endif %}</th>
-                <th colspan="15">Human Case</th>
-                <th colspan="4" rowspan="3">Biting Animals</th>
-                <th colspan="2" rowspan="3">PEP Coverage</th>
-                <th colspan="2" rowspan="3">Vaccination Status of Biting Animal</th>
-            </tr>
-            <tr>
-                <th colspan="3" rowspan="2">SEX</th>
-                <th colspan="3" rowspan="2">AGE</th>
-                <th colspan="5">Animal Bite</th>
-                <th rowspan="2">HR</th>
-                <th colspan="3" rowspan="2">Post Exposure Prophylaxis</th>
-            </tr>
-            <tr>
-                <th colspan="3">By Category</th>
-            </tr>
-            <tr>
-                <th>Male</th>
-                <th>Female</th>
-                <th>Total</th>
-                <th>≤15</th>
-                <th>≥16</th>
-                <th>Total</th>
-                <th>I</th>
-                <th>II</th>
-                <th>III</th>
-                <th>Total</th>
-                <th>Total</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for row in data %}
+        <!-- Table area -->
+        <table class="">
+            <thead>
                 <tr>
-                    <td>{{ row.barangay }}</td>
-                    <td>{{ row.data_male }}</td>
-                    <td>{{ row.data_female }}</td>
-                    <td>{{ row.data_male + row.data_female }}</td>
-                    <td>{{ row.age_15_below }}</td>
-                    <td>{{ row.age_above_15 }}</td>
-                    <td>{{ row.age_15_below + row.age_above_15 }}</td>
-                    <td>{{ row.total_animal_bite_I }}</td>
-                    <td>{{ row.total_animal_bite_II }}</td>
-                    <td>{{ row.total_animal_bite_III }}</td>
-                    <td>{{ row.total_animal_bite_I + row.total_animal_bite_II + row.total_animal_bite_III }}</td>
-                    <td>{{ row.total_tcv_given }}</td>
-                    <td>{{ row.total_hrig_given }}</td>
-                    <td>{{ row.total_erig_given }}</td>
-                    <td>{{ row.total_dog_bites }}</td>
-                    <td>{{ row.total_cat_bites }}</td>
-                    <td>{{ row.total_other_bites }}</td>
-                    <td>{{ row.immunized_count }}</td>
-                    <td>{{ row.unimmunized_count }}</td>
-                    <td>{{ row.human_rabies_count }}</td>
+                    <th rowspan="4">{{ table }}</th>
+                    <th colspan="15">Human Case</th>
+                    <th colspan="4" rowspan="3">Biting Animals</th>
+                    <th colspan="2" rowspan="3">PEP Coverage</th>
+                    <th colspan="2" rowspan="3">Vaccination Status of Biting Animal</th>
                 </tr>
-            {% endfor %}
-        </tbody>
-        <tfoot>
-            <tr>
-                <th>Total</th>
-                <td>{{ total_male }}</td>
-                <td>{{ total_female }}</td>
-                <td>{{ total_male + total_female }}</td>
-                <td>{{ total_age_15_below }}</td>
-                <td>{{ total_age_above_15 }}</td>
-                <td>{{ total_age_15_below + total_age_above_15 }}</td>
-                <td>{{ total_animal_bite_I }}</td>
-                <td>{{ total_animal_bite_II }}</td>
-                <td>{{ total_animal_bite_III }}</td>
-                <td>{{ total_animal_bite_I + total_animal_bite_II + total_animal_bite_III }}</td>
-                <td>{{ total_tcv_given }}</td>
-                <td>{{ total_hrig_given }}</td>
-                <td>{{ total_erig_given }}</td>
-                <td>{{ total_dog_bites }}</td>
-                <td>{{ total_cat_bites }}</td>
-                <td>{{ total_other_bites }}</td>
-                <td>{{ total_immunized }}</td>
-                <td>{{ total_unimmunized }}</td>
-                <td>{{ total_human_rabies }}</td>
-            </tr>
-        </tfoot>
-    </table>
-</div>
+                <tr>
+                    <th colspan="3" rowspan="2">SEX</th>
+                    <th colspan="3" rowspan="2">AGE</th>
+                    <th colspan="5">Animal Bite</th>
+                    <th rowspan="2">HR</th>
+                    <th colspan="3" rowspan="2">Post Exposure Prophylaxis</th>
+                </tr>
+                <tr>
+                    <th colspan="3">By Category</th>
+                    <th rowspan="2">Total</th>
+                    <th rowspan="2">%/Total</th>
+                </tr>
+                <tr>
+                    <th>M</th>
+                    <th>F</th>
+                    <th>Total</th>
+                    <th>&lt;=15</th>
+                    <th>&gt;15</th>
+                    <th>Total</th>
+                    <th>I</th>
+                    <th>II</th>
+                    <th>III</th>
+                    <th>No.</th>
+                    <th>TCV</th>
+                    <th>HRIG</th>
+                    <th>ERIG</th>
+                    <th>D</th>
+                    <th>C</th>
+                    <th>O</th>
+                    <th>Total</th>
+                    <th>%TCV</th>
+                    <th>%ERIG</th>
+                    <th>Yes</th>
+                    <th>No</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in data %}
+                <tr>
+                    <th>{{ entry.barangay }}</th>
+                    <td>{{ entry.data_male }}</td> 
+                    <td>{{ entry.data_female }}</td> 
+                    <td>{{ entry.data_total }}</td> 
+                    <td>{{ entry.age_15_below }}</td> 
+                    <td>{{ entry.age_above_15 }}</td> 
+                    <td>{{ entry.age_total }}</td> 
+                    <td>{{ entry.total_animal_bite_I }}</td> 
+                    <td>{{ entry.total_animal_bite_II }}</td> 
+                    <td>{{ entry.total_animal_bite_III }}</td>
+                    <td>{{ entry.total_animal }}</td>
+                    <td>{{ entry.percent_total }}%</td>
+                    <td>{{ entry.human_rabies_count }}</td>
+                    <td>{{ entry.total_tcv_given }}</td>
+                    <td>{{ entry.total_hrig_given }}</td>
+                    <td>{{ entry.total_erig_given }}</td>
+                    <td>{{ entry.total_dog_bites }}</td>
+                    <td>{{ entry.total_cat_bites }}</td>
+                    <td>{{ entry.total_other_bites }}</td>
+                    <td>{{ entry.total_animal_bites }}</td>
+                    <td>{{ entry.percent_tcv  }}%</td>
+                    <td>{{ entry.percent_erig  }}%</td>
+                    <td>{{ entry.immunized_count }}</td>
+                    <td>{{ entry.unimmunized_count }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="grey">
+                    <th>Total</th>
+                    <td>{{ total_male }}</td> 
+                    <td>{{ total_female }}</td> 
+                    <td>{{ total_all }}</td> 
+                    <td>{{ total_age_15_below }}</td> 
+                    <td>{{ total_age_above_15 }}</td> 
+                    <td>{{ total_age_15_below|add:total_age_above_15 }}</td>
+                    <td>{{ total_animal_bite_I }}</td> 
+                    <td>{{ total_animal_bite_II }}</td> 
+                    <td>{{ total_animal_bite_III }}</td>
+                    <td>{{ total_all }}</td> 
+                    <td>{{ total_percent }}%</td>
+                    <td>{{ total_human_rabies }}</td>
+                    <td>{{ total_tcv_given }}</td>
+                    <td>{{ total_hrig_given }}</td>
+                    <td>{{ total_rig_given }}</td>
+                    <td>{{ total_dog_bites }}</td>
+                    <td>{{ total_cat_bites }}</td>
+                    <td>{{ total_other_bites }}</td>
+                    <td>{{ total_dog_bites|add:total_cat_bites|add:total_other_bites }}</td>
+                    <td>{{ total_tcv_percent }}%</td>
+                    <td>{{ total_erig_percent }}%</td>
+                    <td>{{ total_immunized }}</td>
+                    <td>{{ total_unimmunized }}</td>
+                </tr>
+                <tr>
+                    <th>%</th>
+                    <td>{{ male_percentage }}%</td>
+                    <td>{{ female_percentage }}%</td>
+                    <td>{{ total_sex_percentage }}%</td> <!-- You can leave this blank or add total percentage if needed -->
+                    <td>{{ age_15_below_percentage }}%</td>
+                    <td>{{ age_above_15_percentage }}%</td>
+                    <td>{{ total_age_percentage }}%</td>
+                    <td>{{ total_animal_bite_I_percentage }}%</td>
+                    <td>{{ total_animal_bite_II_percentage }}%</td>
+                    <td>{{ total_animal_bite_III_percentage }}%</td>
+                    <td>{{ total_category_percentage }}%</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>{{ dog_bite_percentage }}%</td>
+                    <td>{{ cat_bite_percentage }}%</td>
+                    <td>{{ other_bite_percentage }}%</td>
+                    <td>{{ total_animal_type_percentage }}%</td>
+                    <td></td>
+                    <td></td>
+                    <td>{{ immunized_percentage }}%</td>
+                    <td>{{ unimmunized_percentage }}%</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="signature-section mt-5 text-center">
+            <p>Prepared by:</p>
+            <div class="signature-line">
+                <span class="signature-name">
+                    {{ full_name }}
+                </span>
+            </div>
+            <p class="signature-title">Municipality Report</p>
+        </div>   
+    </div>
+</body>
+</html>

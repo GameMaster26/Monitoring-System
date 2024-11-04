@@ -1,7 +1,7 @@
 JAZZMIN_SETTINGS = {
 
     # title of the window (Will default to current_admin_site.site_title if absent or None)
-    "site_title": "Animal Bite Center",
+    "site_title": "Animal Bite and Rabies Treatment",
 
     # Title on the login screen (19 chars max) (defaults to current_admin_site.site_header if absent or None)
     "site_header": "Library",
@@ -100,6 +100,9 @@ JAZZMIN_SETTINGS = {
         "monitoring.municipality",
         "monitoring.barangay", 
         "monitoring.patient" ,
+        "monitoring.history" ,
+        "monitoring.treatment",
+        "monitoring.doctor",
         "users", 
         "auth",
     ],
@@ -124,6 +127,7 @@ JAZZMIN_SETTINGS = {
         "monitoring.patient":"fa fa-user-injured", 
         "monitoring.history":"fa fa-clipboard",
         "monitoring.treatment":"fa fa-syringe",
+        "monitoring.doctor": "fa fa-user-md", 
         "monitoring.barangay":"fa fa-landmark",
         "monitoring.municipality":"fa fa-city",
     },
@@ -159,7 +163,7 @@ JAZZMIN_SETTINGS = {
     # - carousel
         "changeform_format": "carousel",
     # override change forms on a per modeladmin basis
-    "changeform_format_overrides": {"auth.user": "single", "auth.group": "vertical_tabs"},     
+    "changeform_format_overrides": {"auth.user": "single",  "auth.group": "vertical_tabs"},     
 }
 
 JAZZMIN_UI_TWEAKS = {

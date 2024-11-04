@@ -11,26 +11,23 @@
     <meta name="author" content="">
     <title>{% block title%} {% endblock %}</title>
     <link href="{% static 'assets/images/seal.png' %}" rel="icon" type="image/png">
-
+    
     <!-- Custom styles for this template-->
     <link href="{% static 'strap/css/sb-admin-2.min.css' %}" rel="stylesheet">
 
     <!-- style for mapping -->
-    <link rel="stylesheet" href="{% static 'leaflet/css/map.css' %}">
-    <link rel="stylesheet" href="{% static 'leaflet/css/total_cases.css' %}">
+    <!-- <link rel="stylesheet" href="{% static 'leaflet/css/total_cases.css' %}"> -->
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 
     <!-- Custom fonts for this template-->
     <link href="{% static 'vendor/fontawesome-free/css/all.min.css' %}" rel="stylesheet" type="text/css">
     <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
-
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
     <!-- Leaflet Gesture Handling CSS -->
     <link rel="stylesheet" href="//unpkg.com/leaflet-gesture-handling/dist/leaflet-gesture-handling.min.css" type="text/css">
-    <script src="//unpkg.com/leaflet-gesture-handling"></script>
-     
     {% block style %}
     <link rel="stylesheet" href="{% static 'leaflet/css/base.css' %}">
     
@@ -38,218 +35,27 @@
 
     
 </head>
-<body id="page-top"></body>
+<body>
 {% include 'partials/_indexnav.html' %}
-    <div id="wrapper">   
-        <div id="content-wrapper" class="d-flex flex-column">
-            <div id="content">
-                
-                <div class="container-fluid" id="nav-up">
-                    <div class="row">
-                        <!-- Display the total Patients -->
-                        <div class="col-xl-3 col-md-6 mb-4">
-                            <a href="javascript:void(0);" id="scrollToWeeklyCases" style="text-decoration: none;">
-                                <div class="card border-left-primary h-100 py-2">
-                                    <div class="card-body">
-                                        <div class="row no-gutters align-items-center">
-                                            <div class="col mr-2">
-                                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                                    Total Patient Cases</div>
-                                                <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_history }}</div>
-                                            </div>
-                                            <div class="col-auto">
-                                                <i class="fas fa-users fa-3x text-900"></i>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </a>
-                        </div>
-                        <!-- Display Municipality Name and Counts -->
-                        <div class="col-xl-3 col-md-6 mb-4">
-                            <a href="javascript:void(0);" id="scrollToMunicipality" style="text-decoration: none;">
-                                <div class="card border-left-success h-100 py-2">
-                                    <div class="card-body">
-                                        <div class="row no-gutters align-items-center">
-                                            <div class="col mr-2">
-                                                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                                    Most Municipality of Exposure</div>
-                                                <div class="h5 mb-0 font-weight-bold text-gray-800 text-success">
-                                                    {{ municipality.muni_id__muni_name }} ({{ municipality.count }} cases)
-                                                </div>
-                                            </div>
-                                            <div class="col-auto">
-                                                <i class="fas fa-map-marker-alt fa-3x text-900 text-success low-opacity"></i>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </a>
-                        </div>
-                        
-                        <!-- Display Sex Name and Counts -->
-                        <div class="col-xl-3 col-md-6 mb-4">
-                            <a href="javascript:void(0);"  id="scrollToGender"  style="text-decoration: none;">
-                                <div class="card border-left-info  h-100 py-2">
-                                    <div class="card-body">
-                                        <div class="row no-gutters align-items-center">
-    
-                                            <div class="col mr-2">
-                                                {% if gender_counts.sex %}
-                                                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
-                                                    Most Frequent Sex
-                                                </div>
-                                                <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                                    {{ gender_counts.sex|capfirst }} ({{ gender_counts.count }} cases)
-                                                </div>
-                                                {% else %}
-                                                <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                                    No data available
-                                                </div>
-                                                {% endif %}
-                                                </div>
-                                            <div class="col-auto">
-                                                {% if gender_counts.sex == "male" %}
-                                                    <i class="fas fa-male fa-3x text-300 text-info low-opacity"></i> <!-- Use male icon -->
-                                                {% elif gender_counts.sex == "female" %}
-                                                    <i class="fas fa-female fa-3x text-300 text-info low-opacity"></i> <!-- Use female icon -->
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </a>
-                        </div>
-                        
-                        <!-- Display the Animal that bites frequently -->
-                        <div class="col-xl-3 col-md-6 mb-4">
-                            <a href="javascript:void(0);" id="scrollToAnimal" style="text-decoration: none;">
-                                <div class="card border-left-danger h-100 py-2">
-                                    <div class="card-body">
-                                        <div class="row no-gutters align-items-center">
-                                            <div class="col mr-2">
-                                                <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
-                                                    Most Frequent Animal Involved
-                                                </div>
-                                                <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                                    {% if most_cases_animal %}
-                                                        {{ most_cases_animal.source_of_exposure }} ({{ most_cases_animal.count }} cases)
-                                                    {% else %}
-                                                        No data available
-                                                    {% endif %}
-                                                </div>
-                                            </div>
-                                            <div class="col-auto">
-                                                {% if most_cases_animal %}
-                                                    {% if most_cases_animal.source_of_exposure == 'Dog' %}
-                                                        <i class="fas fa-dog fa-3x text-900 text-danger low-opacity"></i>
-                                                    {% elif most_cases_animal.source_of_exposure == 'Cat' %}
-                                                        <i class="fas fa-cat fa-3x text-900 text-danger low-opacity"></i>
-                                                    {% else %}
-                                                        <i class="fas fa-question-circle fa-3x text-900 text-danger low-opacity"></i>
-                                                    {% endif %}
-                                                {% else %}
-                                                    <i class="fas fa-question-circle fa-3x text-900 text-danger low-opacity"></i>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                <!-- /.container-fluid -->
-            </div>
-            <!-- End of Main Content -->
-        </div>
-        <!-- End of Content Wrapper -->
-    </div>
-    <!-- End of Page Wrapper -->
 
-    <div class="container-fluid mt-2">
+    {% block choro %}
+    {% endblock %}
+
+    {% block wrapper %}
+    
+    {% endblock %}
+
+    
         {% block content %}
         {% endblock %}
-    </div>
-    <!-- <div class="container-fluid mt-2">
-        <div class="col-md-12 col-sm-12">
-            <div id="choropleth" style="height: 500px; width: 100%;"></div>
-        </div>
-    </div> -->
-
-    <div class="container-fluid mt-5">
+    
+    
         {% block chart %}
         {% endblock %}
-    </div>
     
-    <footer class="shadow py-4 mt-4">
-        <div class="footer-top">
-            <div class="container">
-                <!-- Province of Biliran Section with Green Background and Underline -->
-                <div class="text-center mb-3" style="background-color: green;">
-                    <h5 class="font-weight-bold text-white" style="text-decoration: underline;">Province of Biliran</h5>
-                    <h6 class="text-white">Animal Bite Treatment Center (ABTC)</h6>
-                    <h6 class="text-white">CLINIC SCHEDULE</h6>
-                </div>
-        
-                <div class="row">
-                    <div class="col-12">
-                        <!-- Table with Red Header Background -->
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-responsive table-striped text-center">
-                                <thead style="background-color: red; color: white;">
-                                    <tr>
-                                        <th>ABTC</th>
-                                        <th>ADDRESS</th>
-                                        <th>SCHEDULE</th>
-                                        <th>CONTACT PERSON</th>
-                                        <th>HOTLINE NUMBER</th>
-                                    </tr>
-                                </thead>
-                                <tbody style="color: black;">
-                                    <tr>
-                                        <td class="font-weight-bold">Caibiran</td>
-                                        <td>RHU Caibiran,<br> Brgy. Palenque, Caibiran</td>
-                                        <td class="font-weight-bold">Monday and Thursday</td>
-                                        <td>Ms. Famela Verana</td>
-                                        <td>0917-124-8588</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="font-weight-bold">Maripipi</td>
-                                        <td>RHU Maripipi,<br>Brgy. Ermita, Maripipi, Biliran</td>
-                                        <td class="font-weight-bold">Monday and Thursday</td>
-                                        <td>Mr. Sidney Gutierrez</td>
-                                        <td>0927-602-407</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="font-weight-bold">Kawayan</td>
-                                        <td>RHU Kawayan,<br>Brgy.Poblacion,Kawayan,Biliran</td>
-                                        <td class="font-weight-bold">Tuesday and Friday</td>
-                                        <td>Ms. Ma. Queena Lynn Gonzales</td>
-                                        <td>0915-490-2732</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="font-weight-bold">Biliran Province Hospital</td>
-                                        <td>Biliran Province Hospital, <br>Castin St, Naval, Biliran</td>
-                                        <td class="font-weight-bold">Wednesday and Saturday</td>
-                                        <td>Ms. Melissa Astillo <br> Ms. Janice C. Horca</td>
-                                        <td>0915-490-2732</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-        
-                <div class="text-center mt-3">
-                    <p class="mb-0">For any inquiries, please contact the hotline numbers provided above.</p>
-                </div>
-            </div>
-        </div>
-    </footer>
-    <a href="#page-top" class="back-to-top" id="back-to-top">
-        <i class="fas fa-arrow-up"></i>
-    </a>
+    {% block footer %}
+    {% endblock %}
+    
 
     
     
@@ -258,9 +64,6 @@
     <script src="{% static 'leaflet/js/backToTop.js' %}"></script>
     {% endblock %}
 
-    <script>
-        console.log('{{ choropleth_data|escapejs }}');  // For debugging
-    </script>
     <script src="{% static 'leaflet/js/casesPerMuni.js' %}"></script>
     <script id="choropleth-map-data" type="application/json">{{ choropleth_data|safe }}</script>
    <!--  <script src="{% static 'assets/js/distribution.js'  %}"></script> -->
@@ -271,18 +74,19 @@
     <script src="https://unpkg.com/leaflet-gesture-handling/dist/leaflet-gesture-handling.js"></script>
     
     
-    <script src="{% static 'leaflet/js/choropleth.js' %}"></script>
-    <script src="{% static 'leaflet/js/barangay_boundaries.js' %}"></script>
-    <script src="{% static 'leaflet/js/main.js' %}"></script>
+    <!-- <script src="{% static 'leaflet/js/choropleth.js' %}"></script>
+    <script src="{% static 'leaflet/js/barangay_boundaries.js' %}"></script> -->
+    <!-- <script src="{% static 'leaflet/js/main.js' %}"></script> -->
 
     <!-- leaflet heat plugin -->
     <script src="{% static 'leaflet/js/leaflet-heat.js' %}"></script>
     <script src="{% static 'leaflet/js/simpleheat.js' %}"></script>
     <!-- <script id="heatmap-data" type="application/json">{{ heatmap_data|json_script:"heatmap-data" }}</script>
     <script id="address-points" type="application/json">{{ address_points|json_script:"address-points" }}</script> -->
-
+    
 
     <!-- Bootstrap core JavaScript-->
+     
     <script src="{% static 'strap/vendor/jquery/jquery.min.js' %}"></script>
     <script src="{% static 'strap/vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
 
@@ -291,6 +95,5 @@
     
 
 </body>
-
 </html>
 

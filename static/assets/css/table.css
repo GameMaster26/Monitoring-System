@@ -58,10 +58,13 @@ th {
     border: none; /* Remove all borders from th */
 }
 td {
-    padding: 8px;
+    padding: 8px;   
 }
+
 tbody th, tbody td {
     border: none; /* Ensure no border for cells in tbody */
+    /* font-size: 16px !important; */
+    
 }
 .total-patients {
     color: red; /* Set color to red for total patients */

@@ -18,15 +18,18 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path,include
-from monitoring.views import overview,choro,reports,tables,download
+from monitoring.views import overview,choro,reports,tables,download,logout,cohort,download_report_pdf,pdf_report_create
 #from monitoring.admin import custom_admin_site
 
 urlpatterns = [
     path('admin/overview/', overview, name='overview'),
     path('admin/overview/choropleth_map/', choro, name='choro'),
     path('admin/overview/reports/', reports, name='reports'),
+    #path('admin/overview/download_report_pdf/', pdf_report_create, name='download_report_pdf'),
     path('admin/overview/tables/', tables, name='tables'),
-    path('admin/overview/download/', download, name='download'),
+    path('admin/overview/masterlist/', download, name='download'),
+    path('admin/overview/cohort/', cohort, name='cohort'),
+    path('admin/logout/',logout,name="logout"),
     path('admin/', admin.site.urls),
 
     path('',include('monitoring.urls')),

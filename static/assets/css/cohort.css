@@ -1,0 +1,54 @@
+body {
+    padding-top: 75px ; 
+}
+table{
+    margin-top: 10px !important;
+}
+
+.signature-section {
+    text-align: center;
+}
+
+.signature-line {
+    margin-top: 5px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid black;
+    width: 300px; /* Adjust width as needed */
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.signature-name {
+    font-weight: bold;
+    margin-top: -25px; /* Keeps it close to the line */
+}
+
+.signature-title {
+    margin-top: -10px; /* Adjusts spacing below the signature */
+}
+
+
+.quarter {
+    margin-left: 200px;
+}
+
+.input-group {
+    max-width: 300px; /* Adjust width as needed */
+    margin: 0 auto; /* Center the dropdown */
+}
+
+.select-width {
+    max-width: 220px; /* Set the maximum width for the select dropdown */
+}
+
+.form-select {
+    width: 100%; /* Make the select fill the width of its parent */
+    border-radius: 0.375rem; /* Rounded corners */
+    border: 1px solid #ced4da; /* Custom border color */
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out; /* Smooth transition */
+}
+
+.form-select:focus {
+    border-color: #007bff; /* Highlight on focus */
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25); /* Focus shadow */
+}

@@ -8,6 +8,10 @@ Overview
 
 
 {% block style %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<!-- Leaflet Gesture Handling CSS -->
+<link rel="stylesheet" href="//unpkg.com/leaflet-gesture-handling/dist/leaflet-gesture-handling.min.css" type="text/css">
+
 <link rel="stylesheet" href="{% static 'assets/css/overview.css' %}">
 {% endblock %}
 
@@ -15,10 +19,7 @@ Overview
 {% block content %}
 
 {% include 'partials/_navlink.html' %}
-
-
-        <!-- Filter Section (Left Side) -->
-        <div class="col-md-3">
+<div class="col-md-3">
             <div id="filterContainer">
                 <h5>Filter Data</h5>
                 <form id="filterForm">
@@ -35,81 +36,69 @@ Overview
                     </div>
                 </form>
             </div>
-        </div>
-             
-        <!-- Map Section (Right Side) -->
-        <div class="col-md-9 mb-4">
+</div>   
+
+<div class="col-md-9 mb-4">
             <div id="mama-container">
                 <div id="mama"></div>
             </div>
-        </div>
-<!-- Row for the download of muni, patients, and animals -->
-<div class="row d-flex">
-    <!-- Municipality Chart -->
-    <div class="card mb-4 col-xl-6 col-lg-6 d-flex flex-column" id="municipalityDownload">
-        <!-- Card Header -->
-        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-            <h6 class="m-0 font-weight-bold text-primary">Distribution of Municipality</h6>
-        </div>
-        <!-- Card Body -->
-        <div class="card-body muni-body">
-            <div class="chart-area">
-                <canvas id="municipalityChart"></canvas>      
+</div>
+{% endblock %}
+
+{% block chart %}
+<div class="container-fluid mt-2">
+    <div class="row">
+        <div class="d-flex">
+            <div class="card mb-4 col-xl-6 col-lg-6 d-flex flex-column" id="municipalityDownload">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Distribution of Municipality</h6>
+                </div>
+                <div class="card-body muni-body">
+                    <div class="chart-area">
+                        <canvas id="municipalityChart"></canvas>      
+                    </div>
+                </div>
+                <div class="card-footer d-flex justify-content-end">
+                    <button class="btn btn-outline-danger btn-sm mr-2" id="downloadMunicipalityPDF">Download PDF</button>
+                </div>
             </div>
-        </div>
-        <!-- Download buttons moved to the bottom -->
-        <div class="card-footer d-flex justify-content-end">
-            <button class="btn btn-primary btn-sm mr-2" id="downloadMunicipalityPDF">Download PDF</button>
-            <button class="btn btn-success btn-sm" id="downloadMunicipalityExcel">Download Excel</button>
-        </div>
-    </div>
 
-    <!-- Patients and Animals Chart -->
-    <div class="card mb-2 col-xl-6 col-lg-6 d-flex flex-column">
-        <!-- Card Header -->
-        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-            <h6 class="m-0 font-weight-bold text-primary">Distribution of Patients and Animals</h6>
-        </div>
-        <!-- Card Body -->
-        <div class="card-body mt-4 mb-4 d-flex flex-column" id="scrollGender">
-            <div class="row justify-content-center flex-grow-1">
-                <!-- Sex Distribution Section -->
-                <div class="col-md-6 d-flex flex-column align-items-center border-right">
-                    <h6 class="text-center text-primary">Sex Distribution</h6>
-                    <canvas id="genderChart"></canvas>
+            <div class="card mb-2 col-xl-6 col-lg-6 d-flex flex-column">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Distribution of Patients and Animals</h6>
                 </div>
+                <div class="card-body mt-4 mb-4 d-flex flex-column" id="scrollGender">
+                    <div class="row justify-content-center flex-grow-1">
+                        <div class="col-md-6 d-flex flex-column align-items-center border-right">
+                            <h6 class="text-center text-primary">Sex Distribution</h6>
+                            <canvas id="genderChart"></canvas>
+                        </div>
 
-                <!-- Animal Source of Exposure Section -->
-                <div class="col-md-6 d-flex flex-column align-items-center" id="scrollAnimal">
-                    <h6 class="text-center text-primary">Animal Source of Exposure</h6>
-                    <canvas id="animalChart"></canvas>
+                        <div class="col-md-6 d-flex flex-column align-items-center" id="scrollAnimal">
+                            <h6 class="text-center text-primary">Animal Source of Exposure</h6>
+                            <canvas id="animalChart"></canvas>
+                        </div>
+                    </div>  
                 </div>
-            </div>  
-        </div>
-        <!-- Download buttons for both Sex Distribution and Animal Source moved to the bottom -->
-        <div class="card-footer d-flex justify-content-end">
-            <button class="btn btn-primary btn-sm mr-2" id="downloadGenderPDF">Download Sex PDF</button>
-            <button class="btn btn-success btn-sm mr-2" id="downloadGenderExcel">Download Sex Excel</button>
-            <button class="btn btn-primary btn-sm mr-2" id="downloadAnimalPDF">Download Animal PDF</button>
-            <button class="btn btn-success btn-sm" id="downloadAnimalExcel">Download Animal Excel</button>
+                <div class="card-footer d-flex justify-content-end">
+                    <button class="btn btn-outline-danger btn-sm mr-2" id="downloadGenderPDF">Download Sex PDF</button>
+                    <button class="btn btn-outline-danger btn-sm mr-2" id="downloadAnimalPDF">Download Animal PDF</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-<hr class="mt-5 mb-5" style="color: blue    ;">
 
-
+<hr class="mt-5 mb-5" style="color: blue;">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-<!-- <script src="{% static 'assets/js/distribution.js' %}"></script> -->
- 
 
 <!-- Pass the heatmap data to the map.js -->
 <div id="total-cases-data" data-total-cases="{{ total_cases|default:'0' }}"></div>
 <div id="total-rabies-data" data-rabies-cases="{{ total_rabies_cases|default:'0' }}"></div>
 <script id="heatmap-data" type="application/json">{{ heatmap_data|safe }}</script>
 <script id="rabies-heatmap-data" type="application/json">{{ rabies_heatmap_data|safe }}</script>
-<!-- <script src="{% static 'assets/js/map.js' %}"></script> -->
 <script>
     window.onload = init;
     
@@ -151,221 +140,13 @@ Overview
     }
 </script>
 
-
-
-<script>
-    //Cases per Municipality
-    var ctx = document.getElementById('municipalityChart').getContext('2d');
-    var muni = {{ municipalities|safe }};
-    var countMuni = {{ municipality_case_counts|safe }};
-    var totalCasesPerMuni = countMuni.reduce((acc, val) => acc + val, 0); // Calculate total cases
-
-    // Define intensity colors from low to high
-    var intensityColors = [
-        '#6DA9FF', // Medium-light blue
-        '#6DA9FF', // Medium-light blue
-        '#3399FF', // Medium blue
-        '#3399FF', // Medium blue
-        '#007BFF', // Primary blue (Bootstrap primary)
-        '#007BFF', // Primary blue (Bootstrap primary)
-        '#0069D9', // Dark blue
-        '#0069D9', // Dark blue
-        '#0056B3', // Darker blue
-        '#0056B3', // Darker blue
-        '#004085',  // Darkest blue
-        '#004085',  // Darkest blue
-
-        
-
-    ];
-
-    // Function to map intensity based on the count of cases
-    function getMuniColorByCases(count) {
-        if (count < 50) {
-            return intensityColors[0]; // Very light grey for low counts
-        } else if (count < 100) {
-            return intensityColors[1];
-        } else if (count < 200) {
-            return intensityColors[2];
-        } else if (count < 300) {
-            return intensityColors[3];
-        } else if (count < 400) {
-            return intensityColors[4];
-        } else if (count < 500) {
-            return intensityColors[5];
-        } else {
-            return intensityColors[6]; // Darker grey for high counts
-        }
-    }
-
-
-
-    // Generate background and border colors based on the number of cases
-    var backgroundColors = countMuni.map(count => getMuniColorByCases(count));
-    var borderColors = backgroundColors; // Border color can match background
-
-    // Chart configuration
-    var municipalityChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: muni,
-            datasets: [{
-                label: 'Number of Cases per Municipality',
-                data: countMuni,
-                backgroundColor: backgroundColors,
-                borderColor: borderColors,
-                borderWidth: 1,
-                borderRadius: 30,
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Municipality'
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Number of Cases'
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    position: 'top'
-                },
-                datalabels: {
-                    formatter: (value) => {
-                        return value;
-                    },
-                    color: '#fff',
-                    font: {
-                        weight: 'bold',
-                        size: 14
-                    }
-                }
-            }
-        },
-        plugins: [ChartDataLabels]
-    });
-
-    // Gender Chart 
-    var ctxGender = document.getElementById('genderChart').getContext('2d');
-    var genderLabels = {{ gen|safe }};
-    var genderData = {{ dataGender|safe }};
-    var totalGenderCases = genderData.reduce((acc, val) => acc + val, 0); // Calculate total cases
-
-    var genderChart = new Chart(ctxGender, {
-        type: 'pie',
-        data: {
-            labels: genderLabels,
-            datasets: [{
-                label: 'Number of Cases',
-                data: genderData,
-                backgroundColor: [
-                    'rgba(54, 162, 235, 1)', // Color for males
-                    'rgba(255, 99, 132, 1)'  // Color for females
-                ],
-                borderColor: [
-                    'rgba(54, 162, 235, 1)',   // Border color for males
-                    'rgba(255, 99, 132, 1)'    // Border color for females
-                ],
-                borderWidth: 1,
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                },
-                datalabels: {
-                    formatter: (value, ctx) => {
-                        let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                        let percentage = (value * 100 / sum).toFixed(2) + "%";
-                        return percentage;
-                    },
-                    color: '#fff',
-                    font: {
-                        weight: 'bold',
-                        size: '14'
-                    }
-                }
-            }
-        },
-        plugins: [ChartDataLabels]
-    });
-
-    // Animal Chart
-    var ctxAnimal = document.getElementById('animalChart').getContext('2d');
-    var animalLabels = {{ animal|safe }};
-    var animalData = {{ dataAnimal|safe }};
-    var totalAnimalCases = animalData.reduce((acc, val) => acc + val, 0); // Calculate total cases
-
-    var animalChart = new Chart(ctxAnimal, {
-        type: 'pie',
-        data: {
-            labels: animalLabels,
-            datasets: [{
-                label: 'Number of Cases',
-                data: animalData,
-                backgroundColor: [
-                    'rgba(255, 165, 0, 1)', 
-                    'rgba(255, 0, 0, 1)',   
-                    'rgba(128, 128, 128, 1)' 
-                ],
-                borderColor: [
-                    'rgba(255, 165, 0, 1)', 
-                    'rgba(255, 0, 0, 1)',  
-                    'rgba(128, 128, 128, 1)' 
-                ],
-                /* backgroundColor: 'rgba(128, 128, 128, 0.6)',
-                borderColor: 'rgba(128, 128, 128, 0.7)', */
-                borderWidth: 1,
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                },
-                datalabels: {
-                    formatter: (value, ctx) => {
-                        let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                        let percentage = (value * 100 / sum).toFixed(2) + "%";
-                        return percentage;
-                    },
-                    color: '#fff',
-                    font: {
-                        weight: 'bold',
-                        size: '14'
-                    }
-                }
-            }
-        },
-        plugins: [ChartDataLabels]
-    });
-
-</script>
-
-
 <div class="container" id="monthlyCasesScroll">
-    <!-- Chart Options Buttons -->
     <div class="row">
         <div class="col-12 d-flex justify-content-between">
-            <!-- New Download Buttons (PDF and Excel) -->
             <div class="btn-group" role="group" aria-label="Download options">
                 <button type="button" class="btn btn-outline-danger" id="downloadPDF">Download PDF</button>
-                <button type="button" class="btn btn-outline-success" id="downloadExcel">Download Excel</button>
             </div>
 
-            <!-- Existing Chart Buttons -->
             <div class="btn-group" role="group" aria-label="Chart options">
                 <button type="button" class="btn btn-outline-primary" id="showWeekly">Weekly</button>
                 <button type="button" class="btn btn-outline-primary" id="showMonthly">Monthly</button>
@@ -375,10 +156,7 @@ Overview
         </div>
     </div>
 
-    <!-- Chart Sections -->
     <div class="row canvaChart">
-        <div class="col-xl-12 col-md-12 mb-3">
-            <!-- Monthly Cases Section -->
             <div class="container card mb-2 chart-container" id="monthlyCasesSection">
                 <div class="card-body">
                     <h2 class="text-primary font-weight-bold">Monthly Cases</h2>
@@ -387,7 +165,6 @@ Overview
                 </div>
             </div>
             
-            <!-- Weekly Cases Section -->
             <div class="container card mb-2 chart-container" id="weeklyCasesSection" style="display: none;">
                 <div class="card-body">
                     <h2 class="text-primary font-weight-bold">Weekly Cases</h2>
@@ -396,7 +173,6 @@ Overview
                 </div>
             </div>
 
-            <!-- Daily Cases Section -->
             <div class="container card mb-2 chart-container" id="dailyCasesSection" style="display: none;">
                 <div class="card-body">
                     <h2 class="font-weight-bold">Daily Cases</h2>
@@ -405,7 +181,6 @@ Overview
                 </div>
             </div>
 
-            <!-- Quarterly Cases Section -->
             <div class="container card mb-2 chart-container" id="quarterlyCasesSection" style="display: none;">
                 <div class="card-body">
                     <h2 class="text-primary font-weight-bold">Quarterly Cases</h2>
@@ -414,7 +189,6 @@ Overview
                 </div>
             </div>
 
-            <!-- Annual Cases Section -->
             <div class="container card mb-2 chart-container" id="annualCasesSection" style="display: none;">
                 <div class="card-body">
                     <h2 class="font-weight-bold">Annual Cases</h2>
@@ -422,402 +196,102 @@ Overview
                     <canvas id="annualCasesChart" class="canvasChart"></canvas>
                 </div>
             </div>
-        </div>
     </div>
 </div>
-
-<script>
-
-//Monthly Cases
-var ctx = document.getElementById('monthlyCasesChart').getContext('2d');
-    var months = {{ months|safe }};
-    var caseCounts = {{ case_counts|safe }};
-    
-
-    var intensityColors = [
-        '#6DA9FF', // Medium-light blue
-        '#6DA9FF', // Medium-light blue
-        '#3399FF', // Medium blue
-        '#3399FF', // Medium blue
-        '#007BFF', // Primary blue (Bootstrap primary)
-        '#007BFF', // Primary blue (Bootstrap primary)
-        '#0069D9', // Dark blue
-        '#0069D9', // Dark blue
-        '#0056B3', // Darker blue
-        '#0056B3', // Darker blue
-        '#004085',  // Darkest blue
-        '#004085',  // Darkest blue
-    ];
-
-    // Function to map intensity based on the count of cases (for monthly cases)
-    function getmonthlyColorByCases(count) {
-        if (count < 50) {
-            return intensityColors[0]; // Very light grey for low counts
-        } else if (count < 100) {
-            return intensityColors[1];
-        } else if (count < 200) {
-            return intensityColors[2];
-        } else if (count < 300) {
-            return intensityColors[3];
-        } else if (count < 400) {
-            return intensityColors[4];
-        } else if (count < 500) {
-            return intensityColors[5];
-        } else {
-            return intensityColors[6]; // Darker grey for high counts
-        }
-    }
-
-    // Generate background and border colors based on the number of monthly cases
-    var backgroundColors = caseCounts.map(count => getmonthlyColorByCases(count));
-    var borderColors = backgroundColors.map(color => color.replace('0.6', '0.7')); // Darker border
-
-
-    var monthlyCasesChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: months,
-            datasets: [{
-                label: 'Monthly Cases',
-                data: caseCounts,
-                /* backgroundColor: backgroundColors,  
-                borderColor: borderColors, */
-                backgroundColor: backgroundColors,
-                borderColor: borderColors,
-                borderWidth: 1,
-                borderRadius: 30,
-                
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Month'
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Number of Cases'
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    position: 'top'
-                },
-                datalabels: {
-                    formatter: (value) => value,
-                    color: '#fff',
-                    font: {
-                        weight: 'bold',
-                        size: 14
-                    }
-                }
-            }
-        },
-        plugins: [ChartDataLabels]
-    });
-
-    // Weekly Cases Chart
-    var ctxWeekly = document.getElementById('weeklyCasesChart').getContext('2d');
-    var weeks = {{ weeks|safe }};
-    var weeklyCounts = {{ weekly_case_counts|safe }};
-
-
-    // Define grey intensity colors for weekly cases
-    var intensityColors = [
-        '#6DA9FF', // Medium-light blue
-        '#6DA9FF', // Medium-light blue
-        '#3399FF', // Medium blue
-        '#3399FF', // Medium blue
-        '#007BFF', // Primary blue (Bootstrap primary)
-        '#007BFF', // Primary blue (Bootstrap primary)
-        '#0069D9', // Dark blue
-        '#0069D9', // Dark blue
-        '#0056B3', // Darker blue
-        '#0056B3', // Darker blue
-        '#004085',  // Darkest blue
-        '#004085',  // Darkest blue
-    ];
-
-    // Function to map intensity based on the count of cases (for weekly cases)
-    function getColorByCases(count) {
-        if (count < 50) {
-            return intensityColors[0]; // Very light grey for low counts
-        } else if (count < 50) {
-            return intensityColors[1];
-        } else if (count < 100) {
-            return intensityColors[2];
-        } else if (count < 200) {
-            return intensityColors[3];
-        } else if (count < 250) {
-            return intensityColors[4];
-        } else if (count < 300) {
-            return intensityColors[5];
-        } else if (count < 350) {
-            return intensityColors[6];
-        } else {
-            return intensityColors[7]; // Darkest grey for high counts
-        }
-    }
-
-    // Generate background and border colors based on the number of weekly cases
-    var backgroundColors = weeklyCounts.map(count => getColorByCases(count));
-    var borderColors = backgroundColors.map(color => color.replace('0.6', '0.7')); // Adjust border opacity if needed
-
-
-
-    var weeklyCasesChart = new Chart(ctxWeekly, {
-        type: 'bar',
-        data: {
-            labels: weeks,
-            datasets: [{
-                label: 'Weekly Cases',
-                data: weeklyCounts,
-                backgroundColor: backgroundColors,
-                borderColor: borderColors,
-                borderWidth: 1,
-                borderRadius: 50,
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Week'
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Number of Cases'
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    position: 'top'
-                },
-                datalabels: {
-                    formatter: (value) => value,
-                    color: '#fff',
-                    font: {
-                        weight: 'bold',
-                        size: 14
-                    }
-                }
-            }
-        },
-        plugins: [ChartDataLabels]
-    });
-
-
-    //Daily Chart
-    var ctxDaily = document.getElementById('dailyCasesChart').getContext('2d');
-    var days = {{ days|safe }};
-    var dailyCounts = {{ daily_case_counts|safe }};
-
-    var dailyCasesChart = new Chart(ctxDaily, {
-        type: 'bar',
-        data: {
-            labels: days,
-            datasets: [{
-                label: 'Daily Cases',
-                data: dailyCounts,
-                backgroundColor: 'rgba(0, 123, 255, 0.6)',
-                borderColor: 'rgba(0, 123, 255, 0.7)',
-                borderWidth: 1,
-                borderRadius: 50,
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Day'
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Number of Cases'
-                    }
-                }
-            },
-            /* plugins: {
-                legend: {
-                    labels: {
-                        color: 'red' // Set the color of the label text to red
-                    }
-                }
-            } */
-        }
-    });
-
-    // Quarterly Cases Chart
-
-var ctxQuarterly = document.getElementById('quarterlyCasesChart').getContext('2d');
-var quarters = {{ quarters|safe }};
-var quarterlyCounts = {{ quarterly_case_counts|safe }};
-
-var quarterlyCasesChart = new Chart(ctxQuarterly, {
-    type: 'bar',
-    data: {
-        labels: quarters,
-        datasets: [{
-            label: 'Quarterly Cases',
-            data: quarterlyCounts,
-            backgroundColor: 'rgba(0, 123, 255, 0.6)',
-            borderColor: 'rgba(0, 123, 255, 0.7)',
-            borderWidth: 1,
-            borderRadius: 30,
-        }]
-    },
-    options: {
-        responsive: true,
-        scales: {
-            x: {
-                title: {
-                    display: true,
-                    text: 'Year'
-                }
-            },
-            y: {
-                beginAtZero: true,
-                title: {
-                    display: true,
-                    text: 'Number of Cases'
-                }
-            }
-        },
-        plugins: {
-                legend: {
-                    position: 'top'
-                },
-                datalabels: {
-                    formatter: (value) => value,
-                    color: '#fff',
-                    font: {
-                        weight: 'bold',
-                        size: 14
-                    }
-                }
-            }
-        },
-        plugins: [ChartDataLabels]
-});
-
-
-    // Annual Cases Chart
-    var ctxAnnual = document.getElementById('annualCasesChart').getContext('2d');
-    var years = {{ years|safe }};
-    var annualCounts = {{ annual_case_counts|safe }};
-
-    var annualCasesChart = new Chart(ctxAnnual, {
-        type: 'bar',
-        data: {
-            labels: years,
-            datasets: [{
-                label: 'Annual Cases',
-                data: annualCounts,
-                backgroundColor: 'rgba(0, 123, 255, 0.6)',
-                borderColor: 'rgba(0, 123, 255, 0.7)',
-                borderWidth: 1,
-                borderRadius: 50,
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Year'
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Number of Cases'
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    position: 'top'
-                },
-                datalabels: {
-                    formatter: (value) => value,
-                    color: '#fff',
-                    font: {
-                        weight: 'bold',
-                        size: 14
-                    }
-                }
-            }
-        },
-        plugins: [ChartDataLabels]
-    });
-
-
-/* document.getElementById('showDaily').addEventListener('click', function() {
-    document.getElementById('dailyCasesSection').style.display = 'block';
-    document.getElementById('weeklyCasesSection').style.display = 'none';
-    document.getElementById('monthlyCasesSection').style.display = 'none';
-    document.getElementById('quarterlyCasesSection').style.display = 'none';
-    document.getElementById('annualCasesSection').style.display = 'none';
-});
- */
-document.getElementById('showWeekly').addEventListener('click', function() {
-    /* document.getElementById('dailyCasesSection').style.display = 'none'; */
-    document.getElementById('weeklyCasesSection').style.display = 'block';
-    document.getElementById('monthlyCasesSection').style.display = 'none';
-    document.getElementById('quarterlyCasesSection').style.display = 'none';
-    document.getElementById('annualCasesSection').style.display = 'none';
-});
-
-document.getElementById('showMonthly').addEventListener('click', function() {
-    /* document.getElementById('dailyCasesSection').style.display = 'none'; */
-    document.getElementById('weeklyCasesSection').style.display = 'none';
-    document.getElementById('monthlyCasesSection').style.display = 'block';
-    document.getElementById('quarterlyCasesSection').style.display = 'none';
-    document.getElementById('annualCasesSection').style.display = 'none';
-});
-
-document.getElementById('showQuarterly').addEventListener('click', function() {
-    /* document.getElementById('dailyCasesSection').style.display = 'none'; */
-    document.getElementById('weeklyCasesSection').style.display = 'none';
-    document.getElementById('monthlyCasesSection').style.display = 'none';
-    document.getElementById('quarterlyCasesSection').style.display = 'block';
-    document.getElementById('annualCasesSection').style.display = 'none';
-});
-
-document.getElementById('showAnnual').addEventListener('click', function() {
-    /* document.getElementById('dailyCasesSection').style.display = 'none'; */
-    document.getElementById('weeklyCasesSection').style.display = 'none';
-    document.getElementById('monthlyCasesSection').style.display = 'none';
-    document.getElementById('quarterlyCasesSection').style.display = 'none';
-    document.getElementById('annualCasesSection').style.display = 'block';
-});
-
-</script>
 
 
 {% endblock %}
 
 {% block script %}
-<script src="{% static 'assets/js/map.js' %}"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
+<!-- Leaflet Gesture Handling JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet-gesture-handling/dist/leaflet-gesture-handling.js"></script>
+<!-- leaflet heat plugin -->
+<script src="{% static 'leaflet/js/leaflet-heat.js' %}"></script>
+<script src="{% static 'leaflet/js/simpleheat.js' %}"></script>
+
+<script src="{% static 'assets/js/map.js' %}"></script>
+<script src="{% static 'assets/js/overviewDistribution.js' %}"></script>
+<script src="{% static 'assets/js/overviewMonthly.js' %}"></script>
+
+<script>
+    // Pass data to the external script
+    const municipalities = {{ municipalities|safe }};
+    const municipalityCaseCounts = {{ municipality_case_counts|safe }};
+    const genderLabels = {{ gen|safe }};
+    const genderData = {{ dataGender|safe }};
+    const animalLabels = {{ animal|safe }};
+    const animalData = {{ dataAnimal|safe }};
+    
+    // Initialize charts
+    initMunicipalityChart(municipalities, municipalityCaseCounts);
+    initGenderChart(genderLabels, genderData);
+    initAnimalChart(animalLabels, animalData);
+</script>
+
+<script>
+    // Pass data to the external script
+    const days = {{ days|safe }};
+    const daily_case_counts = {{ daily_case_counts|safe }};
+    const weeks = {{ weeks|safe }};
+    const weekly_case_counts = {{ weekly_case_counts|safe }};
+    const months = {{ months|safe }};
+    const case_counts = {{ case_counts|safe }};
+
+    const quarters = {{ quarters|safe }};
+    const quarterly_case_counts = {{ quarterly_case_counts|safe }};
+    const years = {{ years|safe }};
+    const annual_case_counts = {{ annual_case_counts|safe }};
+    
+    // Initialize charts
+    initDailyChart(days, daily_case_counts);
+    initWeeklyChart(weeks, weekly_case_counts);
+    initMonthlyChart(months, case_counts);
+    initQuarterlyChart(quarters, quarterly_case_counts);
+    initAnnualChart(years, annual_case_counts);
+</script>
+
+<script>
+    /* document.getElementById('showDaily').addEventListener('click', function() {
+            document.getElementById('dailyCasesSection').style.display = 'block';
+            document.getElementById('weeklyCasesSection').style.display = 'none';
+            document.getElementById('monthlyCasesSection').style.display = 'none';
+            document.getElementById('quarterlyCasesSection').style.display = 'none';
+            document.getElementById('annualCasesSection').style.display = 'none';
+        });
+        */
+        document.getElementById('showWeekly').addEventListener('click', function() {
+            /* document.getElementById('dailyCasesSection').style.display = 'none'; */
+            document.getElementById('weeklyCasesSection').style.display = 'block';
+            document.getElementById('monthlyCasesSection').style.display = 'none';
+            document.getElementById('quarterlyCasesSection').style.display = 'none';
+            document.getElementById('annualCasesSection').style.display = 'none';
+        });
+
+        document.getElementById('showMonthly').addEventListener('click', function() {
+            /* document.getElementById('dailyCasesSection').style.display = 'none'; */
+            document.getElementById('weeklyCasesSection').style.display = 'none';
+            document.getElementById('monthlyCasesSection').style.display = 'block';
+            document.getElementById('quarterlyCasesSection').style.display = 'none';
+            document.getElementById('annualCasesSection').style.display = 'none';
+        });
+
+        document.getElementById('showQuarterly').addEventListener('click', function() {
+            /* document.getElementById('dailyCasesSection').style.display = 'none'; */
+            document.getElementById('weeklyCasesSection').style.display = 'none';
+            document.getElementById('monthlyCasesSection').style.display = 'none';
+            document.getElementById('quarterlyCasesSection').style.display = 'block';
+            document.getElementById('annualCasesSection').style.display = 'none';
+        });
+
+        document.getElementById('showAnnual').addEventListener('click', function() {
+            /* document.getElementById('dailyCasesSection').style.display = 'none'; */
+            document.getElementById('weeklyCasesSection').style.display = 'none';
+            document.getElementById('monthlyCasesSection').style.display = 'none';
+            document.getElementById('quarterlyCasesSection').style.display = 'none';
+            document.getElementById('annualCasesSection').style.display = 'block';
+        });
+</script>
 {% endblock %}
