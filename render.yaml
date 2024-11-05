@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: monitoring
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn system.wsgi:application --log-file -"
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
