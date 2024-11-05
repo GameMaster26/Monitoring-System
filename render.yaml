@@ -9,3 +9,18 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false
+
+  - type: web
+    name: MyGISApp
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn system.wsgi"
+    build:
+      aptPackages:
+        - gdal-bin
+        - libgdal-dev
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
