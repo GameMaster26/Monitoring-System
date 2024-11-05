@@ -187,7 +187,7 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Expire session when browser closes
 SESSION_COOKIE_SECURE = False  # Set to True if using HTTPS
 SESSION_COOKIE_HTTPONLY = True  # Set to True for security
 
-
+ALLOWED_HOSTS = ['*']
 # Login URL setting to redirect non-authenticated users
 LOGIN_URL = '/admin/login/'
 #AUTH_USER_MODEL = 'auth.User'
