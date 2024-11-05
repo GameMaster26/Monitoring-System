@@ -122,11 +122,11 @@ class PatientInline(admin.StackedInline):
     model = Patient
     extra = 0
     
-    def get_readonly_fields(self, request, obj=None):
+    """ def get_readonly_fields(self, request, obj=None):
         if request.user.is_superuser:
             readonly_fields = [field.name for field in self.model._meta.fields if field.name != 'patient_id']
             return readonly_fields
-        return self.readonly_fields
+        return self.readonly_fields """
 
 class HistoryInline(admin.StackedInline):
     model = History
@@ -154,11 +154,11 @@ class HistoryInline(admin.StackedInline):
             formset.form.base_fields.pop('registration_no', None)
         return formset
 
-    def get_readonly_fields(self, request, obj=None):
+    """ def get_readonly_fields(self, request, obj=None):
         readonly_fields = []
         if obj and request.user.is_superuser:
             readonly_fields = [field.name for field in self.model._meta.fields if field.name != 'id']
-        return readonly_fields
+        return readonly_fields """
 
 class TreatmentInline(admin.StackedInline):
     model = Treatment
@@ -279,9 +279,9 @@ class PatientAdmin(LeafletGeoAdmin):
             return False
         """ return super().has_delete_permission(request, obj) """
     
-    def has_change_permission(self, request, obj=None):
+    """ def has_change_permission(self, request, obj=None):
         if request.user.is_superuser and request.user.is_staff:
-            return False
+            return False """
     """ return super().has_change_permission(request,obj) """
     
     def save_model(self, request, obj, form, change):

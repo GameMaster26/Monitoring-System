@@ -89,7 +89,7 @@ class Doctor(models.Model):
     first_name = models.CharField(max_length=100, blank=False, null=False, verbose_name="First Name")
     middle_name = models.CharField(max_length=100, blank=True, null=True, verbose_name="Middle Name")
     last_name = models.CharField(max_length=100, blank=False, null=False, verbose_name="Last Name")
-    date_of_birth = models.DateField(blank=True, null=True, verbose_name="Date of Birth")
+    date_of_birth = models.DateField(blank=True, null=True, verbose_name="Date of Birth",)
     sex_choice =(
         ('male','Male'),
         ('female','Female'),

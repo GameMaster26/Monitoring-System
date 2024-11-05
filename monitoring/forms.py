@@ -1,5 +1,5 @@
 from django import forms
-from .models import Patient, History, Barangay,UserMessage,Logo
+from .models import Patient, History, Barangay,UserMessage,Logo,Doctor
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from datetime import datetime,date,timedelta
 from django.contrib.gis import forms as geoforms
@@ -87,3 +87,11 @@ class LogoForm(forms.ModelForm):
     class Meta:
         model = Logo
         fields = ['logo_name', 'logo_image']
+
+class placeholderForm(forms.ModelForm):
+    class Meta:
+        model = Doctor
+        fields = ['date_of_birth']
+        widgets = {
+            'date_of_birth': forms.DateInput(attrs={'placeholder': 'MM/DD/YYYY', 'type': 'date'}),
+        }

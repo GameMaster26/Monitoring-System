@@ -196,11 +196,7 @@ Master List
                 <p>Prepared by:</p>
                 <div class="signature-line">
                     <span class="signature-name">
-                        {% if user.first_name or user.last_name %}
-                            {{ user.first_name }} {% if user.last_name %}{{ user.last_name }}{% endif %}
-                        {% else %}
-                            {{ user.username }}
-                        {% endif %}
+                        {{signature_name}}
                     </span>
                 </div>
                 <p class="signature-title">Municipality Report Master List</p>

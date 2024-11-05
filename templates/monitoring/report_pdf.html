@@ -1,6 +1,5 @@
 {% load static %}
 
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,188 +7,99 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Report PDF</title>
     <link href="{% static 'assets/images/seal.png' %}" rel="icon" type="image/png">
+    <style>
+        /* Report Page Container */
+        @page {
+            size: A4 landscape;
+            margin: 5mm;
+        }
+
+        body {
+            padding-top: 70px; 
+            font-family: Arial, sans-serif; /* Set a default font */
+        }
+
+        .container {
+            margin: 20px;
+        }
+
+        .custom-center {
+            text-align: center; /* Center the text */
+        }
+
+        .custom-h1 {
+            font-size: 20px; /* Equivalent to Bootstrap's h1 */
+            margin: 10px 0 5px; /* Adjust top and bottom margin */
+        }
+
+        .custom-h2 {
+            font-size: 18px; /* Equivalent to Bootstrap's h2 */
+            margin: 0; /* Remove default margins */
+        }
+
+        .custom-h3 {
+            font-size: 18px; /* Equivalent to Bootstrap's h3 */
+            margin: 0; /* Remove default margins */
+        }
+
+        .grey {
+            background-color: yellow;
+            font-weight: bold;
+            color: black;
+        }
+
+        .quarter {
+            margin: 0 auto; /* Center the div in its container */
+            padding: 0; /* Remove any default padding */
+        }
+
+        table {
+            width: 100%; /* Ensure the table spans the full width */
+            border-collapse: collapse; /* Ensure borders are collapsed */
+            border: 2px solid black; /* Border around the entire table */
+        }
+
+        th, td {
+            border: 1px solid black; /* Border around each cell */
+            padding: 8px; /* Add padding to the cells */
+            text-align: center; /* Align text to center */
+            width: 4.17%; /* Adjust width based on the number of columns */
+        }
+
+        th {
+            background-color: #f8f9fa; /* Light background color for headers */
+        }
+
+        .signature-section {
+            text-align: center;
+            margin-top: 30px; /* Add space above signature section */
+        }
+
+        .signature-line {
+            margin: 5px auto 10px; /* Center the line with margins */
+            border-bottom: 1px solid black;
+            width: 300px; /* Adjust width as needed */
+        }
+
+        .signature-name {
+            font-weight: bold;
+            margin-top: -25px; /* Keeps it close to the line */
+        }
+
+        .signature-title {
+            margin-top: -10px; /* Adjusts spacing below the signature */
+        }
+    </style>
 </head>
-
-<style>
-/* Report Page Container */
-
-
-@page {
-    size: A4 landscape;
-    margin: 5mm;
-}
-
-body {
-    padding-top: 70px; 
-}
-.custom-center {
-    text-align: center; /* Center the text */
-    margin-left: auto; /* Center horizontally */
-    margin-right: auto; /* Center horizontally */
-    flex-grow: 1; /* Allow the div to grow in a flex container */
-}
-
-.quarter {
-    margin: 0 auto; /* Center the div in its container */
-    padding: 0; /* Remove any default padding */
-}
-
-.custom-h1 {
-    font-size: 20px; /* Equivalent to Bootstrap's h1 */
-    margin-top: 10px; /* Adjust top margin */
-    margin-bottom: 5px; /* Adjust bottom margin */
-}
-
-.custom-h2 {
-    font-size: 18px; /* Equivalent to Bootstrap's h2 */
-    margin: 0; /* Remove default margins */
-}
-
-.custom-h3 {
-    font-size: 18px; /* Equivalent to Bootstrap's h3 */
-    margin: 0; /* Remove default margins */
-}
-
-
-.grey th{
-    background-color: yellow;
-}
-.grey {
-    background-color: yellow;
-}
-
-
-.grey td {
-    color: black;
-    font-weight: bold;
-}
-
-.quarter {
-    margin-left: 200px;
-}
-
-.input-group {
-    max-width: 300px; /* Adjust width as needed */
-    margin: 0 auto; /* Center the dropdown */
-}
-
-.select-width {
-    max-width: 220px; /* Set the maximum width for the select dropdown */
-}
-
-.form-select {
-    width: 100%; /* Make the select fill the width of its parent */
-    border-radius: 0.375rem; /* Rounded corners */
-    border: 1px solid #ced4da; /* Custom border color */
-    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out; /* Smooth transition */
-}
-
-.form-select:focus {
-    border-color: #007bff; /* Highlight on focus */
-    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25); /* Focus shadow */
-}
-
-.input-group-text {
-    background-color: #007bff; /* Button color */
-    color: white; /* Icon color */
-    border: none; /* Remove border */
-    border-radius: 0; /* Match dropdown's border */
-}
-
-.input-group-text i {
-    font-size: 1.2rem; /* Icon size */
-}
-
-
-.text-end a {
-    transition: background-color 0.3s, transform 0.3s;
-    font-size: 0.875rem; /* Slightly smaller font */
-    padding: 0.25rem 0.5rem; /* Reduced padding */
-}
-
-.text-end a:hover {
-    transform: scale(1.05);
-}
-
-.text-end .btn-danger {
-    background-color: #dc3545; /* Red color */
-    border: none;
-    padding: 0.25rem 0.5rem; /* Reduced padding */
-    font-size: 0.875rem; /* Slightly smaller font */
-}
-
-.text-end .btn-danger:hover {
-    background-color: #c82333; /* Darker red on hover */
-}
-
-.text-end .btn-success {
-    background-color: #28a745; /* Green color */
-    border: none;
-    padding: 0.25rem 0.5rem; /* Reduced padding */
-    font-size: 0.875rem; /* Slightly smaller font */
-}
-
-.text-end .btn-success:hover {
-    background-color: #218838; /* Darker green on hover */
-}
-
-/* Add table border styling here */
-table {
-    width: 100%; /* Ensure the table spans the full width */
-    border-collapse: collapse; /* Ensure borders are collapsed */
-    border: 2px solid black; /* Border around the entire table */
-    
-}
-
-/* Style for table headers (th) */
-th {
-    border: 2px solid black; /* Border around each header */
-    padding: 8px; /* Add padding to the cells */
-    text-align: center; /* Align text to center */
-    background-color: #f8f9fa; /* Light background color for headers */
-}
-
-/* Style for table data (td) */
-td {
-    border: 1px solid black; /* Border around each cell */
-    padding: 8px; /* Add padding to the cells */
-    text-align: center; /* Align text to center */
-}
-
-.signature-section {
-    text-align: center;
-}
-
-.signature-line {
-    margin-top: 5px;
-    margin-bottom: 10px;
-    border-bottom: 1px solid black;
-    width: 300px; /* Adjust width as needed */
-    margin-left: auto;
-    margin-right: auto;
-}
-
-.signature-name {
-    font-weight: bold;
-    margin-top: -25px; /* Keeps it close to the line */
-}
-
-.signature-title {
-    margin-top: -10px; /* Adjusts spacing below the signature */
-}
-
-
-</style>
 <body>
     <!-- report_pdf.html -->
-    <div class="container mt-4 mb-4">
-        <div class="d-flex justify-content-start align-items-start mb-4"> <!-- Logo on the left, text centered -->
-            <div class="d-flex align-items-center">
+    <div class="container">
+        <div class="d-flex" style="display: flex; align-items: flex-start; margin-bottom: 20px;"> <!-- Flexbox for logo and text -->
+            <div style="margin-right: 20px;"> <!-- Logo on the left -->
                 {% if logo_url %}
-                    <img src="{% static logo_url %}" alt="Logo" style="height: 150px; margin-right: 20px;">
+                    <img src="{% static logo_url %}" alt="Logo" style="height: 150px;">
                 {% endif %}
             </div>
-            <!-- Adjusted the text container to be centered -->
             <div class="custom-center quarter">
                 <h1 class="custom-h1">MUNICIPAL REPORT FORM ON ANIMAL BITE/HUMAN RABIES CASES</h1>
                 <h2 class="custom-h2">Municipality of {{ municipality_name }}</h2>
@@ -198,13 +108,13 @@ td {
                         {{ selected_quarter }}{% if selected_quarter == '1' %}st{% elif selected_quarter == '2' %}nd{% elif selected_quarter == '3' %}rd{% elif selected_quarter == '4' %}th{% endif %} Quarter 2024
                     </u>
                 </h3>
-            </div>            
+            </div>
         </div>
         <!-- Table area -->
-        <table class="">
+        <table>
             <thead>
                 <tr>
-                    <th rowspan="4">{{ table }}</th>
+                    <th rowspan="4" style="width: 20%; text-align: left;">{{ table }}</th>
                     <th colspan="15">Human Case</th>
                     <th colspan="4" rowspan="3">Biting Animals</th>
                     <th colspan="2" rowspan="3">PEP Coverage</th>
@@ -249,7 +159,7 @@ td {
             <tbody>
                 {% for entry in data %}
                 <tr>
-                    <th>{{ entry.barangay }}</th>
+                    <th style="width: 15%; text-align: left;">{{ entry.barangay }}</th>
                     <td>{{ entry.data_male }}</td> 
                     <td>{{ entry.data_female }}</td> 
                     <td>{{ entry.data_total }}</td> 
@@ -276,7 +186,7 @@ td {
                 </tr>
                 {% endfor %}
                 <tr class="grey">
-                    <th>Total</th>
+                    <th style="width: 15%; text-align: left;">Total</th>
                     <td>{{ total_male }}</td> 
                     <td>{{ total_female }}</td> 
                     <td>{{ total_all }}</td> 
@@ -302,10 +212,10 @@ td {
                     <td>{{ total_unimmunized }}</td>
                 </tr>
                 <tr>
-                    <th>%</th>
+                    <th style="width: 15%; text-align: left;">%</th>
                     <td>{{ male_percentage }}%</td>
                     <td>{{ female_percentage }}%</td>
-                    <td>{{ total_sex_percentage }}%</td> <!-- You can leave this blank or add total percentage if needed -->
+                    <td>{{ total_percentage }}%</td>
                     <td>{{ age_15_below_percentage }}%</td>
                     <td>{{ age_above_15_percentage }}%</td>
                     <td>{{ total_age_percentage }}%</td>
@@ -329,7 +239,7 @@ td {
                 </tr>
             </tbody>
         </table>
-        <div class="signature-section mt-5 text-center">
+        <div class="signature-section">
             <p>Prepared by:</p>
             <div class="signature-line">
                 <span class="signature-name">

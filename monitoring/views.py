@@ -39,12 +39,12 @@ from django.contrib import messages
 from django.db import models
 from django.contrib.gis.geos import GEOSGeometry
 from django.core.serializers import serialize
-
 import pandas as pd
 import PyPDF2
 from fpdf import FPDF
 
 def pdf_report_create(request):
+    
 
     user = request.user
 
@@ -551,8 +551,215 @@ def pdf_report_create(request):
         return HttpResponse('We had some errors <pre>'+html+'<prev>')
     return response
 
+def pdf_masterlist_create(request):
+    template_path = 'monitoring/download_pdf.html'
+    user = request.user
 
+    # Get selected filters from request
+    selected_municipality = request.GET.get('municipality')
+    selected_barangay = request.GET.get('barangay')
+    selected_user = request.GET.get('searchUsername') 
+    start_month = request.GET.get('startMonth')
+    end_month = request.GET.get('endMonth')
+    search_name = request.GET.get('searchName')
+    
+    # Fetch the histories with related patient, municipality, and barangay data
+    histories = History.objects.select_related('patient_id', 'muni_id', 'brgy_id').order_by('-registration_no')
 
+    if not user.is_superuser:
+        # Filter histories for the current user if not a superuser
+        histories = histories.filter(patient_id__user=user)
+    
+    patients = Patient.objects.all()
+
+    # Apply filters based on selected municipality and barangay
+    if selected_municipality:
+        histories = histories.filter(muni_id=selected_municipality)
+    if selected_barangay:
+        histories = histories.filter(brgy_id=selected_barangay)
+
+    # Apply filter based on username search only if user is a superuser
+    if user.is_superuser and selected_user:
+        histories = histories.filter(patient_id__user__username=selected_user)
+    
+    # Fetch unique users from the Patient model for the dropdown if user is superuser
+    if user.is_superuser:
+        patient_users = Patient.objects.select_related('user').values_list('user', flat=True).distinct()
+        users = User.objects.filter(id__in=patient_users)
+    else:
+        users = []
+
+    # Apply filter based on selected start and end months
+    if start_month and end_month:
+        try:
+            current_year = datetime.now().year
+            start_date = datetime.strptime(f"{start_month} {current_year}", "%B %Y").replace(day=1)
+            end_date = datetime.strptime(f"{end_month} {current_year}", "%B %Y").replace(day=1) + relativedelta(months=1) - relativedelta(days=1)
+            histories = histories.filter(date_registered__gte=start_date, date_registered__lte=end_date)
+        except Exception as e:
+            print(f"Error parsing date: {e}")  # Log the error and continue
+
+     # Apply filter based on name search
+    if search_name:
+        histories = histories.filter(Q(patient_id__first_name__icontains=search_name) | Q(patient_id__last_name__icontains=search_name))
+
+    months = month_name[1:]
+    
+    # Calculate age and attach to each history instance
+    for history in histories:
+        history.treatment = Treatment.objects.filter(patient_id=history.patient_id).first()
+        history.age = calculate_age(history.patient_id.birthday)
+
+    # Count the number of male and female patients
+    male = histories.filter(patient_id__sex__iexact='Male').count()
+    female = histories.filter(patient_id__sex__iexact='Female').count()
+
+    # Calculate the number of age
+    age_15_or_less_count = 0
+    age_above_15_count = 0
+
+    for history in histories:
+        age = calculate_age(history.patient_id.birthday)
+        if age <= 15:
+            age_15_or_less_count += 1
+        else:
+            age_above_15_count += 1
+
+    # Calculate counts for different animal bites   
+    source_of_exposure_counter = Counter(histories.values_list('source_of_exposure', flat=True))
+    dog_count = source_of_exposure_counter.get('Dog', 0)
+    cat_count = source_of_exposure_counter.get('Cat', 0)
+    other_animal_count = source_of_exposure_counter.get('Others', 0)
+
+    paginator = Paginator(histories,10)  
+    page_number = request.GET.get('page',1)
+    try:
+        histories = paginator.get_page(page_number)
+    except PageNotAnInteger:
+        histories = paginator.get_page(1)
+    except EmptyPage:
+        histories = paginator.get_page(paginator.num_pages)
+
+    # Collect current query parameters
+    query_params = request.GET.dict()
+    if 'page' in query_params:
+        del query_params['page']  # Remove the page parameter
+    query_string = urlencode(query_params)
+
+    municipalities = Municipality.objects.all()
+    barangays = Barangay.objects.all()
+
+    if user.first_name or user.last_name:
+        signature_name = f"{user.first_name} {user.last_name}".strip()
+    else:
+        signature_name = user.username
+    
+    context = {
+        'signature_name':signature_name,
+        'histories': histories,
+        'municipalities': municipalities,
+        'barangays': barangays,
+        'selected_municipality': selected_municipality,
+        'selected_barangay': selected_barangay,
+        'selected_user':selected_user,
+        'start_month': start_month,
+        'end_month': end_month,
+        'search_name': search_name,
+        'months': months,
+        'male' : male,
+        'female' : female,
+        'dog_count' : dog_count,
+        'cat_count' : cat_count,
+        'other_animal_count' : other_animal_count,
+        'age_15_or_less_count' : age_15_or_less_count,
+        'age_above_15_count' : age_above_15_count,
+        'query_string' : query_string,
+        'users':users
+    }
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'filename="masterlist_pdf.pdf"'
+
+    template = get_template(template_path)
+    html = template.render(context)
+
+    pisa_status = pisa.CreatePDF(
+        html,dest=response)
+    if pisa_status.err:
+        return HttpResponse('We had some errors <pre>'+html+'<prev>')
+    return response
+
+def excel_masterlist_create(request):
+    # Get the current user
+    user = request.user
+
+    # Get selected filters from request
+    selected_municipality = request.GET.get('municipality')
+    selected_barangay = request.GET.get('barangay')
+    selected_user = request.GET.get('searchUsername') 
+    start_month = request.GET.get('startMonth')
+    end_month = request.GET.get('endMonth')
+    search_name = request.GET.get('searchName')
+    
+    # Fetch the histories with related patient, municipality, and barangay data
+    histories = History.objects.select_related('patient_id', 'muni_id', 'brgy_id').order_by('-registration_no')
+
+    if not user.is_superuser:
+        # Filter histories for the current user if not a superuser
+        histories = histories.filter(patient_id__user=user)
+    
+    # Apply filters based on selected municipality and barangay
+    if selected_municipality:
+        histories = histories.filter(muni_id=selected_municipality)
+    if selected_barangay:
+        histories = histories.filter(brgy_id=selected_barangay)
+
+    # Apply filter based on username search only if user is a superuser
+    if user.is_superuser and selected_user:
+        histories = histories.filter(patient_id__user__username=selected_user)
+    
+    # Apply filter based on selected start and end months
+    if start_month and end_month:
+        try:
+            current_year = timezone.now().year
+            start_date = datetime.strptime(f"{start_month} {current_year}", "%B %Y").replace(day=1)
+            end_date = datetime.strptime(f"{end_month} {current_year}", "%B %Y").replace(day=1) + relativedelta(months=1) - relativedelta(days=1)
+            histories = histories.filter(date_registered__gte=start_date, date_registered__lte=end_date)
+        except Exception as e:
+            print(f"Error parsing date: {e}")
+
+    # Apply filter based on name search
+    if search_name:
+        histories = histories.filter(Q(patient_id__first_name__icontains=search_name) | Q(patient_id__last_name__icontains=search_name))
+
+    # Prepare data for Excel
+    data = []
+    for history in histories:
+        age = calculate_age(history.patient_id.birthday)
+        treatment = Treatment.objects.filter(patient_id=history.patient_id).first()
+        data.append({
+            'Registration No': history.registration_no,
+            'Patient Name': f"{history.patient_id.first_name} {history.patient_id.last_name}",
+            'Municipality': history.muni_id.muni_name,
+            'Barangay': history.brgy_id.brgy_name,
+            'Date Registered': history.date_registered,
+            'Age': age,
+            'Treatment': treatment.vaccine_generic_name if treatment else '',
+            'Sex': history.patient_id.sex,
+            'Source of Exposure': history.source_of_exposure
+        })
+
+    # Create a DataFrame from the data
+    df = pd.DataFrame(data)
+
+    # Create an Excel response
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = ' filename="masterlist.xlsx"'#attachment;
+
+    # Write the DataFrame to the Excel response
+    with pd.ExcelWriter(response, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Masterlist')
+
+    return response
 
 # Function to read data from Excel
 def read_excel(file_path):
@@ -611,7 +818,6 @@ def add_logo(request):
 def logo_list(request):
     logos = Logo.objects.all()
     return render(request, 'monitoring/logo_list.html', {'logos': logos})
-
 
 def index(request):
     # Retrieve all totals
@@ -944,8 +1150,6 @@ def choropleth_map(request):
 
     return render(request, 'monitoring/choropleth.html', context)
 
-
-
 @login_required
 def choro(request):
     # Determine if the user is a superuser
@@ -990,7 +1194,6 @@ def choro(request):
     
     return render(request, 'monitoring/choro.html', context)
 
-
 def admin_redirect(request):
     return redirect('/admin/')
 
@@ -1010,7 +1213,6 @@ def staff_or_superuser_required(view_func):
             return redirect('/admin/')
         return view_func(request, *args, **kwargs)
     return login_required(_wrapped_view_func)
-
 
 def superuser_required(view_func):
     def _wrapped_view_func(request, *args, **kwargs):
@@ -1165,7 +1367,6 @@ def overview(request):
     }
 
     return render(request, 'monitoring/overview.html', context)
-
 
 def calculate_age(birthday):
     today = datetime.today()
@@ -1667,9 +1868,6 @@ def reports(request):
     }
     return render(request, 'monitoring/report.html', context)
 
-
-
-
 @login_required
 def tables(request):
     user = request.user
@@ -1782,12 +1980,6 @@ def tables(request):
     }
 
     return render(request, 'monitoring/table.html', context)
-
-
-
-
-
-from django.db.models import Q
 
 @login_required
 def tables(request):
@@ -1932,8 +2124,6 @@ def tables(request):
 
     return render(request, 'monitoring/table.html', context)
 
-
-
 @login_required
 def download(request):
     user = request.user
@@ -2032,8 +2222,13 @@ def download(request):
     municipalities = Municipality.objects.all()
     barangays = Barangay.objects.all()
 
-
+    if user.first_name or user.last_name:
+        signature_name = f"{user.first_name} {user.last_name}".strip()
+    else:
+        signature_name = user.username
+    
     context = {
+        'signature_name':signature_name,
         'histories': histories,
         'municipalities': municipalities,
         'barangays': barangays,
@@ -2057,133 +2252,134 @@ def download(request):
 
     return render(request, 'monitoring/download.html',context)
 
+from datetime import date
+from django.shortcuts import render
+from .models import Municipality, Barangay, Patient, History, Treatment, Logo
+from django.contrib.auth.decorators import login_required
 
 @login_required
 def cohort(request):
     user = request.user
-    
+
+    # Retrieve the selected quarter and year from user input; default to Q1 and current year if not provided
+    selected_quarter = request.GET.get('quarter', '1')
+    selected_year = int(request.GET.get('year', date.today().year))
+
+    # Define date ranges for each quarter based on the selected year
+    quarter_ranges = {
+        '1': (date(selected_year, 1, 1), date(selected_year, 3, 31)),
+        '2': (date(selected_year, 4, 1), date(selected_year, 6, 30)),
+        '3': (date(selected_year, 7, 1), date(selected_year, 9, 30)),
+        '4': (date(selected_year, 10, 1), date(selected_year, 12, 31)),
+    }
+
+    # Determine start and end dates for the selected quarter
+    start_date, end_date = quarter_ranges[selected_quarter]
+
+    # Retrieve data based on the user type and date range
     if user.is_superuser:
-        # Superuser: Retrieve all data from the models
         municipalities = Municipality.objects.all()
         barangays = Barangay.objects.all()
         patients = Patient.objects.all()
-        histories = History.objects.all()
-        treatments = Treatment.objects.all()
+        histories = History.objects.filter(date_registered__range=(start_date, end_date))
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
     else:
-        # Regular user: Retrieve only their own data
         patients = Patient.objects.filter(user=user)
-        # Only fetch related data based on the user's patients
-        histories = History.objects.filter(patient_id__in=patients)
-        treatments = Treatment.objects.filter(patient_id__in=patients)
-
-        # Fetch only data from related objects if needed
+        histories = History.objects.filter(patient_id__in=patients, date_registered__range=(start_date, end_date))
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
         municipalities = Municipality.objects.filter(muni_id__in=patients.values_list('muni_id', flat=True))
         barangays = Barangay.objects.filter(brgy_id__in=patients.values_list('brgy_id', flat=True))
 
-    # Count the number of registered exposures by category
+    # Calculate counts for each category of exposure
     category_i_count = histories.filter(category_of_exposure='I').count()
     category_ii_count = histories.filter(category_of_exposure='II').count()
     category_iii_count = histories.filter(category_of_exposure='III').count()
     total_count = category_i_count + category_ii_count + category_iii_count
 
-    # Count patients with RIG given in each category
+    # RIG counts by category
     category_ii_with_rig = histories.filter(
         category_of_exposure='II',
-        patient_id__treatments_patient__rig_given__isnull=False  # Correct related name
+        patient_id__treatments_patient__rig_given__isnull=False,
+        date_registered__range=(start_date, end_date)
     ).distinct().count()
 
     category_iii_with_rig = histories.filter(
         category_of_exposure='III',
-        patient_id__treatments_patient__rig_given__isnull=False  # Correct related name
+        patient_id__treatments_patient__rig_given__isnull=False,
+        date_registered__range=(start_date, end_date)
     ).distinct().count()
 
     total_count_rig = category_ii_with_rig + category_iii_with_rig
 
-    # Initialize counters
-    category_ii_complete = 0
-    category_ii_incomplete = 0
-    category_ii_none = 0
-    category_ii_died = 0
+    # Outcome counters for each category and date range
+    category_ii_complete = category_ii_incomplete = category_ii_none = category_ii_died = 0
+    category_iii_complete = category_iii_incomplete = category_iii_none = category_iii_died = 0
 
-    category_iii_complete = 0
-    category_iii_incomplete = 0
-    category_iii_none = 0
-    category_iii_died = 0
-
-    # Process Category II exposures
-    # Process Category II exposures
-    category_ii_histories = histories.filter(category_of_exposure='II')
-    for history in category_ii_histories:
-        treatments = history.patient_id.treatments_patient.all()
-
+    # Process Category II outcomes
+    for history in histories.filter(category_of_exposure='II'):
+        # Filter treatments associated with the patient within the date range
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+        
+        # Check if the patient had human rabies
         if history.human_rabies:
-            category_ii_died += 1  # Count rabies cases separately
-            continue  # Skip treatment checks for rabies cases
+            category_ii_died += 1
+            continue
 
         if treatments.exists():
-            for treatment in treatments:
-                if treatment.day0 and treatment.day3 and treatment.day7:
-                    category_ii_complete += 1
-                elif treatment.day0 or treatment.day3 or treatment.day7:
-                    category_ii_incomplete += 1
-                else:
-                    category_ii_none += 1
+            # Check if all of day0, day3, and day7 are marked True
+            if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
+                category_ii_complete += 1
+            # Check if at least one of day0, day3, or day7 is marked True
+            elif treatments.filter(day0_arrived=True) | treatments.filter(day3_arrived=True) | treatments.filter(day7_arrived=True):
+                category_ii_incomplete += 1
+            else:
+                category_ii_none += 1
+    else:
+        category_ii_none += 1
 
-    # Process Category III exposures
-    category_iii_histories = histories.filter(category_of_exposure='III')
-    for history in category_iii_histories:
-        treatments = history.patient_id.treatments_patient.all()
-
+    # Process Category III outcomes
+    for history in histories.filter(category_of_exposure='III'):
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+        
         if history.human_rabies:
-            category_iii_died += 1  # Count rabies cases separately
-            continue  # Skip treatment checks for rabies cases
+            category_iii_died += 1
+            continue
 
         if treatments.exists():
-            for treatment in treatments:
-                if treatment.day0 and treatment.day3 and treatment.day7:
-                    category_iii_complete += 1
-                elif treatment.day0 or treatment.day3 or treatment.day7:
-                    category_iii_incomplete += 1
-                else:
-                    category_iii_none += 1
+            # Check if all of day0, day3, and day7 are marked True
+            if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
+                category_iii_complete += 1
+            # Check if at least one of day0, day3, or day7 is marked True
+            elif treatments.filter(day0_arrived=True) | treatments.filter(day3_arrived=True) | treatments.filter(day7_arrived=True):
+                category_iii_incomplete += 1
+            else:
+                category_iii_none += 1
+        else:
+            category_iii_none += 1
 
     total_complete = category_ii_complete + category_iii_complete
     total_incomplete = category_ii_incomplete + category_iii_incomplete
     total_none = category_ii_none + category_iii_none
     total_died = category_ii_died + category_iii_died
 
-    if user.is_superuser:
-        logo = Logo.objects.filter(logo_name="Province").first()
-    elif user.code == 'ALM':
-        logo = Logo.objects.filter(logo_name="Almeria").first()
-    elif user.code == 'BIL':
-        logo = Logo.objects.filter(logo_name="Biliran").first()
-    elif user.code == 'CABUC':
-        logo = Logo.objects.filter(logo_name="Cabucgayan").first()
-    elif user.code == 'CAIB':
-        logo = Logo.objects.filter(logo_name="Caibiran").first()
-    elif user.code == 'CUL':
-        logo = Logo.objects.filter(logo_name="Culaba").first()
-    elif user.code == 'KAW':
-        logo = Logo.objects.filter(logo_name="Kawayan").first()
-    elif user.code == 'MAR':
-        logo = Logo.objects.filter(logo_name="Maripipi").first()
-    elif user.code == 'NAV':
-        logo = Logo.objects.filter(logo_name="Naval").first()
-    else:
-        logo = None  # or some default logo if needed
-
-    # Check if a logo was found and retrieve its URL, otherwise set to None
+    # Retrieve logo and signature
+    logo = Logo.objects.filter(logo_name="Province" if user.is_superuser else user.code).first()
     logo_url = logo.logo_image.url if logo and logo.logo_image else None
-
-    if user.first_name or user.last_name:
-        signature_name = f"{user.first_name} {user.last_name}".strip()
-    else:
-        signature_name = user.username
+    signature_name = f"{user.first_name} {user.last_name}".strip() if user.first_name or user.last_name else user.username
 
     context = {
-        'logo_url':logo_url,
-        'signature_name':signature_name,
+        'selected_quarter': selected_quarter,
+        'selected_year': selected_year,
+        'logo_url': logo_url,
+        'signature_name': signature_name,
         'municipalities': municipalities,
         'barangays': barangays,
         'patients': patients,
@@ -2195,29 +2391,21 @@ def cohort(request):
         'total_count_rig': total_count_rig,
         'category_ii_with_rig': category_ii_with_rig,
         'category_iii_with_rig': category_iii_with_rig,
-        # Category II counts
         'category_ii_complete': category_ii_complete,
         'category_ii_incomplete': category_ii_incomplete,
         'category_ii_none': category_ii_none,
         'category_ii_died': category_ii_died,
-
-        # Category III counts
         'category_iii_complete': category_iii_complete,
         'category_iii_incomplete': category_iii_incomplete,
         'category_iii_none': category_iii_none,
         'category_iii_died': category_iii_died,
-        # Total counts across both categories
         'total_complete': total_complete,
         'total_incomplete': total_incomplete,
         'total_none': total_none,
         'total_died': total_died,
-            
     }
 
     return render(request, 'monitoring/cohort.html', context)
-
-
-
 
 @login_required
 def download_excel(request):
@@ -2236,7 +2424,6 @@ def download_excel(request):
     response = HttpResponse(output, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename="animal_bite_report.xlsx"'
     return response
-
 
 def export_excel(request):
     # Create a workbook and get the active worksheet
@@ -2461,8 +2648,6 @@ def download_report_excel(request):
     response['Content-Disposition'] = 'attachment; filename="animal_bite_report.xlsx"'
 
     return response
-
-
 
 
 @login_required
