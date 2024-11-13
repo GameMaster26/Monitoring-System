@@ -114,6 +114,10 @@ DATABASES = {
 GDAL_LIBRARY_PATH = os.path.join("C:\\", "OSGeo4W", "bin", "gdal309.dll")
 GEOS_LIBRARY_PATH = os.path.join("C:\\", "OSGeo4W", "bin", "geos_c.dll")
 
+# GDAL and GEOS library paths for Windows
+#GDAL_LIBRARY_PATH = os.getenv("GDAL_LIBRARY_PATH", r"C:\OSGeo4W64\bin\gdal309.dll")
+#GEOS_LIBRARY_PATH = os.getenv("GEOS_LIBRARY_PATH", r"C:\OSGeo4W64\bin\geos_c.dll")
+
 
 SERIALIZATION_MODULES= {
     'geojson':'djgeojson.serializers',
