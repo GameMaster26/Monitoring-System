@@ -13,7 +13,7 @@ from django.dispatch import receiver
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.core.validators import RegexValidator
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User as AuthUser
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser
 from django.db.models import Max
@@ -22,6 +22,10 @@ from django.contrib.gis.db import models as geomodels
 from django.db.models.signals import post_save
 from django.db.models import OuterRef, Subquery
 from django.utils.safestring import mark_safe as safe_mark
+from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, Group, Permission
+from django.conf import settings
+from django.contrib.auth.models import Permission,PermissionsMixin
 
 def validate_contact_number(value):
     if not value.startswith('09') or len(value) != 11:
@@ -30,18 +34,62 @@ def validate_contact_number(value):
             params={'value': value},
             
         )
-    
-class UserMessage(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="messages")
-    subject = models.CharField(max_length=255)
-    message = models.TextField()
-    sent_at = models.DateTimeField(auto_now_add=True)
+
+class User(AbstractUser):
+    # Add the custom field 'code' here
+    first_name = models.CharField(_("first name"), max_length=150, blank=False)
+    last_name = models.CharField(_("last name"), max_length=150, blank=False)
+    number = models.CharField(max_length=12,blank=False, verbose_name="Contact Number", validators=[validate_contact_number],)
+    email = models.EmailField(_("email address"), blank=False)
+    code_choices = (
+        ('ALM','ALM'),
+        ('BIL','BIL'),
+        ('CABUC','CABUC'),
+        ('CAIB','CAIB'),
+        ('CUL','CUL'),
+        ('KAW','KAW'),
+        ('MAR','MAR'),
+        ('NAV','NAV'),
+    )
+    code = models.CharField(verbose_name="code",choices=code_choices, max_length=20, blank=True)
+    logo_image = models.ImageField(upload_to='municipality_logo', null=True, blank=True, verbose_name="Municipality Logo")
+
+    groups = models.ManyToManyField(
+        Group,  # Reference CustomGroup here
+        verbose_name=_("groups"),
+        blank=True,
+        help_text=_(
+            "The groups this user belongs to. A user will get all permissions "
+            "granted to each of their groups."
+        ),
+        related_name="customuser_set",  # Set a unique related name
+        related_query_name="customuser",
+    )
+
+    user_permissions = models.ManyToManyField(
+        Permission,
+        verbose_name=_("user permissions"),
+        blank=True,
+        help_text=_("Specific permissions for this user."),
+        related_name="customuser_set_permissions",  # Unique related name for permissions
+        related_query_name="customuser_permission",
+    )
+
+    def save(self,*args,**kwargs):
+        self.first_name = self.first_name.title()
+        self.last_name = self.last_name.title()
+        super().save(*args,**kwargs)
+
+
+    def image_logo(self):
+        """Display the logo thumbnail in Django admin."""
+        if self.logo_image:
+            return mark_safe(f'<img src="{self.logo_image.url}" width="50" />')
+        return "No Logo"
+    image_logo.short_description = "Municipality Logo"
 
     def __str__(self):
-        return f"Message to {self.user.get_full_name()} - {self.subject}"
-
-    class Meta:
-        ordering = ['-sent_at']
+        return self.username 
 
 class Municipality(models.Model):
     muni_id = models.AutoField(primary_key=True)
@@ -55,7 +103,11 @@ class Municipality(models.Model):
             return mark_safe(f'<img src="{self.logo.url}" width="50" />')
         return "No Logo"
     muni_logo.short_description = "Municipality Logo"
-    
+
+    def save(self, *args, **kwargs):
+        self.muni_name = self.muni_name.title()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.muni_name}"
     class Meta:
@@ -65,7 +117,7 @@ class Barangay(models.Model):
     brgy_id = models.AutoField(primary_key=True)
     brgy_name = models.CharField(max_length=100, verbose_name="Barangay Name")
     muni_id = models.ForeignKey(Municipality, on_delete=models.CASCADE, verbose_name="Municipality Name",related_name='barangays',db_column='muni_id')
-    boundary = geomodels.MultiPolygonField(verbose_name="Boundary", srid=4326,null=True)  # SRID 4326 is the standard for WGS 84, used by GPS
+    boundary = geomodels.MultiPolygonField(verbose_name="Boundary",blank=True, srid=4326,null=True)  # SRID 4326 is the standard for WGS 84, used by GPS
 
     def save(self, *args, **kwargs):
         exceptions = ['lo-ok',]  # Add other barangays that need specific casing
@@ -85,11 +137,24 @@ class Barangay(models.Model):
         unique_together = ['brgy_name', 'muni_id']  
 
 class Doctor(models.Model):
+
+    SPECIALIZATION_CHOICES = (
+        ('gp', 'General Practitioner'),
+        ('pediatrician', 'Pediatrician'),
+        ('dermatologist', 'Dermatologist'),
+        ('cardiologist', 'Cardiologist'),
+        ('orthopedic', 'Orthopedic Surgeon'),
+        ('obgyn', 'Obstetrician/Gynecologist'),
+        ('endocrinologist', 'Endocrinologist'),
+        ('neurologist', 'Neurologist'),
+        ('ophthalmologist', 'Ophthalmologist'),
+        ('psychiatrist', 'Psychiatrist'),
+    )
     #user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="User",default=1, related_name='doctors')
     first_name = models.CharField(max_length=100, blank=False, null=False, verbose_name="First Name")
     middle_name = models.CharField(max_length=100, blank=True, null=True, verbose_name="Middle Name")
     last_name = models.CharField(max_length=100, blank=False, null=False, verbose_name="Last Name")
-    date_of_birth = models.DateField(blank=True, null=True, verbose_name="Date of Birth",)
+    specialization = models.CharField(blank=True,choices=SPECIALIZATION_CHOICES, null=True, verbose_name="Specialization")
     sex_choice =(
         ('male','Male'),
         ('female','Female'),
@@ -97,10 +162,17 @@ class Doctor(models.Model):
     gender = models.CharField(choices=sex_choice, max_length=20,null=True, verbose_name="Sex")
     
     contact_number = models.CharField(max_length=12, validators=[validate_contact_number], blank=True, verbose_name="Contact Number")
-    email = models.EmailField(unique=True, blank=False, null=False, verbose_name="Email")
+    email = models.EmailField( blank=False, null=False, verbose_name="Email")
+    licensed = models.CharField(unique=True,blank=False,null=False, verbose_name="Licensed Number")
     muni_id = models.ForeignKey(Municipality, on_delete=models.CASCADE, verbose_name="Municipality", related_name='doctors_muni')#7 cabucgayan,6 culaba, 5 almeria, 8 kaw
     brgy_id = models.ForeignKey(Barangay, on_delete=models.CASCADE, verbose_name="Barangay",related_name='doctors_brgy')
     
+    def save(self, *args, **kwargs):
+        self.first_name = self.first_name.title()  # Capitalize first letter
+        self.middle_name = self.middle_name.title()
+        self.last_name = self.last_name.title()  
+        super().save(*args, **kwargs)
+
     def full_name(self):
         return f"{self.first_name} {self.middle_name} {self.last_name}".strip()
     full_name.short_description = "Full Name"
@@ -112,9 +184,9 @@ class Doctor(models.Model):
         verbose_name_plural = "Doctors"
 
 class Patient(models.Model):
-    app_label = 'monitoring'
-
-    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="User", related_name='patients')
+    #app_label = 'monitoring'
+    
+    user = models.ForeignKey(User,on_delete=models.CASCADE, verbose_name="User", related_name='patients')
     doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, verbose_name="Doctor",null=True, related_name='doctors_patient')
     patient_id = models.AutoField(primary_key=True)
     first_name = models.CharField(max_length=200, verbose_name="First Name", blank=False,)
@@ -149,6 +221,7 @@ class Patient(models.Model):
     class Meta:
         #ordering = ['-patient_id__registration_no']
         verbose_name_plural = "Patient Records"
+        app_label = 'monitoring'
 
 class History(models.Model):
 
@@ -178,13 +251,8 @@ class History(models.Model):
         ('Cow', 'Cow'),
         ('Goat', 'Goat'),
         ('Pig', 'Pig'),
-        ('Sheep', 'Sheep'),
-        ('Chicken', 'Chicken'),
         ('Rabbit', 'Rabbit'),
         ('Guinea Pig', 'Guinea Pig'),
-        ('Ferret', 'Ferret'),
-        ('Parrot', 'Parrot'),
-        ('Turkey', 'Turkey'),
     )
 
     exposure_type_choices = (
@@ -314,7 +382,7 @@ class History(models.Model):
     human_rabies = models.BooleanField(default=False,verbose_name="Human Rabies")
     latitude = models.FloatField(verbose_name="Latitude", blank=True, null=False, default=0.0)
     longitude = models.FloatField(verbose_name="Longitude", blank=True, null=False, default=0.0)
-    geom= geomodels.PointField(verbose_name="Geometry",  null=False, blank=False)
+    geom= geomodels.PointField(verbose_name="Geometry",  null=True, blank=False)
 
 
 
@@ -458,24 +526,3 @@ class Treatment(models.Model):
 
     def __str__(self):
         return f"Treatment for {self.patient_id.first_name} {self.patient_id.last_name}"
-
-class Logo(models.Model):
-    logo_name = models.CharField(max_length=150, verbose_name="Logo Name", null=False,blank=False)
-    logo_image = models.ImageField(upload_to='municipality_logo', null=True, blank=True, verbose_name="Municipality Logo")
-
-    def save(self, *args, **kwargs):
-        self.logo_name = self.logo_name.title()  # Capitalize first letter
-        super().save(*args, **kwargs)
-
-    def image_logo(self):
-        """Display the logo thumbnail in Django admin."""
-        if self.logo_image:
-            return mark_safe(f'<img src="{self.logo_image.url}" width="50" />')
-        return "No Logo"
-    image_logo.short_description = "Municipality Logo"
-
-    def __str__(self):
-        return f"{self.logo_name} municipality image"
-
-    class Meta:
-        verbose_name_plural = "Logos"

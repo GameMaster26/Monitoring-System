@@ -251,7 +251,7 @@ Animal Bite and Rabies Monitoring System with GEO Mapping
                     </div>
                     
                     <!-- Weekly Cases Section -->
-                    <div class=" card mb-2 chart-container" id="weeklyCasesSection" style="display: none;">
+                    <div class="card mb-2 chart-container" id="weeklyCasesSection" style="display: none;">
                         <div class="card-body">
                             <h2 class="text-primary font-weight-bold">Weekly Cases</h2>
                             <hr>
@@ -259,17 +259,8 @@ Animal Bite and Rabies Monitoring System with GEO Mapping
                         </div>
                     </div>
 
-                    <!-- Daily Cases Section -->
-                    <div class="container card mb-2 chart-container" id="dailyCasesSection" style="display: none;">
-                        <div class="card-body">
-                            <h2 class="font-weight-bold">Daily Cases</h2>
-                            <hr>
-                            <canvas id="dailyCasesChart" class="canvasChart"></canvas>
-                        </div>
-                    </div>
-
                     <!-- Quarterly Cases Section -->
-                    <div class="container card mb-2 chart-container" id="quarterlyCasesSection" style="display: none;">
+                    <div class="card mb-2 chart-container" id="quarterlyCasesSection" style="display: none;">
                         <div class="card-body">
                             <h2 class="text-primary font-weight-bold">Quarterly Cases</h2>
                             <hr>
@@ -278,9 +269,9 @@ Animal Bite and Rabies Monitoring System with GEO Mapping
                     </div>
 
                     <!-- Annual Cases Section -->
-                    <div class="container card mb-2 chart-container" id="annualCasesSection" style="display: none;">
+                    <div class="card mb-2 chart-container" id="annualCasesSection" style="display: none;">
                         <div class="card-body">
-                            <h2 class="font-weight-bold">Annual Cases</h2>
+                            <h2 class="text-primary font-weight-bold">Annual Cases</h2>
                             <hr>
                             <canvas id="annualCasesChart" class="canvasChart"></canvas>
                         </div>
@@ -392,7 +383,6 @@ Animal Bite and Rabies Monitoring System with GEO Mapping
         const annual_case_counts = {{ annual_case_counts|safe }};
         
         // Initialize charts
-        initDailyChart(days, daily_case_counts);
         initWeeklyChart(weeks, weekly_case_counts);
         initMonthlyChart(months, case_counts);
         initQuarterlyChart(quarters, quarterly_case_counts);
@@ -436,16 +426,7 @@ Animal Bite and Rabies Monitoring System with GEO Mapping
 
         });
 
-        /* document.getElementById('showDaily').addEventListener('click', function() {
-            document.getElementById('dailyCasesSection').style.display = 'block';
-            document.getElementById('weeklyCasesSection').style.display = 'none';
-            document.getElementById('monthlyCasesSection').style.display = 'none';
-            document.getElementById('quarterlyCasesSection').style.display = 'none';
-            document.getElementById('annualCasesSection').style.display = 'none';
-        });
-        */
         document.getElementById('showWeekly').addEventListener('click', function() {
-            /* document.getElementById('dailyCasesSection').style.display = 'none'; */
             document.getElementById('weeklyCasesSection').style.display = 'block';
             document.getElementById('monthlyCasesSection').style.display = 'none';
             document.getElementById('quarterlyCasesSection').style.display = 'none';
@@ -453,7 +434,6 @@ Animal Bite and Rabies Monitoring System with GEO Mapping
         });
 
         document.getElementById('showMonthly').addEventListener('click', function() {
-            /* document.getElementById('dailyCasesSection').style.display = 'none'; */
             document.getElementById('weeklyCasesSection').style.display = 'none';
             document.getElementById('monthlyCasesSection').style.display = 'block';
             document.getElementById('quarterlyCasesSection').style.display = 'none';
@@ -461,7 +441,6 @@ Animal Bite and Rabies Monitoring System with GEO Mapping
         });
 
         document.getElementById('showQuarterly').addEventListener('click', function() {
-            /* document.getElementById('dailyCasesSection').style.display = 'none'; */
             document.getElementById('weeklyCasesSection').style.display = 'none';
             document.getElementById('monthlyCasesSection').style.display = 'none';
             document.getElementById('quarterlyCasesSection').style.display = 'block';
@@ -469,7 +448,6 @@ Animal Bite and Rabies Monitoring System with GEO Mapping
         });
 
         document.getElementById('showAnnual').addEventListener('click', function() {
-            /* document.getElementById('dailyCasesSection').style.display = 'none'; */
             document.getElementById('weeklyCasesSection').style.display = 'none';
             document.getElementById('monthlyCasesSection').style.display = 'none';
             document.getElementById('quarterlyCasesSection').style.display = 'none';

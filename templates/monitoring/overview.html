@@ -20,22 +20,22 @@ Overview
 
 {% include 'partials/_navlink.html' %}
 <div class="col-md-3">
-            <div id="filterContainer">
-                <h5>Filter Data</h5>
-                <form id="filterForm">
-                    <div class="input-group mb-3 shadow rounded">
-                        <div class="input-group-text date-class" style="width: 60px; font-size: 12px;">Start</div>
-                        <input type="date" class="form-control" id="startDate" name="startDate" value="{{ request.GET.startDate }}">
-                    </div>
-                    <div class="input-group mb-3 shadow rounded">
-                        <div class="input-group-text date-class" style="width: 60px; font-size: 12px;">End</div>
-                        <input type="date" class="form-control" id="endDate" name="endDate" value="{{ request.GET.endDate }}">
-                    </div>
-                    <div class="d-flex justify-content-end">
-                        <button type="button" class="btn btn-primary" id="filterButton">Filter</button>
-                    </div>
-                </form>
+    <div id="filterContainer">
+        <h5>Filter Data</h5>
+        <form id="filterForm">
+            <div class="input-group mb-3 shadow rounded">
+                <div class="input-group-text date-class" style="width: 60px; font-size: 12px;">Start</div>
+                <input type="date" class="form-control" id="startDate" name="startDate" value="{{ request.GET.startDate }}">
             </div>
+            <div class="input-group mb-3 shadow rounded">
+                <div class="input-group-text date-class" style="width: 60px; font-size: 12px;">End</div>
+                <input type="date" class="form-control" id="endDate" name="endDate" value="{{ request.GET.endDate }}">
+            </div>
+            <div class="d-flex justify-content-end">
+                <button type="button" class="btn btn-primary" id="filterButton">Filter</button>
+            </div>
+        </form>
+    </div>
 </div>   
 
 <div class="col-md-9 mb-4">
@@ -59,7 +59,10 @@ Overview
                     </div>
                 </div>
                 <div class="card-footer d-flex justify-content-end">
-                    <button class="btn btn-outline-danger btn-sm mr-2" id="downloadMunicipalityPDF">Download PDF</button>
+                    <button class="btn btn-success btn-sm mr-2" id="downloadMunicipalityPDF" style="width: 100px;">
+                        <i class="fas fa-download"></i> PDF
+                    </button>
+                    
                 </div>
             </div>
 
@@ -81,8 +84,12 @@ Overview
                     </div>  
                 </div>
                 <div class="card-footer d-flex justify-content-end">
-                    <button class="btn btn-outline-danger btn-sm mr-2" id="downloadGenderPDF">Download Sex PDF</button>
-                    <button class="btn btn-outline-danger btn-sm mr-2" id="downloadAnimalPDF">Download Animal PDF</button>
+                    <button class="btn btn-success btn-sm mr-2" id="downloadGenderPDF" style="width: 120px;">
+                        <i class="fas fa-download"></i> Sex PDF
+                    </button>
+                    <button class="btn btn-success btn-sm mr-2" id="downloadAnimalPDF" style="width: 120px;">
+                        <i class="fas fa-download"></i> Animal PDF
+                    </button>
                 </div>
             </div>
         </div>
@@ -144,7 +151,9 @@ Overview
     <div class="row">
         <div class="col-12 d-flex justify-content-between">
             <div class="btn-group" role="group" aria-label="Download options">
-                <button type="button" class="btn btn-outline-danger" id="downloadPDF">Download PDF</button>
+                <button type="button" class="btn btn-success" id="downloadPDF" style="width: 100px;">
+                    <i class="fas fa-download"></i> PDF
+                </button>
             </div>
 
             <div class="btn-group" role="group" aria-label="Chart options">
@@ -203,6 +212,12 @@ Overview
 {% endblock %}
 
 {% block script %}
+
+<!-- html2canvas and jsPDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
 <!-- Leaflet Gesture Handling JS -->
@@ -215,6 +230,84 @@ Overview
 <script src="{% static 'assets/js/map.js' %}"></script>
 <script src="{% static 'assets/js/overviewDistribution.js' %}"></script>
 <script src="{% static 'assets/js/overviewMonthly.js' %}"></script>
+
+<script>
+    // Variables to track the active chart and filename for the main download button
+    let activeChartId = "monthlyCasesChart"; // Default to monthly
+    let activeFilename = "Monthly_Cases.pdf"; 
+
+    // Event listeners for Municipality, Gender, and Animal charts
+    document.getElementById("downloadMunicipalityPDF").addEventListener("click", function() {
+        downloadChartAsPDF("municipalityChart", "Municipality_Distribution.pdf");
+    });
+
+    document.getElementById("downloadGenderPDF").addEventListener("click", function() {
+        downloadChartAsPDF("genderChart", "Gender_Distribution.pdf");
+    });
+
+    document.getElementById("downloadAnimalPDF").addEventListener("click", function() {
+        downloadChartAsPDF("animalChart", "Animal_Distribution.pdf");
+    });
+
+    // Event listeners for filter buttons
+    document.getElementById("showWeekly").addEventListener("click", function() {
+        setActiveChart("weeklyCasesChart", "Weekly_Cases.pdf");
+    });
+
+    document.getElementById("showMonthly").addEventListener("click", function() {
+        setActiveChart("monthlyCasesChart", "Monthly_Cases.pdf");
+    });
+
+    document.getElementById("showQuarterly").addEventListener("click", function() {
+        setActiveChart("quarterlyCasesChart", "Quarterly_Cases.pdf");
+    });
+
+    document.getElementById("showAnnual").addEventListener("click", function() {
+        setActiveChart("annualCasesChart", "Annual_Cases.pdf");
+    });
+
+    // Function to set the active chart for the main download button
+    function setActiveChart(chartId, filename) {
+        // Hide all cases charts
+        document.querySelectorAll(".chart-container").forEach(chart => chart.style.display = "none");
+
+        // Show the selected chart
+        document.getElementById(chartId).style.display = "block";
+        
+        // Update active chart and filename for download
+        activeChartId = chartId;
+        activeFilename = filename;
+    }
+
+    // Main Download PDF button for cases (dynamic based on active chart)
+    document.getElementById("downloadPDF").addEventListener("click", function() {
+        downloadChartAsPDF(activeChartId, activeFilename);
+    });
+
+    // Function to download a specific chart as PDF
+    function downloadChartAsPDF(chartId, filename) {
+        const { jsPDF } = window.jspdf;
+        const chartElement = document.getElementById(chartId);
+
+        if (chartElement) {
+            html2canvas(chartElement).then((canvas) => {
+                const imgData = canvas.toDataURL("image/png");
+                const pdf = new jsPDF({
+                    orientation: "landscape",
+                    unit: "px",
+                    format: [canvas.width, canvas.height]
+                });
+
+                pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+                pdf.save(filename);
+            });
+        } else {
+            console.warn(`Chart with ID ${chartId} not found.`);
+        }
+    }
+</script>
+
+
 
 <script>
     // Pass data to the external script

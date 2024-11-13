@@ -1,25 +1,23 @@
 from django.core.management.base import BaseCommand
 from faker import Faker
 import random
-from monitoring.models import Patient, Municipality, Barangay, History, Treatment
-from django.contrib.auth.models import User
-from datetime import timedelta, date,datetime
+from monitoring.models import Patient, Municipality, Barangay, History, Treatment, User, Doctor
+from django.contrib.auth.models import User as AuthUser
+from datetime import timedelta, date
 from nameparser import HumanName
 
 class Command(BaseCommand):
-    help = 'Generates 10 random patients with history and treatment records for User 2'
+    help = 'Generates 10 random patients with history and treatment records for User 4'
 
     def handle(self, *args, **kwargs):
         fake = Faker()
-
-        # Get the specific User with id=2
-        user = User.objects.get(id=2)
-
+        # Get the specific User with id=4
+        user = User.objects.get(id=4)
+        doctor = Doctor.objects.get(id=3)
         # Get all existing Municipality instances
         municipalities = Municipality.objects.all()
-
-        # Set default municipality to the one with ID 1
-        default_municipality = Municipality.objects.get(muni_id=1)
+        # Set default municipality to the one with ID 8
+        default_municipality = Municipality.objects.get(muni_id=8)
 
         # Get all Barangays related to the selected Municipality
         barangays = default_municipality.barangays.all()
@@ -44,11 +42,12 @@ class Command(BaseCommand):
                 return 'female'
             return 'unknown'  # Return unknown if gender cannot be determined
 
-        def generate_registration_no():
+        def generate_registration_no(user):
             current_year = date.today().year
 
-            # Find the latest registration number for the current year
+            # Find the latest registration number for the current year for the specific user
             last_history = History.objects.filter(
+                patient_id__user=user,  # Filter by the specific user
                 registration_no__startswith=f'{current_year}-'
             ).order_by('registration_no').last()
 
@@ -57,14 +56,33 @@ class Command(BaseCommand):
                 last_reg_num = int(last_reg_no.split('-')[-1])
                 new_reg_num = last_reg_num + 1
             else:
-                new_reg_num = 1
+                new_reg_num = 1  # If no history found, start from 1 for this user
 
             new_registration_no = f'{current_year}-{new_reg_num:05d}'
             return new_registration_no
+        
+
+
 
         def create_patients_with_history_and_treatment(n=10):
-            for _ in range(n):
+            # Get the last registered date (latest date) for this user in the first quarter of 2024
+            latest_history = History.objects.filter(
+                patient_id__user=user,  # Filter by the specific user
+                date_registered__gte=date(2024, 10, 1),
+                date_registered__lte=date(2024, 12,31)
+            ).order_by('-date_registered').first()
 
+            # If no records are found for this user in the first quarter, start from Jan 1st
+            if latest_history:
+                start_date = latest_history.date_registered + timedelta(days=1)  # Start from the next day
+            else:
+                start_date = date(2024, 10, 1)  # If no records, start from Jan 1st
+
+
+
+
+            # Generate patients with sequential dates in the first quarter
+            for i in range(n):
                 # Randomly select Barangay within the same Municipality
                 barangay = random.choice(barangays)
 
@@ -79,6 +97,7 @@ class Command(BaseCommand):
                 # Create and save the Patient instance
                 patient = Patient(
                     user=user,
+                    doctor=doctor,
                     first_name=first_name,
                     middle_name=middle_name,
                     last_name=last_name,
@@ -92,14 +111,14 @@ class Command(BaseCommand):
                 print(f"Patient {first_name} {last_name} created in {barangay.brgy_name}, {default_municipality.muni_name}!")
 
                 # Generate the correct registration number
-                registration_no = generate_registration_no()
+                registration_no = generate_registration_no(user)
 
-                # Date Registered - set to a random date in the 1st quarter (Jan - Mar)
-                """ start_date = date(2024, 1, 1)
-                end_date = date(2024, 3, 31)
-                date_registered = fake.date_between(start_date=start_date, end_date=end_date) """
+                # Generate date_registered for the patient, ensuring it is sequential
+                date_registered = start_date + timedelta(days=i)  # Generate sequential dates
 
-                date_registered = datetime.today().date()
+                # Ensure date_registered does not go beyond March 31st
+                if date_registered > date(2024, 12,31):
+                    date_registered = date(2024, 12,31)  # Cap it to March 31st if it exceeds
 
                 # Create date of exposure - ensure it is before date_registered
                 date_of_exposure = date_registered - timedelta(days=random.randint(1, 30))
@@ -147,6 +166,6 @@ class Command(BaseCommand):
                 treatment.save()
                 print(f"Treatment created for {first_name} {last_name}!")
 
-        # Generate 10 patients with history and treatment records
-        create_patients_with_history_and_treatment(10)
-        self.stdout.write(self.style.SUCCESS('Successfully generated 10 patients with history and treatment records for User 2'))
+        # Generate 10 patients with history and treatment records, starting from the latest date_registered
+        create_patients_with_history_and_treatment(6)
+        self.stdout.write(self.style.SUCCESS('Successfully generated 10 patients with history and treatment records for User 4'))

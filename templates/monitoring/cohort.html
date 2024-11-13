@@ -11,6 +11,26 @@ Cohort
 
 {% block content %}
 {% include "partials/_navlink.html" %}
+<div class="text-end mb-4 me-5">
+    {% if selected_quarter == '1' %}
+        <a href="{% url 'monitoring:pdf_cohort_create1' %}" target="_blank" class="btn btn-success me-2" style="width: 100px;">
+            <i class="fas fa-download me-2"></i> PDF
+        </a>
+    {% elif selected_quarter == '2' %}
+        <a href="{% url 'monitoring:pdf_cohort_create2' %}" target="_blank" class="btn btn-success me-2" style="width: 100px;">
+            <i class="fas fa-download me-2"></i> PDF
+        </a>
+    {% elif selected_quarter == '3' %}
+        <a href="{% url 'monitoring:pdf_cohort_create3' %}" target="_blank" class="btn btn-success me-2" style="width: 100px;">
+            <i class="fas fa-download me-2"></i> PDF
+        </a>
+    {% elif selected_quarter == '4' %}
+        <a href="{% url 'monitoring:pdf_cohort_create4' %}" target="_blank" class="btn btn-success me-2" style="width: 100px;">
+            <i class="fas fa-download me-2"></i> PDF
+        </a>
+    {% endif %}
+</div>
+
 <form method="get" class="form-group mb-4 ms-5">
         <div class="mb-3 text-center">
             <!-- <label for="quarter" class="form-label">Select Quarter:</label> -->
@@ -28,11 +48,13 @@ Cohort
 <div class="p-2">
     <div class="d-flex justify-content-start align-items-start mb-4"> <!-- Logo on the left, text centered -->
         <div class="d-flex align-items-center">
-            {% if logo_url  %}
+            <div class="d-flex align-items-center">
+                {% if logo_url  %}
                     <img src="{{ logo_url }}" alt="Logo" style="height: 120px; margin-right: 20px; margin-left: 20px;">
                 {% else %}
                     <p>No logo available</p>
                 {% endif %}
+            </div>
         </div>
         <!-- Adjusted the text container to be centered -->
         <div class="text-center quarter mx-auto" style="flex-grow: 1;"> 

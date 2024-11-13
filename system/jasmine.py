@@ -121,7 +121,7 @@ JAZZMIN_SETTINGS = {
     # for the full list of 5.13.0 free icon classes
     "icons": {
         "auth": "fas fa-users-cog",
-        "auth.user": "fas fa-user",
+        "monitoring.user": "fas fa-user",
         "auth.Group": "fas fa-users",
         "logentry": "fas fa-history",
         "monitoring.patient":"fa fa-user-injured", 

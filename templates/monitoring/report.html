@@ -17,9 +17,25 @@ Report
 {% include 'partials/_navlink.html' %}
 
     <div class="text-end mb-4 me-5">
-        <a href="{% url 'monitoring:download_report_pdf' %}" target="_blank" class="btn btn-danger me-2">Download to PDF</a>
-        <a href="{% url 'monitoring:excel_masterlist_create' %}" target="_blank" class="btn btn-success me-2">Download to Excel</a>
+        {% if selected_quarter == '1' %}
+            <a href="{% url 'monitoring:download_report_pdf' %}" target="_blank" class="btn btn-success me-2" style="width: 100px;">
+                <i class="fas fa-download me-2"></i> PDF
+            </a>
+        {% elif selected_quarter == '2' %}
+            <a href="{% url 'monitoring:download_report_pdf2' %}" target="_blank" class="btn btn-success me-2" style="width: 100px;">
+                <i class="fas fa-download me-2"></i> PDF
+            </a>
+        {% elif selected_quarter == '3' %}
+            <a href="{% url 'monitoring:download_report_pdf3' %}" target="_blank" class="btn btn-success me-2" style="width: 100px;">
+                <i class="fas fa-download me-2"></i> PDF
+            </a>
+        {% elif selected_quarter == '4' %}
+            <a href="{% url 'monitoring:download_report_pdf4' %}" target="_blank" class="btn btn-success me-2" style="width: 100px;">
+                <i class="fas fa-download me-2"></i> PDF
+            </a>
+        {% endif %}
     </div>
+
 
     <form method="get" class="form-group mb-4 ms-5">
         <div class="mb-3 text-center">
@@ -45,28 +61,7 @@ Report
                     <p>No logo available</p>
                 {% endif %}
             </div>
-            <!-- <form method="post" enctype="multipart/form-data">
-                {% csrf_token %}
-                {{ form.as_p }}
-                <button type="submit">Add Logo</button>
-            </form>
-            {% if logo and logo.logo_image %}
-                <img src="{{ logo.logo_image.url }}" alt="Logo" style="height: 120px; margin-right: 20px; margin-left: 20px;">
-            {% endif %} -->
-            <!-- <a href="{% url 'monitoring:logo_list' %}">View all logos</a> -->
 
-
-                <!-- {% if user.is_superuser %}
-                    <img src="{% static 'assets/images/report_logo/province.png' %}" alt="Superuser Logo" style="height: 120px; margin-right: 20px; margin-left: 20px;">
-                {% elif user.code == 'MAR' %}
-                    <img src="{% static 'assets/images/report_logo/maripipi.png' %}" alt="Maripipi Logo" style="height: 150px; margin-right: 20px;">
-                {% elif user.code == 'KAW' %}
-                    <img src="{% static 'assets/images/report_logo/kawayan.png' %}" alt="Kawayan Logo" style="height: 150px; margin-right: 20px;">
-                {% elif user.code == 'NAV' %}
-                    <img src="{% static 'assets/images/report_logo/naval.png' %}" alt="Naval Logo" style="height: 150px; margin-right: 20px;">
-                {% elif user.code == 'CAIB' %}
-                    <img src="{% static 'assets/images/report_logo/caibiran.png' %}" alt="Caibiran Logo" style="height: 150px; margin-right: 20px;">
-                {% endif %} -->
             <!-- Adjusted the text container to be centered -->
             <div class="text-center quarter mx-auto" style="flex-grow: 1;"> 
                 <h1 class="h1">MUNICIPAL REPORT FORM ON ANIMAL BITE/HUMAN RABIES CASES</h1>
@@ -77,7 +72,7 @@ Report
                 {% endif %}
                 <h3 class="h3" style="margin: 0;">
                     <u>
-                        {{ selected_quarter }}{% if selected_quarter == '1' %}st{% elif selected_quarter == '2' %}nd{% elif selected_quarter == '3' %}rd{% elif selected_quarter == '4' %}th{% endif %} Quarter 2024
+                        {{ quarter_select }} Quarter 2024
                     </u>
                 </h3>
             </div>

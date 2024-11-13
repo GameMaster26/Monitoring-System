@@ -9,6 +9,34 @@ table{
     text-align: center;
 }
 
+.text-end a {
+    transition: background-color 0.3s, transform 0.3s;
+    font-size: 0.875rem; /* Slightly smaller font */
+    padding: 0.25rem 0.5rem; /* Reduced padding */
+}
+
+.text-end a:hover {
+    transform: scale(1.05);
+}
+
+.text-end .btn-danger {
+    background-color: #dc3545; /* Red color */
+    border: none;
+    padding: 0.25rem 0.5rem; /* Reduced padding */
+    font-size: 0.875rem; /* Slightly smaller font */
+}
+
+.input-group-text {
+    background-color: #007bff; /* Button color */
+    color: white; /* Icon color */
+    border: none; /* Remove border */
+    border-radius: 0; /* Match dropdown's border */
+}
+
+.input-group-text i {
+    font-size: 1.2rem; /* Icon size */
+}
+
 .signature-line {
     margin-top: 5px;
     margin-bottom: 10px;

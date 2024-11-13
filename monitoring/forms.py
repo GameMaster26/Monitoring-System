@@ -1,5 +1,5 @@
 from django import forms
-from .models import Patient, History, Barangay,UserMessage,Logo,Doctor
+from .models import Patient, History, Barangay,Doctor
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from datetime import datetime,date,timedelta
 from django.contrib.gis import forms as geoforms
@@ -7,18 +7,26 @@ from leaflet.forms.widgets import LeafletWidget
 from django.core.mail import send_mail
 from django.contrib.auth import get_user_model
 
-class MessageUserForm(forms.Form):
-    subject = forms.CharField(max_length=100, label="Subject")
-    message = forms.CharField(widget=forms.Textarea, label="Message")
+class DoctorForm(forms.ModelForm):
+    class Meta:
+        model = Doctor
+        fields = ['first_name', 'middle_name', 'last_name', 'specialization', 'gender', 
+                  'contact_number', 'email', 'licensed', 'muni_id', 'brgy_id']
 
-    def send_message(self, user):
-        subject = self.cleaned_data['subject']
-        message = self.cleaned_data['message']
-        
-        # Save the message to the database
-        UserMessage.objects.create(user=user, subject=subject, message=message)
+    def __init__(self, *args, **kwargs):
+        super(DoctorForm, self).__init__(*args, **kwargs)
+        # Initialize brgy_id as empty until a municipality is selected
+        self.fields['brgy_id'].queryset = Barangay.objects.none()
 
-
+        if 'muni_id' in self.data:
+            try:
+                municipality_id = int(self.data.get('muni_id'))
+                self.fields['brgy_id'].queryset = Barangay.objects.filter(muni_id=municipality_id)
+            except (ValueError, TypeError):
+                pass  # Invalid input; ignore and keep queryset empty
+        elif self.instance.pk and self.instance.muni_id:
+            # Populate brgy_id if municipality is already set on the instance
+            self.fields['brgy_id'].queryset = Barangay.objects.filter(muni_id=self.instance.muni_id)
 
 class CustomMapWidget(geoforms.OSMWidget):
     default_lon = 124.4642
@@ -82,16 +90,11 @@ class PatientSearch(forms.ModelForm):
                 self.fields[field].widget.attrs['readonly'] = True
                 self.fields[field].disabled = True
 
+FORMAT_CHOIES = (
+    ('xls','xls'),
+    ('csv','csv'),
+    ('json','json'),
+)
 
-class LogoForm(forms.ModelForm):
-    class Meta:
-        model = Logo
-        fields = ['logo_name', 'logo_image']
-
-class placeholderForm(forms.ModelForm):
-    class Meta:
-        model = Doctor
-        fields = ['date_of_birth']
-        widgets = {
-            'date_of_birth': forms.DateInput(attrs={'placeholder': 'MM/DD/YYYY', 'type': 'date'}),
-        }
+class FormatForm(forms.Form):
+    format = forms.ChoiceField(choices=FORMAT_CHOIES,widget=forms.Select(attrs={'class':'form-select'}))

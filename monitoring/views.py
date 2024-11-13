@@ -2,8 +2,7 @@ import io
 from io import BytesIO  
 import os  
 import json
-from .forms import LogoForm
-from .models import Patient, History, Treatment,Barangay,Municipality,Logo
+from .models import Patient, History, Treatment,Barangay,Municipality,User
 from django.shortcuts import render,redirect
 from django.http import HttpResponse
 from django.db.models import Count, F,Sum
@@ -32,7 +31,7 @@ from urllib.parse import urlencode
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 from calendar import month_name
-from django.contrib.auth.models import Group,User
+from django.contrib.auth.models import Group,User as AuthUser
 from django.shortcuts import redirect
 from django.contrib.auth import logout as auth_logout
 from django.contrib import messages
@@ -42,651 +41,41 @@ from django.core.serializers import serialize
 import pandas as pd
 import PyPDF2
 from fpdf import FPDF
+from django.views.generic import ListView,FormView
+from .forms import FormatForm
+from .admin import PatientResource
 
-def pdf_report_create(request):
-    
+class PatientListView(ListView, FormView):
+    model = Patient
+    template_name = 'monitoring/listview.html'
+    form_class = FormatForm
 
-    user = request.user
+    def post(self, request, *args, **kwargs):
+        qs = self.get_queryset()
+        dataset = PatientResource().export(qs)
 
-    municipality_map = {
-        "MAR": "Maripipi",
-        "KAW": "Kawayan",
-        "NAV": "Naval",
-        "CAIB": "Caibiran",
-        "ALM":"Almeria",
-        "BIL":"Biliran",
-        "CUL":"Culaba",
-        "CABUC":"Cabucgayan"
-    }
-
-    if user.is_superuser and user.code == "NAV":
-        municipality_name = "BPH"
-    else:
-        municipality_name = municipality_map.get(user.code, "Naval")
-
-    selected_quarter = request.GET.get('quarter', '1')
-    year = 2024
-
-    quarter_ranges = {
-        '1': (date(year, 1, 1), date(year, 3, 31)),
-        '2': (date(year, 4, 1), date(year, 6, 30)),
-        '3': (date(year, 7, 1), date(year, 9, 30)),
-        '4': (date(year, 10, 1), date(year, 12, 31)),
-    }
-
-    start_date, end_date = quarter_ranges[selected_quarter]
-
-    data = []
-    total_male = 0
-    total_female = 0
-    total_all = 0
-    total_age_15_below = 0
-    total_age_above_15 = 0
-    total_sex_percentage = 0
-    total_animal_bite_I = 0
-    total_animal_bite_II = 0
-    total_animal_bite_III = 0
-    total_category_percentage = 0
-    total_tcv_given = 0
-    total_hrig_given = 0
-    total_erig_given = 0  
-    total_tcv_percentage = 0
-    total_hrig_percentage = 0
-    total_rig_percentage = 0
-    total_dog_bites = 0
-    total_cat_bites = 0
-    total_other_bites = 0
-    total_animal_type_percentage = 0
-    total_animal_bite_I_percentage = 0
-    total_animal_bite_II_percentage = 0
-    total_animal_bite_III_percentage = 0
-    total_immunized = 0
-    total_unimmunized = 0
-
-
-    if user.is_superuser:
-        abtcs = User.objects.filter(is_superuser=False).distinct()
-        for abtc_user in abtcs:
-            if not abtc_user.code:
-                continue
-
-            male_count = History.objects.filter(
-                patient_id__user=abtc_user,
-                date_registered__range=(start_date, end_date),
-                patient_id__sex='male'
-            ).count()
-            female_count = History.objects.filter(
-                patient_id__user=abtc_user,
-                date_registered__range=(start_date, end_date),
-                patient_id__sex='female'
-            ).count()
-
-            patients = Patient.objects.filter(
-                user=abtc_user,  
-                histories__date_registered__range=(start_date, end_date)  
-            ).distinct()
-            age_15_below_count = sum(1 for patient in patients if calculate_age(patient.birthday) <= 15)
-            age_above_15_count = sum(1 for patient in patients if calculate_age(patient.birthday) > 15)
-
-            user_animal_bite_I = 0
-            user_animal_bite_II = 0
-            user_animal_bite_III = 0
-
-            animal_bite_counts = History.objects.filter(
-                patient_id__user=abtc_user,
-                date_registered__range=(start_date, end_date)
-            ).values('category_of_exposure').annotate(count=models.Count('category_of_exposure'))
-
-            for count in animal_bite_counts:
-                if count['category_of_exposure'] == 'I':
-                    user_animal_bite_I = count['count']
-                elif count['category_of_exposure'] == 'II':
-                    user_animal_bite_II = count['count']
-                elif count['category_of_exposure'] == 'III':
-                    user_animal_bite_III = count['count']
-
-            tcv_count = Treatment.objects.filter(
-                patient_id__user=abtc_user,
-                tcv_given__range=(start_date, end_date)
-            ).count()
-
-            hrig_count = Treatment.objects.filter(
-                patient_id__user=abtc_user,
-                hrig_given__range=(start_date, end_date)
-            ).count()
-
-            erig_count = Treatment.objects.filter(
-                patient_id__user=abtc_user,
-                rig_given__range=(start_date, end_date) 
-            ).count()
-
-            animal_type_counts = History.objects.filter(
-                patient_id__user=abtc_user,
-                date_registered__range=(start_date, end_date)
-            ).values('source_of_exposure').annotate(count=models.Count('source_of_exposure'))
-
-            user_dog_bites = 0
-            user_cat_bites = 0
-            user_other_bites = 0
-
-            for count in animal_type_counts:
-                if count['source_of_exposure'] == 'Dog':
-                    user_dog_bites = count['count']
-                elif count['source_of_exposure'] == 'Cat':
-                    user_cat_bites = count['count']
-                elif count['source_of_exposure'] == 'Others':
-                    user_other_bites = count['count']
-
-            user_immunized_count = History.objects.filter(
-                patient_id__user=abtc_user,
-                immunization_status='Immunized',
-                date_registered__range=(start_date, end_date)
-            ).count()
-            
-            user_unimmunized_count = History.objects.filter(
-                patient_id__user=abtc_user,
-                immunization_status='Unimmunized',
-                date_registered__range=(start_date, end_date)
-            ).count()
-
-            user_human_rabies_count = History.objects.filter(
-                patient_id__user=abtc_user,
-                human_rabies=True,
-                date_registered__range=(start_date, end_date)
-            ).count()
-                    
-            total_immunized += user_immunized_count
-            total_unimmunized += user_unimmunized_count
-            total_dog_bites += user_dog_bites
-            total_cat_bites += user_cat_bites
-            total_other_bites += user_other_bites
-            total_tcv_given += tcv_count
-            total_hrig_given += hrig_count
-            total_erig_given += erig_count
-
-            total_count = male_count + female_count
-            total_male += male_count
-            total_female += female_count
-            total_all += total_count
-            total_age_15_below += age_15_below_count
-            total_age_above_15 += age_above_15_count
-            total_animal_bite_I += user_animal_bite_I
-            total_animal_bite_II += user_animal_bite_II
-            total_animal_bite_III += user_animal_bite_III
-
-            # Determine barangay field for this ABTC user
-            if abtc_user.code == "NAV":
-                barangay_name = "BPH-ABTC"
-            else:
-                barangay_name = f"{municipality_map.get(abtc_user.code, 'Unknown')}-ABTC"
-
-            data.append({
-                'barangay': barangay_name,
-                'data_male': male_count,
-                'data_female': female_count,
-                'data_total': total_count,
-                'age_15_below': age_15_below_count,
-                'age_above_15': age_above_15_count,
-                'age_total': age_15_below_count + age_above_15_count,
-                'total_animal_bite_I':user_animal_bite_I,
-                'total_animal_bite_II':user_animal_bite_II,
-                'total_animal_bite_III':user_animal_bite_III,
-                'total_animal':user_animal_bite_I + user_animal_bite_II + user_animal_bite_III,
-                'total_tcv_given': tcv_count,
-                'total_hrig_given': hrig_count,
-                'total_erig_given': erig_count,
-                'total_dog_bites': user_dog_bites,
-                'total_cat_bites': user_cat_bites,
-                'total_other_bites': user_other_bites,
-                'total_animal_bites': user_dog_bites + user_cat_bites + user_other_bites,
-                'immunized_count': user_immunized_count,
-                'unimmunized_count': user_unimmunized_count,  
-                'human_rabies_count':user_human_rabies_count,
-
-            })
-    else:
-        # For non-superuser
-        patients = Patient.objects.filter(user=user)
-        barangays = Barangay.objects.filter(patients_brgy__in=patients).distinct()
-
-        for barangay in barangays:
-            male_count = History.objects.filter(
-                patient_id__brgy_id=barangay,
-                patient_id__user=user,
-                date_registered__range=(start_date, end_date),
-                patient_id__sex='male'
-            ).count()
-            female_count = History.objects.filter(
-                patient_id__brgy_id=barangay,
-                patient_id__user=user,
-                date_registered__range=(start_date, end_date),
-                patient_id__sex='female'
-            ).count()
-
-            patients = Patient.objects.filter(
-                brgy_id=barangay,
-                user=user,
-                histories__date_registered__range=(start_date, end_date)  # Filter by registration date within the quarter
-            ).distinct()
-            age_15_below_count = sum(1 for patient in patients if calculate_age(patient.birthday) <= 15)
-            age_above_15_count = sum(1 for patient in patients if calculate_age(patient.birthday) > 15)
-
-            barangay_animal_bite_I = 0
-            barangay_animal_bite_II = 0
-            barangay_animal_bite_III = 0
-
-            animal_bite_counts = History.objects.filter(
-                patient_id__brgy_id=barangay,
-                patient_id__user=user,
-                date_registered__range=(start_date, end_date)
-            ).values('category_of_exposure').annotate(count=models.Count('category_of_exposure'))
-
-            tcv_count = Treatment.objects.filter(
-                patient_id__brgy_id=barangay,
-                patient_id__user=user,
-                tcv_given__range=(start_date, end_date)
-            ).count()
-
-            hrig_count = Treatment.objects.filter(
-                patient_id__brgy_id=barangay,
-                patient_id__user=user,
-                hrig_given__range=(start_date, end_date)
-            ).count()
-
-            erig_count = Treatment.objects.filter(
-                patient_id__brgy_id=barangay,
-                patient_id__user=user,
-                rig_given__range=(start_date, end_date)
-            ).count()
-
-            total_tcv_given += tcv_count
-            total_hrig_given += hrig_count
-            total_erig_given += erig_count
-
-            for count in animal_bite_counts:
-                if count['category_of_exposure'] == 'I':
-                    barangay_animal_bite_I = count['count']
-                elif count['category_of_exposure'] == 'II':
-                    barangay_animal_bite_II = count['count']
-                elif count['category_of_exposure'] == 'III':
-                    barangay_animal_bite_III = count['count']
-
-            animal_type_counts = History.objects.filter(
-                patient_id__brgy_id=barangay,
-                patient_id__user=user,
-                date_registered__range=(start_date, end_date)
-            ).values('source_of_exposure').annotate(count=models.Count('source_of_exposure'))
-
-            barangay_dog_bites = 0
-            barangay_cat_bites = 0
-            barangay_other_bites = 0
-
-            for count in animal_type_counts:
-                if count['source_of_exposure'] == 'Dog':
-                    barangay_dog_bites = count['count']
-                elif count['source_of_exposure'] == 'Cat':
-                    barangay_cat_bites = count['count']
-                elif count['source_of_exposure'] == 'Others':
-                    barangay_other_bites = count['count']
-
-            barangay_immunized_count = History.objects.filter(
-                patient_id__brgy_id=barangay,
-                patient_id__user=user,
-                immunization_status='Immunized',
-                date_registered__range=(start_date, end_date)
-            ).count()
-            
-            barangay_unimmunized_count = History.objects.filter(
-                patient_id__brgy_id=barangay,
-                patient_id__user=user,
-                immunization_status='Unimmunized',
-                date_registered__range=(start_date, end_date)
-            ).count()
-
-            barangay_human_rabies_count = History.objects.filter(
-                patient_id__brgy_id=barangay,
-                patient_id__user=user,
-                human_rabies=True,
-                date_registered__range=(start_date, end_date)
-            ).count()
-
-            total_immunized += barangay_immunized_count
-            total_unimmunized += barangay_unimmunized_count
-            total_dog_bites += barangay_dog_bites
-            total_cat_bites += barangay_cat_bites
-            total_other_bites += barangay_other_bites
-            total_dog_bites += barangay_dog_bites
-            total_cat_bites += barangay_cat_bites
-            total_other_bites += barangay_other_bites
-            total_animal_bite_I += barangay_animal_bite_I
-            total_animal_bite_II += barangay_animal_bite_II
-            total_animal_bite_III += barangay_animal_bite_III
-
-            # Add to total counts
-            total_count = male_count + female_count
-            total_male += male_count
-            total_female += female_count
-            total_all += total_count
-            total_age_15_below += age_15_below_count
-            total_age_above_15 += age_above_15_count
-
-            data.append({
-                'barangay': barangay.brgy_name,
-                'data_male': male_count,
-                'data_female': female_count,
-                'data_total': total_count,
-                'age_15_below': age_15_below_count,
-                'age_above_15': age_above_15_count,
-                'age_total': age_15_below_count + age_above_15_count,
-                'total_animal_bite_I': barangay_animal_bite_I,
-                'total_animal_bite_II': barangay_animal_bite_II,
-                'total_animal_bite_III': barangay_animal_bite_III,
-                'total_animal': barangay_animal_bite_I + barangay_animal_bite_II + barangay_animal_bite_III,
-                'total_tcv_given': tcv_count,
-                'total_hrig_given': hrig_count,
-                'total_erig_given': erig_count,
-                'total_dog_bites': barangay_dog_bites,
-                'total_cat_bites': barangay_cat_bites,
-                'total_other_bites': barangay_other_bites,
-                'total_animal_bites': barangay_dog_bites + barangay_cat_bites + barangay_other_bites,
-                'immunized_count': barangay_immunized_count,  # Change made here
-                'unimmunized_count': barangay_unimmunized_count,  # Change made here
-                'human_rabies_count':barangay_human_rabies_count,
-
-            })
-
-    if total_all > 0:
-        male_percentage = (total_male / total_all) * 100
-        female_percentage = (total_female / total_all) * 100
-        total_sex_percentage = (male_percentage + female_percentage)
-        age_15_below_percentage = (total_age_15_below / total_all) * 100
-        age_above_15_percentage = (total_age_above_15 / total_all) * 100
-        total_age_percentage = (total_age_15_below + total_age_above_15) / total_all * 100
-        total_animal_bite_I_percentage = (total_animal_bite_I / total_all ) * 100
-        total_animal_bite_II_percentage = (total_animal_bite_II / total_all ) * 100
-        total_animal_bite_III_percentage = (total_animal_bite_III / total_all ) * 100
-        total_category_percentage = (total_animal_bite_I_percentage + total_animal_bite_II_percentage + total_animal_bite_III_percentage)
-        total_tcv_percentage = (total_tcv_given / total_all) * 100
-        total_hrig_percentage = (total_hrig_given / total_all) * 100
-        total_rig_percentage = (total_erig_given / total_all) * 100  
-        dog_bite_percentage = (total_dog_bites / total_all) * 100
-        cat_bite_percentage = (total_cat_bites / total_all) * 100
-        other_bite_percentage = (total_other_bites / total_all) * 100
-        total_animal_type_percentage = dog_bite_percentage + cat_bite_percentage + other_bite_percentage
-        if total_immunized + total_unimmunized > 0:
-            immunized_percentage = (total_immunized / (total_immunized + total_unimmunized)) * 100
-            unimmunized_percentage = (total_unimmunized / (total_immunized + total_unimmunized)) * 100
+        # Retrieve the selected format
+        format = request.POST.get('format')
+        
+        # Select the format for the dataset export
+        if format == 'xls':
+            ds = dataset.export('xlsx')  # Export to xlsx (for Excel)
+            content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            file_extension = 'xlsx'
+        elif format == 'csv':
+            ds = dataset.export('csv')  # Export to CSV
+            content_type = 'text/csv'
+            file_extension = 'csv'
         else:
-            immunized_percentage = 0
-            unimmunized_percentage = 0
-    else:
-        male_percentage = female_percentage = age_15_below_percentage = age_above_15_percentage = total_age_percentage = 0
-        total_tcv_percentage = total_hrig_percentage = total_rig_percentage = 0
-        dog_bite_percentage = cat_bite_percentage = other_bite_percentage = 0
-        immunized_percentage = 0
-        unimmunized_percentage = 0
+            ds = dataset.export('json')  # Export to JSON
+            content_type = 'application/json'
+            file_extension = 'json'
 
-    overall_total = sum(entry.get('data_total', 0) for entry in data)
-    overall_total_tcv = sum(entry.get('total_tcv_given', 0) for entry in data)
-    overall_total_hrig = sum(entry.get('total_hrig_given', 0) for entry in data)
-    overall_total_erig = sum(entry.get('total_erig_given', 0) for entry in data)
+        # Set the content type and download file name
+        response = HttpResponse(ds, content_type=content_type)
+        response['Content-Disposition'] = f'attachment; filename="patients.{file_extension}"'
+        return response
 
-    for entry in data:
-        entry['percent_total'] = round((entry['data_total'] / overall_total) * 100, 1) if overall_total > 0 else 0
-        entry['percent_tcv'] = round((entry.get('total_tcv_given', 0) / overall_total_tcv) * 100, 1) if overall_total_tcv > 0 else 0
-        entry['percent_hrig'] = round((entry.get('total_hrig_given', 0) / overall_total_hrig) * 100, 1) if overall_total_hrig > 0 else 0
-        entry['percent_erig'] = round((entry.get('total_erig_given', 0) / overall_total_erig) * 100, 1) if overall_total_erig > 0 else 0
-    #all percent totals
-    total_percent = sum(entry['percent_total'] for entry in data)
-    total_tcv_percent = sum(entry['percent_tcv'] for entry in data)
-    total_hrig_percent = sum(entry['percent_hrig'] for entry in data)
-    total_erig_percent = sum(entry['percent_erig'] for entry in data)   
-    total_human_rabies = sum(entry.get('human_rabies_count', 0) for entry in data)  # Add this line
-
-    municipalities = Municipality.objects.all()
-    selected_municipality_id = request.GET.get('municipality_id')
-    selected_municipality = municipalities.filter(muni_id=selected_municipality_id).first() if selected_municipality_id else None
-    
-    if user.is_superuser:
-        table = "ABTC"
-    else:
-        table = "Barangay"
-
-    if user.first_name or user.last_name:
-        signature_name = f"{user.first_name} {user.last_name}".strip()
-    else:
-        signature_name = user.username
-    
-    # Get the Logo instance based on user type or code  
-    if user.is_superuser:
-        logo = Logo.objects.filter(logo_name="Province").first()
-    elif user.code == 'ALM':
-        logo = Logo.objects.filter(logo_name="Almeria").first()
-    elif user.code == 'BIL':
-        logo = Logo.objects.filter(logo_name="Biliran").first()
-    elif user.code == 'CABUC':
-        logo = Logo.objects.filter(logo_name="Cabucgayan").first()
-    elif user.code == 'CAIB':
-        logo = Logo.objects.filter(logo_name="Caibiran").first()
-    elif user.code == 'CUL':
-        logo = Logo.objects.filter(logo_name="Culaba").first()
-    elif user.code == 'KAW':
-        logo = Logo.objects.filter(logo_name="Kawayan").first()
-    elif user.code == 'MAR':
-        logo = Logo.objects.filter(logo_name="Maripipi").first()
-    elif user.code == 'NAV':
-        logo = Logo.objects.filter(logo_name="Naval").first()
-    else:
-        logo = None  # or some default logo if needed
-
-    # Check if a logo was found and retrieve its URL, otherwise set to None
-    logo_url = logo.logo_image.url if logo and logo.logo_image else None
-    
-    template_path = 'monitoring/report_pdf.html'
-    context = {
-        'logo_url': logo_url,
-        'signature_name':signature_name,
-        'table': table,
-        'municipalities': municipalities,
-        'selected_municipality': selected_municipality or municipalities.first(),  # Default to the first municipality if none is selected
-        'municipality_name': municipality_name,
-        'selected_quarter': selected_quarter,
-        'barangay_list': [d['barangay'] for d in data],
-        'data': data,
-        'total_male': total_male,
-        'total_female': total_female,
-        'total_all': total_all,
-        'total_age_15_below': total_age_15_below,
-        'total_age_above_15': total_age_above_15,
-        'male_percentage': round(male_percentage, 1),
-        'female_percentage': round(female_percentage, 1),
-        'total_sex_percentage':round(total_sex_percentage),
-        'age_15_below_percentage': round(age_15_below_percentage, 1),
-        'age_above_15_percentage': round(age_above_15_percentage, 1),
-        'total_age_percentage': round(total_age_percentage, 1),
-        'total_animal_bite_I': total_animal_bite_I,
-        'total_animal_bite_II': total_animal_bite_II,
-        'total_animal_bite_III': total_animal_bite_III,
-        'total_animal_bite_I_percentage': round(total_animal_bite_I_percentage,1),
-        'total_animal_bite_II_percentage': round(total_animal_bite_II_percentage,1),
-        'total_animal_bite_III_percentage': round(total_animal_bite_III_percentage,1),
-        'total_category_percentage': round(total_category_percentage,1),
-        'overall_total':overall_total,
-        'total_percent':round(total_percent, ),
-        'total_tcv_given': total_tcv_given,
-        'total_hrig_given': total_hrig_given,
-        'total_rig_given': total_erig_given,
-        'total_tcv_percentage': round(total_tcv_percentage, 1),
-        'total_hrig_percentage': round(total_hrig_percentage, 1),
-        'total_rig_percentage': round(total_rig_percentage, 1),
-        'total_tcv_percent':round(total_tcv_percent, ),
-        'total_erig_percent':round(total_erig_percent, ),
-        'total_hrig_percent':round(total_hrig_percent, ),
-        'total_dog_bites': total_dog_bites,
-        'total_cat_bites': total_cat_bites,
-        'total_other_bites': total_other_bites,
-        'dog_bite_percentage': round(dog_bite_percentage, 1),
-        'cat_bite_percentage': round(cat_bite_percentage, 1),
-        'other_bite_percentage': round(other_bite_percentage, 1),
-        'total_animal_type_percentage': round(total_animal_type_percentage, 1),
-        'total_tcv_given': sum(entry.get('total_tcv_given', 0) for entry in data),
-        'total_hrig_given': sum(entry.get('total_hrig_given', 0) for entry in data),
-        'total_erig_given': sum(entry.get('total_erig_given', 0) for entry in data),
-        'total_immunized': total_immunized,
-        'total_unimmunized': total_unimmunized,
-        'immunized_percentage': round(immunized_percentage, 1), 
-        'unimmunized_percentage': round(unimmunized_percentage, 1),  
-        'total_human_rabies':total_human_rabies,
-
-    }
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'filename="report_pdf.pdf"'
-
-    template = get_template(template_path)
-    html = template.render(context)
-
-    pisa_status = pisa.CreatePDF(
-        html,dest=response)
-    if pisa_status.err:
-        return HttpResponse('We had some errors <pre>'+html+'<prev>')
-    return response
-
-def pdf_masterlist_create(request):
-    template_path = 'monitoring/download_pdf.html'
-    user = request.user
-
-    # Get selected filters from request
-    selected_municipality = request.GET.get('municipality')
-    selected_barangay = request.GET.get('barangay')
-    selected_user = request.GET.get('searchUsername') 
-    start_month = request.GET.get('startMonth')
-    end_month = request.GET.get('endMonth')
-    search_name = request.GET.get('searchName')
-    
-    # Fetch the histories with related patient, municipality, and barangay data
-    histories = History.objects.select_related('patient_id', 'muni_id', 'brgy_id').order_by('-registration_no')
-
-    if not user.is_superuser:
-        # Filter histories for the current user if not a superuser
-        histories = histories.filter(patient_id__user=user)
-    
-    patients = Patient.objects.all()
-
-    # Apply filters based on selected municipality and barangay
-    if selected_municipality:
-        histories = histories.filter(muni_id=selected_municipality)
-    if selected_barangay:
-        histories = histories.filter(brgy_id=selected_barangay)
-
-    # Apply filter based on username search only if user is a superuser
-    if user.is_superuser and selected_user:
-        histories = histories.filter(patient_id__user__username=selected_user)
-    
-    # Fetch unique users from the Patient model for the dropdown if user is superuser
-    if user.is_superuser:
-        patient_users = Patient.objects.select_related('user').values_list('user', flat=True).distinct()
-        users = User.objects.filter(id__in=patient_users)
-    else:
-        users = []
-
-    # Apply filter based on selected start and end months
-    if start_month and end_month:
-        try:
-            current_year = datetime.now().year
-            start_date = datetime.strptime(f"{start_month} {current_year}", "%B %Y").replace(day=1)
-            end_date = datetime.strptime(f"{end_month} {current_year}", "%B %Y").replace(day=1) + relativedelta(months=1) - relativedelta(days=1)
-            histories = histories.filter(date_registered__gte=start_date, date_registered__lte=end_date)
-        except Exception as e:
-            print(f"Error parsing date: {e}")  # Log the error and continue
-
-     # Apply filter based on name search
-    if search_name:
-        histories = histories.filter(Q(patient_id__first_name__icontains=search_name) | Q(patient_id__last_name__icontains=search_name))
-
-    months = month_name[1:]
-    
-    # Calculate age and attach to each history instance
-    for history in histories:
-        history.treatment = Treatment.objects.filter(patient_id=history.patient_id).first()
-        history.age = calculate_age(history.patient_id.birthday)
-
-    # Count the number of male and female patients
-    male = histories.filter(patient_id__sex__iexact='Male').count()
-    female = histories.filter(patient_id__sex__iexact='Female').count()
-
-    # Calculate the number of age
-    age_15_or_less_count = 0
-    age_above_15_count = 0
-
-    for history in histories:
-        age = calculate_age(history.patient_id.birthday)
-        if age <= 15:
-            age_15_or_less_count += 1
-        else:
-            age_above_15_count += 1
-
-    # Calculate counts for different animal bites   
-    source_of_exposure_counter = Counter(histories.values_list('source_of_exposure', flat=True))
-    dog_count = source_of_exposure_counter.get('Dog', 0)
-    cat_count = source_of_exposure_counter.get('Cat', 0)
-    other_animal_count = source_of_exposure_counter.get('Others', 0)
-
-    paginator = Paginator(histories,10)  
-    page_number = request.GET.get('page',1)
-    try:
-        histories = paginator.get_page(page_number)
-    except PageNotAnInteger:
-        histories = paginator.get_page(1)
-    except EmptyPage:
-        histories = paginator.get_page(paginator.num_pages)
-
-    # Collect current query parameters
-    query_params = request.GET.dict()
-    if 'page' in query_params:
-        del query_params['page']  # Remove the page parameter
-    query_string = urlencode(query_params)
-
-    municipalities = Municipality.objects.all()
-    barangays = Barangay.objects.all()
-
-    if user.first_name or user.last_name:
-        signature_name = f"{user.first_name} {user.last_name}".strip()
-    else:
-        signature_name = user.username
-    
-    context = {
-        'signature_name':signature_name,
-        'histories': histories,
-        'municipalities': municipalities,
-        'barangays': barangays,
-        'selected_municipality': selected_municipality,
-        'selected_barangay': selected_barangay,
-        'selected_user':selected_user,
-        'start_month': start_month,
-        'end_month': end_month,
-        'search_name': search_name,
-        'months': months,
-        'male' : male,
-        'female' : female,
-        'dog_count' : dog_count,
-        'cat_count' : cat_count,
-        'other_animal_count' : other_animal_count,
-        'age_15_or_less_count' : age_15_or_less_count,
-        'age_above_15_count' : age_above_15_count,
-        'query_string' : query_string,
-        'users':users
-    }
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'filename="masterlist_pdf.pdf"'
-
-    template = get_template(template_path)
-    html = template.render(context)
-
-    pisa_status = pisa.CreatePDF(
-        html,dest=response)
-    if pisa_status.err:
-        return HttpResponse('We had some errors <pre>'+html+'<prev>')
-    return response
 
 def excel_masterlist_create(request):
     # Get the current user
@@ -792,32 +181,6 @@ def generate_pdf_report(excel_data, pdf_data, output_path):
     pdf.multi_cell(0, 10, pdf_data)
 
     pdf.output(output_path)
-
-# Paths to the input files
-""" excel_file_path = 'path_to_excel_file.xlsx'
-pdf_file_path = 'path_to_pdf_file.pdf'
-output_pdf_path = 'output_report.pdf' """
-
-# Read data from Excel and PDF
-""" excel_data = read_excel(excel_file_path)
-pdf_data = read_pdf(pdf_file_path) """
-
-# Generate the PDF report
-""" generate_pdf_report(excel_data, pdf_data, output_pdf_path) """
-
-def add_logo(request):
-    if request.method == 'POST':
-        form = LogoForm(request.POST, request.FILES)
-        if form.is_valid():
-            form.save()
-            return redirect('monitoring:logo_list')  
-    else:
-        form = LogoForm()
-    return render(request, 'monitoring/add_logo.html', {'form': form})
-
-def logo_list(request):
-    logos = Logo.objects.all()
-    return render(request, 'monitoring/logo_list.html', {'logos': logos})
 
 def index(request):
     # Retrieve all totals
@@ -1222,9 +585,6 @@ def superuser_required(view_func):
         return view_func(request, *args, **kwargs)
     return login_required(_wrapped_view_func)
 
-#@superuser_required
-#@staff_or_superuser_required
-
 @staff_member_required
 @login_required
 def overview(request):
@@ -1394,7 +754,7 @@ def reports(request):
         municipality_name = municipality_map.get(user.code, "Naval")
 
     selected_quarter = request.GET.get('quarter', '1')
-    year = 2024
+    year = date.today().year
 
     quarter_ranges = {
         '1': (date(year, 1, 1), date(year, 3, 31)),
@@ -1404,6 +764,15 @@ def reports(request):
     }
 
     start_date, end_date = quarter_ranges[selected_quarter]
+
+    if selected_quarter == '1':
+        quarter_select = '1st'
+    elif selected_quarter == '2':
+        quarter_select = '2nd'
+    elif selected_quarter == '3':
+        quarter_select = '3rd'
+    elif selected_quarter == '4':
+        quarter_select = '4th'
 
     data = []
     total_male = 0
@@ -1579,6 +948,495 @@ def reports(request):
         barangays = Barangay.objects.filter(patients_brgy__in=patients).distinct()
 
         for barangay in barangays:
+            # Filter by date range (selected quarter)
+            male_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='male'
+            ).count()
+
+            female_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='female'
+            ).count()
+
+            # Skip barangay if there is no data for the selected quarter
+            if male_count == 0 and female_count == 0:
+                continue
+
+            # Calculate age breakdown (15 and below, above 15)
+            patients_in_quarter = Patient.objects.filter(
+                brgy_id=barangay,
+                user=user,
+                histories__date_registered__range=(start_date, end_date)
+            ).distinct()
+
+            age_15_below_count = sum(1 for patient in patients_in_quarter if calculate_age(patient.birthday) <= 15)
+            age_above_15_count = sum(1 for patient in patients_in_quarter if calculate_age(patient.birthday) > 15)
+
+            # Initialize animal bite categories and other counters
+            barangay_animal_bite_I = 0
+            barangay_animal_bite_II = 0
+            barangay_animal_bite_III = 0
+
+            animal_bite_counts = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date)
+            ).values('category_of_exposure').annotate(count=models.Count('category_of_exposure'))
+
+            tcv_count = Treatment.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                tcv_given__range=(start_date, end_date)
+            ).count()
+
+            hrig_count = Treatment.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                hrig_given__range=(start_date, end_date)
+            ).count()
+
+            erig_count = Treatment.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                rig_given__range=(start_date, end_date)
+            ).count()
+
+            # Count animal bites for different categories
+            for count in animal_bite_counts:
+                if count['category_of_exposure'] == 'I':
+                    barangay_animal_bite_I = count['count']
+                elif count['category_of_exposure'] == 'II':
+                    barangay_animal_bite_II = count['count']
+                elif count['category_of_exposure'] == 'III':
+                    barangay_animal_bite_III = count['count']
+
+            # Count different sources of animal bites (e.g., dog, cat)
+            animal_type_counts = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date)
+            ).values('source_of_exposure').annotate(count=models.Count('source_of_exposure'))
+
+            barangay_dog_bites = 0
+            barangay_cat_bites = 0
+            barangay_other_bites = 0
+
+            for count in animal_type_counts:
+                if count['source_of_exposure'] == 'Dog':
+                    barangay_dog_bites = count['count']
+                elif count['source_of_exposure'] == 'Cat':
+                    barangay_cat_bites = count['count']
+                elif count['source_of_exposure'] == 'Others':
+                    barangay_other_bites = count['count']
+
+            # Immunization counts
+            barangay_immunized_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                immunization_status='Immunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            barangay_unimmunized_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                immunization_status='Unimmunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            # Human rabies count
+            barangay_human_rabies_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                human_rabies=True,
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            total_immunized += barangay_immunized_count
+            total_unimmunized += barangay_unimmunized_count
+            total_dog_bites += barangay_dog_bites
+            total_cat_bites += barangay_cat_bites
+            total_other_bites += barangay_other_bites
+            total_dog_bites += barangay_dog_bites
+            total_cat_bites += barangay_cat_bites
+            total_other_bites += barangay_other_bites
+            total_animal_bite_I += barangay_animal_bite_I
+            total_animal_bite_II += barangay_animal_bite_II
+            total_animal_bite_III += barangay_animal_bite_III
+
+            # Add to total counts
+            total_count = male_count + female_count
+            total_male += male_count
+            total_female += female_count
+            total_all += total_count
+            total_age_15_below += age_15_below_count
+            total_age_above_15 += age_above_15_count
+            data.append({
+                'barangay': barangay.brgy_name,
+                'data_male': male_count,
+                'data_female': female_count,
+                'data_total': total_count,
+                'age_15_below': age_15_below_count,
+                'age_above_15': age_above_15_count,
+                'age_total': age_15_below_count + age_above_15_count,
+                'total_animal_bite_I': barangay_animal_bite_I,
+                'total_animal_bite_II': barangay_animal_bite_II,
+                'total_animal_bite_III': barangay_animal_bite_III,
+                'total_animal': barangay_animal_bite_I + barangay_animal_bite_II + barangay_animal_bite_III,
+                'total_tcv_given': tcv_count,
+                'total_hrig_given': hrig_count,
+                'total_erig_given': erig_count,
+                'total_dog_bites': barangay_dog_bites,
+                'total_cat_bites': barangay_cat_bites,
+                'total_other_bites': barangay_other_bites,
+                'total_animal_bites': barangay_dog_bites + barangay_cat_bites + barangay_other_bites,
+                'immunized_count': barangay_immunized_count,
+                'unimmunized_count': barangay_unimmunized_count,
+                'human_rabies_count': barangay_human_rabies_count,
+            })
+
+    if total_all > 0:
+        male_percentage = (total_male / total_all) * 100
+        female_percentage = (total_female / total_all) * 100
+        total_sex_percentage = (male_percentage + female_percentage)
+        age_15_below_percentage = (total_age_15_below / total_all) * 100
+        age_above_15_percentage = (total_age_above_15 / total_all) * 100
+        total_age_percentage = (total_age_15_below + total_age_above_15) / total_all * 100
+        total_animal_bite_I_percentage = (total_animal_bite_I / total_all ) * 100
+        total_animal_bite_II_percentage = (total_animal_bite_II / total_all ) * 100
+        total_animal_bite_III_percentage = (total_animal_bite_III / total_all ) * 100
+        total_category_percentage = (total_animal_bite_I_percentage + total_animal_bite_II_percentage + total_animal_bite_III_percentage)
+        total_tcv_percentage = (total_tcv_given / total_all) * 100
+        total_hrig_percentage = (total_hrig_given / total_all) * 100
+        total_rig_percentage = (total_erig_given / total_all) * 100  
+        dog_bite_percentage = (total_dog_bites / total_all) * 100
+        cat_bite_percentage = (total_cat_bites / total_all) * 100
+        other_bite_percentage = (total_other_bites / total_all) * 100
+        total_animal_type_percentage = dog_bite_percentage + cat_bite_percentage + other_bite_percentage
+        if total_immunized + total_unimmunized > 0:
+            immunized_percentage = (total_immunized / (total_immunized + total_unimmunized)) * 100
+            unimmunized_percentage = (total_unimmunized / (total_immunized + total_unimmunized)) * 100
+        else:
+            immunized_percentage = 0
+            unimmunized_percentage = 0
+    else:
+        male_percentage = female_percentage = age_15_below_percentage = age_above_15_percentage = total_age_percentage = 0
+        total_tcv_percentage = total_hrig_percentage = total_rig_percentage = 0
+        dog_bite_percentage = cat_bite_percentage = other_bite_percentage = 0
+        immunized_percentage = 0
+        unimmunized_percentage = 0
+
+    overall_total = sum(entry.get('data_total', 0) for entry in data)
+    overall_total_tcv = sum(entry.get('total_tcv_given', 0) for entry in data)
+    overall_total_hrig = sum(entry.get('total_hrig_given', 0) for entry in data)
+    overall_total_erig = sum(entry.get('total_erig_given', 0) for entry in data)
+
+    for entry in data:
+        entry['percent_total'] = round((entry['data_total'] / overall_total) * 100, 1) if overall_total > 0 else 0
+        entry['percent_tcv'] = round((entry.get('total_tcv_given', 0) / overall_total_tcv) * 100, 1) if overall_total_tcv > 0 else 0
+        entry['percent_hrig'] = round((entry.get('total_hrig_given', 0) / overall_total_hrig) * 100, 1) if overall_total_hrig > 0 else 0
+        entry['percent_erig'] = round((entry.get('total_erig_given', 0) / overall_total_erig) * 100, 1) if overall_total_erig > 0 else 0
+    #all percent totals
+    total_percent = sum(entry['percent_total'] for entry in data)
+    total_tcv_percent = sum(entry['percent_tcv'] for entry in data)
+    total_hrig_percent = sum(entry['percent_hrig'] for entry in data)
+    total_erig_percent = sum(entry['percent_erig'] for entry in data)   
+    total_human_rabies = sum(entry.get('human_rabies_count', 0) for entry in data)  # Add this line
+
+    municipalities = Municipality.objects.all()
+    selected_municipality_id = request.GET.get('municipality_id')
+    selected_municipality = municipalities.filter(muni_id=selected_municipality_id).first() if selected_municipality_id else None
+    
+    if user.is_superuser:
+        table = "ABTC"
+    else:
+        table = "Barangay"
+
+    if user.first_name or user.last_name:
+        signature_name = f"{user.first_name} {user.last_name}".strip()
+    else:
+        signature_name = user.username
+
+    if user.logo_image:  # Ensure the user has a logo image
+        logo_url = user.logo_image.url  # Access the image URL directly
+    else:
+        logo_url = None  # If no logo is available, set logo_url to None
+    
+    context = {
+        'quarter_select': quarter_select,
+        'logo_url': logo_url,
+        'signature_name':signature_name,
+        'table': table,
+        'municipalities': municipalities,
+        'selected_municipality': selected_municipality or municipalities.first(),  # Default to the first municipality if none is selected
+        'municipality_name': municipality_name,
+        'selected_quarter': selected_quarter,
+        'barangay_list': [d['barangay'] for d in data],
+        'data': data,
+        'total_male': total_male,
+        'total_female': total_female,
+        'total_all': total_all,
+        'total_age_15_below': total_age_15_below,
+        'total_age_above_15': total_age_above_15,
+        'male_percentage': round(male_percentage, 1),
+        'female_percentage': round(female_percentage, 1),
+        'total_sex_percentage':round(total_sex_percentage),
+        'age_15_below_percentage': round(age_15_below_percentage, 1),
+        'age_above_15_percentage': round(age_above_15_percentage, 1),
+        'total_age_percentage': round(total_age_percentage, 1),
+        'total_animal_bite_I': total_animal_bite_I,
+        'total_animal_bite_II': total_animal_bite_II,
+        'total_animal_bite_III': total_animal_bite_III,
+        'total_animal_bite_I_percentage': round(total_animal_bite_I_percentage,1),
+        'total_animal_bite_II_percentage': round(total_animal_bite_II_percentage,1),
+        'total_animal_bite_III_percentage': round(total_animal_bite_III_percentage,1),
+        'total_category_percentage': round(total_category_percentage,1),
+        'overall_total':overall_total,
+        'total_percent':round(total_percent, ),
+        'total_tcv_given': total_tcv_given,
+        'total_hrig_given': total_hrig_given,
+        'total_rig_given': total_erig_given,
+        'total_tcv_percentage': round(total_tcv_percentage, 1),
+        'total_hrig_percentage': round(total_hrig_percentage, 1),
+        'total_rig_percentage': round(total_rig_percentage, 1),
+        'total_tcv_percent':round(total_tcv_percent, ),
+        'total_erig_percent':round(total_erig_percent, ),
+        'total_hrig_percent':round(total_hrig_percent, ),
+        'total_dog_bites': total_dog_bites,
+        'total_cat_bites': total_cat_bites,
+        'total_other_bites': total_other_bites,
+        'dog_bite_percentage': round(dog_bite_percentage, 1),
+        'cat_bite_percentage': round(cat_bite_percentage, 1),
+        'other_bite_percentage': round(other_bite_percentage, 1),
+        'total_animal_type_percentage': round(total_animal_type_percentage, 1),
+        'total_tcv_given': sum(entry.get('total_tcv_given', 0) for entry in data),
+        'total_hrig_given': sum(entry.get('total_hrig_given', 0) for entry in data),
+        'total_erig_given': sum(entry.get('total_erig_given', 0) for entry in data),
+        'total_immunized': total_immunized,
+        'total_unimmunized': total_unimmunized,
+        'immunized_percentage': round(immunized_percentage, 1), 
+        'unimmunized_percentage': round(unimmunized_percentage, 1),  
+        'total_human_rabies':total_human_rabies,
+    }
+    return render(request, 'monitoring/report.html', context)
+
+
+
+def pdf_report_create(request):
+    user = request.user
+    municipality_map = {
+        "MAR": "Maripipi",
+        "KAW": "Kawayan",
+        "NAV": "Naval",
+        "CAIB": "Caibiran",
+        "ALM": "Almeria",
+        "BIL": "Biliran",
+        "CUL": "Culaba",
+        "CABUC": "Cabucgayan"
+    }
+    if user.is_superuser and user.code == "NAV":
+        municipality_name = "BPH"
+    else:
+        municipality_name = municipality_map.get(user.code, "Province")
+
+    # Only set for 2nd quarter (April 1 to June 30)
+    selected_quarter = '1'
+    year = date.today().year
+    start_date = date(year, 1, 1)
+    end_date = date(year, 3, 31)
+
+
+    data = []
+    total_male = 0
+    total_female = 0
+    total_all = 0
+    total_age_15_below = 0
+    total_age_above_15 = 0
+    total_sex_percentage = 0
+    total_animal_bite_I = 0
+    total_animal_bite_II = 0
+    total_animal_bite_III = 0
+    total_category_percentage = 0
+    total_tcv_given = 0
+    total_hrig_given = 0
+    total_erig_given = 0  
+    total_tcv_percentage = 0
+    total_hrig_percentage = 0
+    total_rig_percentage = 0
+    total_dog_bites = 0
+    total_cat_bites = 0
+    total_other_bites = 0
+    total_animal_type_percentage = 0
+    total_animal_bite_I_percentage = 0
+    total_animal_bite_II_percentage = 0
+    total_animal_bite_III_percentage = 0
+    total_immunized = 0
+    total_unimmunized = 0
+
+    if user.is_superuser:
+        abtcs = User.objects.filter(is_superuser=False).distinct()
+        for abtc_user in abtcs:
+            if not abtc_user.code:
+                continue
+
+            male_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='male'
+            ).count()
+            female_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='female'
+            ).count()
+
+            patients = Patient.objects.filter(
+                user=abtc_user,  
+                histories__date_registered__range=(start_date, end_date)  
+            ).distinct()
+            age_15_below_count = sum(1 for patient in patients if calculate_age(patient.birthday) <= 15)
+            age_above_15_count = sum(1 for patient in patients if calculate_age(patient.birthday) > 15)
+
+            user_animal_bite_I = 0
+            user_animal_bite_II = 0
+            user_animal_bite_III = 0
+
+            animal_bite_counts = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date)
+            ).values('category_of_exposure').annotate(count=models.Count('category_of_exposure'))
+
+            for count in animal_bite_counts:
+                if count['category_of_exposure'] == 'I':
+                    user_animal_bite_I = count['count']
+                elif count['category_of_exposure'] == 'II':
+                    user_animal_bite_II = count['count']
+                elif count['category_of_exposure'] == 'III':
+                    user_animal_bite_III = count['count']
+
+            tcv_count = Treatment.objects.filter(
+                patient_id__user=abtc_user,
+                tcv_given__range=(start_date, end_date)
+            ).count()
+
+            hrig_count = Treatment.objects.filter(
+                patient_id__user=abtc_user,
+                hrig_given__range=(start_date, end_date)
+            ).count()
+
+            erig_count = Treatment.objects.filter(
+                patient_id__user=abtc_user,
+                rig_given__range=(start_date, end_date) 
+            ).count()
+
+            animal_type_counts = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date)
+            ).values('source_of_exposure').annotate(count=models.Count('source_of_exposure'))
+
+            user_dog_bites = 0
+            user_cat_bites = 0
+            user_other_bites = 0
+
+            for count in animal_type_counts:
+                if count['source_of_exposure'] == 'Dog':
+                    user_dog_bites = count['count']
+                elif count['source_of_exposure'] == 'Cat':
+                    user_cat_bites = count['count']
+                elif count['source_of_exposure'] == 'Others':
+                    user_other_bites = count['count']
+
+            user_immunized_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                immunization_status='Immunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+            
+            user_unimmunized_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                immunization_status='Unimmunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            user_human_rabies_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                human_rabies=True,
+                date_registered__range=(start_date, end_date)
+            ).count()
+                    
+            total_immunized += user_immunized_count
+            total_unimmunized += user_unimmunized_count
+            total_dog_bites += user_dog_bites
+            total_cat_bites += user_cat_bites
+            total_other_bites += user_other_bites
+            total_tcv_given += tcv_count
+            total_hrig_given += hrig_count
+            total_erig_given += erig_count
+
+            total_count = male_count + female_count
+            total_male += male_count
+            total_female += female_count
+            total_all += total_count
+            total_age_15_below += age_15_below_count
+            total_age_above_15 += age_above_15_count
+            total_animal_bite_I += user_animal_bite_I
+            total_animal_bite_II += user_animal_bite_II
+            total_animal_bite_III += user_animal_bite_III
+
+            # Determine barangay field for this ABTC user
+            if abtc_user.code == "NAV":
+                barangay_name = "BPH-ABTC"
+            else:
+                barangay_name = f"{municipality_map.get(abtc_user.code, 'Unknown')}-ABTC"
+
+            data.append({
+                'barangay': barangay_name,
+                'data_male': male_count,
+                'data_female': female_count,
+                'data_total': total_count,
+                'age_15_below': age_15_below_count,
+                'age_above_15': age_above_15_count,
+                'age_total': age_15_below_count + age_above_15_count,
+                'total_animal_bite_I': user_animal_bite_I,
+                'total_animal_bite_II': user_animal_bite_II,
+                'total_animal_bite_III': user_animal_bite_III,
+                'total_animal': user_animal_bite_I + user_animal_bite_II + user_animal_bite_III,
+                'total_tcv_given': tcv_count,
+                'total_hrig_given': hrig_count,
+                'total_erig_given': erig_count,
+                'total_dog_bites': user_dog_bites,
+                'total_cat_bites': user_cat_bites,
+                'total_other_bites': user_other_bites,
+                'total_animal_bites': user_dog_bites + user_cat_bites + user_other_bites,
+                'immunized_count': user_immunized_count,
+                'unimmunized_count': user_unimmunized_count,  
+                'human_rabies_count': user_human_rabies_count,
+            })
+    else:
+        # For non-superuser
+        patients = Patient.objects.filter(user=user)
+        barangays = Barangay.objects.filter(patients_brgy__in=patients).distinct()
+
+        # Filter barangays that have records in the 2nd quarter
+        barangays_with_data = []
+        for barangay in barangays:
+            # Check if there's any patient in the barangay with a history in the 2nd quarter
+            patient_data_exists = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date)
+            ).exists()
+            
+            if patient_data_exists:
+                barangays_with_data.append(barangay)
+
+        # Loop through barangays that have data in the 2nd quarter
+        for barangay in barangays_with_data:
             male_count = History.objects.filter(
                 patient_id__brgy_id=barangay,
                 patient_id__user=user,
@@ -1595,11 +1453,13 @@ def reports(request):
             patients = Patient.objects.filter(
                 brgy_id=barangay,
                 user=user,
-                histories__date_registered__range=(start_date, end_date)  # Filter by registration date within the quarter
+                histories__date_registered__range=(start_date, end_date)  # Filter by registration date within the second quarter
             ).distinct()
+            
             age_15_below_count = sum(1 for patient in patients if calculate_age(patient.birthday) <= 15)
             age_above_15_count = sum(1 for patient in patients if calculate_age(patient.birthday) > 15)
 
+            # Initialize counts for animal bite categories
             barangay_animal_bite_I = 0
             barangay_animal_bite_II = 0
             barangay_animal_bite_III = 0
@@ -1664,7 +1524,7 @@ def reports(request):
                 immunization_status='Immunized',
                 date_registered__range=(start_date, end_date)
             ).count()
-            
+
             barangay_unimmunized_count = History.objects.filter(
                 patient_id__brgy_id=barangay,
                 patient_id__user=user,
@@ -1681,9 +1541,6 @@ def reports(request):
 
             total_immunized += barangay_immunized_count
             total_unimmunized += barangay_unimmunized_count
-            total_dog_bites += barangay_dog_bites
-            total_cat_bites += barangay_cat_bites
-            total_other_bites += barangay_other_bites
             total_dog_bites += barangay_dog_bites
             total_cat_bites += barangay_cat_bites
             total_other_bites += barangay_other_bites
@@ -1718,12 +1575,10 @@ def reports(request):
                 'total_cat_bites': barangay_cat_bites,
                 'total_other_bites': barangay_other_bites,
                 'total_animal_bites': barangay_dog_bites + barangay_cat_bites + barangay_other_bites,
-                'immunized_count': barangay_immunized_count,  # Change made here
-                'unimmunized_count': barangay_unimmunized_count,  # Change made here
-                'human_rabies_count':barangay_human_rabies_count,
-
+                'immunized_count': barangay_immunized_count,
+                'unimmunized_count': barangay_unimmunized_count,
+                'human_rabies_count': barangay_human_rabies_count,
             })
-
     if total_all > 0:
         male_percentage = (total_male / total_all) * 100
         female_percentage = (total_female / total_all) * 100
@@ -1765,17 +1620,14 @@ def reports(request):
         entry['percent_tcv'] = round((entry.get('total_tcv_given', 0) / overall_total_tcv) * 100, 1) if overall_total_tcv > 0 else 0
         entry['percent_hrig'] = round((entry.get('total_hrig_given', 0) / overall_total_hrig) * 100, 1) if overall_total_hrig > 0 else 0
         entry['percent_erig'] = round((entry.get('total_erig_given', 0) / overall_total_erig) * 100, 1) if overall_total_erig > 0 else 0
-    #all percent totals
     total_percent = sum(entry['percent_total'] for entry in data)
     total_tcv_percent = sum(entry['percent_tcv'] for entry in data)
     total_hrig_percent = sum(entry['percent_hrig'] for entry in data)
     total_erig_percent = sum(entry['percent_erig'] for entry in data)   
     total_human_rabies = sum(entry.get('human_rabies_count', 0) for entry in data)  # Add this line
-
     municipalities = Municipality.objects.all()
     selected_municipality_id = request.GET.get('municipality_id')
     selected_municipality = municipalities.filter(muni_id=selected_municipality_id).first() if selected_municipality_id else None
-    
     if user.is_superuser:
         table = "ABTC"
     else:
@@ -1785,34 +1637,16 @@ def reports(request):
         signature_name = f"{user.first_name} {user.last_name}".strip()
     else:
         signature_name = user.username
-    
-    # Get the Logo instance based on user type or code  
-    if user.is_superuser:
-        logo = Logo.objects.filter(logo_name="Province").first()
-    elif user.code == 'ALM':
-        logo = Logo.objects.filter(logo_name="Almeria").first()
-    elif user.code == 'BIL':
-        logo = Logo.objects.filter(logo_name="Biliran").first()
-    elif user.code == 'CABUC':
-        logo = Logo.objects.filter(logo_name="Cabucgayan").first()
-    elif user.code == 'CAIB':
-        logo = Logo.objects.filter(logo_name="Caibiran").first()
-    elif user.code == 'CUL':
-        logo = Logo.objects.filter(logo_name="Culaba").first()
-    elif user.code == 'KAW':
-        logo = Logo.objects.filter(logo_name="Kawayan").first()
-    elif user.code == 'MAR':
-        logo = Logo.objects.filter(logo_name="Maripipi").first()
-    elif user.code == 'NAV':
-        logo = Logo.objects.filter(logo_name="Naval").first()
+
+    if user.logo_image:  # Ensure the user has a logo image
+        logo_url = request.build_absolute_uri(user.logo_image.url)
+        print(f"Logo URL: {logo_url}")  
     else:
-        logo = None  # or some default logo if needed
+        logo_url = None  # If no logo is available, set logo_url to None
 
-    # Check if a logo was found and retrieve its URL, otherwise set to None
-    logo_url = logo.logo_image.url if logo and logo.logo_image else None
-
+    template_path = 'monitoring/report_pdf.html'
     context = {
-        'logo_url': logo_url,
+        'logo_url': logo_url,    
         'signature_name':signature_name,
         'table': table,
         'municipalities': municipalities,
@@ -1865,8 +1699,1478 @@ def reports(request):
         'immunized_percentage': round(immunized_percentage, 1), 
         'unimmunized_percentage': round(unimmunized_percentage, 1),  
         'total_human_rabies':total_human_rabies,
+
     }
-    return render(request, 'monitoring/report.html', context)
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="1stQuarter_Report.pdf"'#attachment;
+    template = get_template(template_path)
+    html = template.render(context)
+    pisa_status = pisa.CreatePDF(
+        html,dest=response)
+    if pisa_status.err:
+        return HttpResponse('We had some errors <pre>'+html+'<prev>')
+    return response
+
+def pdf_report_create2(request):
+    user = request.user
+    municipality_map = {
+        "MAR": "Maripipi",
+        "KAW": "Kawayan",
+        "NAV": "Naval",
+        "CAIB": "Caibiran",
+        "ALM": "Almeria",
+        "BIL": "Biliran",
+        "CUL": "Culaba",
+        "CABUC": "Cabucgayan"
+    }
+    if user.is_superuser and user.code == "NAV":
+        municipality_name = "BPH"
+    else:
+        municipality_name = municipality_map.get(user.code, "Province")
+
+    # Only set for 2nd quarter (April 1 to June 30)
+    selected_quarter = '2'
+    year = date.today().year
+    start_date = date(year, 4, 1)
+    end_date = date(year, 6, 30)
+
+    data = []
+    total_male = 0
+    total_female = 0
+    total_all = 0
+    total_age_15_below = 0
+    total_age_above_15 = 0
+    total_sex_percentage = 0
+    total_animal_bite_I = 0
+    total_animal_bite_II = 0
+    total_animal_bite_III = 0
+    total_category_percentage = 0
+    total_tcv_given = 0
+    total_hrig_given = 0
+    total_erig_given = 0  
+    total_tcv_percentage = 0
+    total_hrig_percentage = 0
+    total_rig_percentage = 0
+    total_dog_bites = 0
+    total_cat_bites = 0
+    total_other_bites = 0
+    total_animal_type_percentage = 0
+    total_animal_bite_I_percentage = 0
+    total_animal_bite_II_percentage = 0
+    total_animal_bite_III_percentage = 0
+    total_immunized = 0
+    total_unimmunized = 0
+
+    if user.is_superuser:
+        abtcs = User.objects.filter(is_superuser=False).distinct()
+        for abtc_user in abtcs:
+            if not abtc_user.code:
+                continue
+
+            male_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='male'
+            ).count()
+            female_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='female'
+            ).count()
+
+            patients = Patient.objects.filter(
+                user=abtc_user,  
+                histories__date_registered__range=(start_date, end_date)  
+            ).distinct()
+            age_15_below_count = sum(1 for patient in patients if calculate_age(patient.birthday) <= 15)
+            age_above_15_count = sum(1 for patient in patients if calculate_age(patient.birthday) > 15)
+
+            user_animal_bite_I = 0
+            user_animal_bite_II = 0
+            user_animal_bite_III = 0
+
+            animal_bite_counts = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date)
+            ).values('category_of_exposure').annotate(count=models.Count('category_of_exposure'))
+
+            for count in animal_bite_counts:
+                if count['category_of_exposure'] == 'I':
+                    user_animal_bite_I = count['count']
+                elif count['category_of_exposure'] == 'II':
+                    user_animal_bite_II = count['count']
+                elif count['category_of_exposure'] == 'III':
+                    user_animal_bite_III = count['count']
+
+            tcv_count = Treatment.objects.filter(
+                patient_id__user=abtc_user,
+                tcv_given__range=(start_date, end_date)
+            ).count()
+
+            hrig_count = Treatment.objects.filter(
+                patient_id__user=abtc_user,
+                hrig_given__range=(start_date, end_date)
+            ).count()
+
+            erig_count = Treatment.objects.filter(
+                patient_id__user=abtc_user,
+                rig_given__range=(start_date, end_date) 
+            ).count()
+
+            animal_type_counts = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date)
+            ).values('source_of_exposure').annotate(count=models.Count('source_of_exposure'))
+
+            user_dog_bites = 0
+            user_cat_bites = 0
+            user_other_bites = 0
+
+            for count in animal_type_counts:
+                if count['source_of_exposure'] == 'Dog':
+                    user_dog_bites = count['count']
+                elif count['source_of_exposure'] == 'Cat':
+                    user_cat_bites = count['count']
+                elif count['source_of_exposure'] == 'Others':
+                    user_other_bites = count['count']
+
+            user_immunized_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                immunization_status='Immunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+            
+            user_unimmunized_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                immunization_status='Unimmunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            user_human_rabies_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                human_rabies=True,
+                date_registered__range=(start_date, end_date)
+            ).count()
+                    
+            total_immunized += user_immunized_count
+            total_unimmunized += user_unimmunized_count
+            total_dog_bites += user_dog_bites
+            total_cat_bites += user_cat_bites
+            total_other_bites += user_other_bites
+            total_tcv_given += tcv_count
+            total_hrig_given += hrig_count
+            total_erig_given += erig_count
+
+            total_count = male_count + female_count
+            total_male += male_count
+            total_female += female_count
+            total_all += total_count
+            total_age_15_below += age_15_below_count
+            total_age_above_15 += age_above_15_count
+            total_animal_bite_I += user_animal_bite_I
+            total_animal_bite_II += user_animal_bite_II
+            total_animal_bite_III += user_animal_bite_III
+
+            # Determine barangay field for this ABTC user
+            if abtc_user.code == "NAV":
+                barangay_name = "BPH-ABTC"
+            else:
+                barangay_name = f"{municipality_map.get(abtc_user.code, 'Unknown')}-ABTC"
+
+            data.append({
+                'barangay': barangay_name,
+                'data_male': male_count,
+                'data_female': female_count,
+                'data_total': total_count,
+                'age_15_below': age_15_below_count,
+                'age_above_15': age_above_15_count,
+                'age_total': age_15_below_count + age_above_15_count,
+                'total_animal_bite_I': user_animal_bite_I,
+                'total_animal_bite_II': user_animal_bite_II,
+                'total_animal_bite_III': user_animal_bite_III,
+                'total_animal': user_animal_bite_I + user_animal_bite_II + user_animal_bite_III,
+                'total_tcv_given': tcv_count,
+                'total_hrig_given': hrig_count,
+                'total_erig_given': erig_count,
+                'total_dog_bites': user_dog_bites,
+                'total_cat_bites': user_cat_bites,
+                'total_other_bites': user_other_bites,
+                'total_animal_bites': user_dog_bites + user_cat_bites + user_other_bites,
+                'immunized_count': user_immunized_count,
+                'unimmunized_count': user_unimmunized_count,  
+                'human_rabies_count': user_human_rabies_count,
+            })
+    else:
+        # For non-superuser
+        patients = Patient.objects.filter(user=user)
+        barangays = Barangay.objects.filter(patients_brgy__in=patients).distinct()
+
+        # Filter barangays that have records in the 2nd quarter
+        barangays_with_data = []
+        for barangay in barangays:
+            # Check if there's any patient in the barangay with a history in the 2nd quarter
+            patient_data_exists = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date)
+            ).exists()
+            
+            if patient_data_exists:
+                barangays_with_data.append(barangay)
+
+        # Loop through barangays that have data in the 2nd quarter
+        for barangay in barangays_with_data:
+            male_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='male'
+            ).count()
+            female_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='female'
+            ).count()
+
+            patients = Patient.objects.filter(
+                brgy_id=barangay,
+                user=user,
+                histories__date_registered__range=(start_date, end_date)  # Filter by registration date within the second quarter
+            ).distinct()
+            
+            age_15_below_count = sum(1 for patient in patients if calculate_age(patient.birthday) <= 15)
+            age_above_15_count = sum(1 for patient in patients if calculate_age(patient.birthday) > 15)
+
+            # Initialize counts for animal bite categories
+            barangay_animal_bite_I = 0
+            barangay_animal_bite_II = 0
+            barangay_animal_bite_III = 0
+
+            animal_bite_counts = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date)
+            ).values('category_of_exposure').annotate(count=models.Count('category_of_exposure'))
+
+            tcv_count = Treatment.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                tcv_given__range=(start_date, end_date)
+            ).count()
+
+            hrig_count = Treatment.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                hrig_given__range=(start_date, end_date)
+            ).count()
+
+            erig_count = Treatment.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                rig_given__range=(start_date, end_date)
+            ).count()
+
+            total_tcv_given += tcv_count
+            total_hrig_given += hrig_count
+            total_erig_given += erig_count
+
+            for count in animal_bite_counts:
+                if count['category_of_exposure'] == 'I':
+                    barangay_animal_bite_I = count['count']
+                elif count['category_of_exposure'] == 'II':
+                    barangay_animal_bite_II = count['count']
+                elif count['category_of_exposure'] == 'III':
+                    barangay_animal_bite_III = count['count']
+
+            animal_type_counts = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date)
+            ).values('source_of_exposure').annotate(count=models.Count('source_of_exposure'))
+
+            barangay_dog_bites = 0
+            barangay_cat_bites = 0
+            barangay_other_bites = 0
+
+            for count in animal_type_counts:
+                if count['source_of_exposure'] == 'Dog':
+                    barangay_dog_bites = count['count']
+                elif count['source_of_exposure'] == 'Cat':
+                    barangay_cat_bites = count['count']
+                elif count['source_of_exposure'] == 'Others':
+                    barangay_other_bites = count['count']
+
+            barangay_immunized_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                immunization_status='Immunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            barangay_unimmunized_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                immunization_status='Unimmunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            barangay_human_rabies_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                human_rabies=True,
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            total_immunized += barangay_immunized_count
+            total_unimmunized += barangay_unimmunized_count
+            total_dog_bites += barangay_dog_bites
+            total_cat_bites += barangay_cat_bites
+            total_other_bites += barangay_other_bites
+            total_animal_bite_I += barangay_animal_bite_I
+            total_animal_bite_II += barangay_animal_bite_II
+            total_animal_bite_III += barangay_animal_bite_III
+
+            # Add to total counts
+            total_count = male_count + female_count
+            total_male += male_count
+            total_female += female_count
+            total_all += total_count
+            total_age_15_below += age_15_below_count
+            total_age_above_15 += age_above_15_count
+
+            data.append({
+                'barangay': barangay.brgy_name,
+                'data_male': male_count,
+                'data_female': female_count,
+                'data_total': total_count,
+                'age_15_below': age_15_below_count,
+                'age_above_15': age_above_15_count,
+                'age_total': age_15_below_count + age_above_15_count,
+                'total_animal_bite_I': barangay_animal_bite_I,
+                'total_animal_bite_II': barangay_animal_bite_II,
+                'total_animal_bite_III': barangay_animal_bite_III,
+                'total_animal': barangay_animal_bite_I + barangay_animal_bite_II + barangay_animal_bite_III,
+                'total_tcv_given': tcv_count,
+                'total_hrig_given': hrig_count,
+                'total_erig_given': erig_count,
+                'total_dog_bites': barangay_dog_bites,
+                'total_cat_bites': barangay_cat_bites,
+                'total_other_bites': barangay_other_bites,
+                'total_animal_bites': barangay_dog_bites + barangay_cat_bites + barangay_other_bites,
+                'immunized_count': barangay_immunized_count,
+                'unimmunized_count': barangay_unimmunized_count,
+                'human_rabies_count': barangay_human_rabies_count,
+            })
+    if total_all > 0:
+        male_percentage = (total_male / total_all) * 100
+        female_percentage = (total_female / total_all) * 100
+        total_sex_percentage = (male_percentage + female_percentage)
+        age_15_below_percentage = (total_age_15_below / total_all) * 100
+        age_above_15_percentage = (total_age_above_15 / total_all) * 100
+        total_age_percentage = (total_age_15_below + total_age_above_15) / total_all * 100
+        total_animal_bite_I_percentage = (total_animal_bite_I / total_all ) * 100
+        total_animal_bite_II_percentage = (total_animal_bite_II / total_all ) * 100
+        total_animal_bite_III_percentage = (total_animal_bite_III / total_all ) * 100
+        total_category_percentage = (total_animal_bite_I_percentage + total_animal_bite_II_percentage + total_animal_bite_III_percentage)
+        total_tcv_percentage = (total_tcv_given / total_all) * 100
+        total_hrig_percentage = (total_hrig_given / total_all) * 100
+        total_rig_percentage = (total_erig_given / total_all) * 100  
+        dog_bite_percentage = (total_dog_bites / total_all) * 100
+        cat_bite_percentage = (total_cat_bites / total_all) * 100
+        other_bite_percentage = (total_other_bites / total_all) * 100
+        total_animal_type_percentage = dog_bite_percentage + cat_bite_percentage + other_bite_percentage
+        if total_immunized + total_unimmunized > 0:
+            immunized_percentage = (total_immunized / (total_immunized + total_unimmunized)) * 100
+            unimmunized_percentage = (total_unimmunized / (total_immunized + total_unimmunized)) * 100
+        else:
+            immunized_percentage = 0
+            unimmunized_percentage = 0
+    else:
+        male_percentage = female_percentage = age_15_below_percentage = age_above_15_percentage = total_age_percentage = 0
+        total_tcv_percentage = total_hrig_percentage = total_rig_percentage = 0
+        dog_bite_percentage = cat_bite_percentage = other_bite_percentage = 0
+        immunized_percentage = 0
+        unimmunized_percentage = 0
+
+    overall_total = sum(entry.get('data_total', 0) for entry in data)
+    overall_total_tcv = sum(entry.get('total_tcv_given', 0) for entry in data)
+    overall_total_hrig = sum(entry.get('total_hrig_given', 0) for entry in data)
+    overall_total_erig = sum(entry.get('total_erig_given', 0) for entry in data)
+
+    for entry in data:
+        entry['percent_total'] = round((entry['data_total'] / overall_total) * 100, 1) if overall_total > 0 else 0
+        entry['percent_tcv'] = round((entry.get('total_tcv_given', 0) / overall_total_tcv) * 100, 1) if overall_total_tcv > 0 else 0
+        entry['percent_hrig'] = round((entry.get('total_hrig_given', 0) / overall_total_hrig) * 100, 1) if overall_total_hrig > 0 else 0
+        entry['percent_erig'] = round((entry.get('total_erig_given', 0) / overall_total_erig) * 100, 1) if overall_total_erig > 0 else 0
+    total_percent = sum(entry['percent_total'] for entry in data)
+    total_tcv_percent = sum(entry['percent_tcv'] for entry in data)
+    total_hrig_percent = sum(entry['percent_hrig'] for entry in data)
+    total_erig_percent = sum(entry['percent_erig'] for entry in data)   
+    total_human_rabies = sum(entry.get('human_rabies_count', 0) for entry in data)  # Add this line
+    municipalities = Municipality.objects.all()
+    selected_municipality_id = request.GET.get('municipality_id')
+    selected_municipality = municipalities.filter(muni_id=selected_municipality_id).first() if selected_municipality_id else None
+    if user.is_superuser:
+        table = "ABTC"
+    else:
+        table = "Barangay"
+
+    if user.first_name or user.last_name:
+        signature_name = f"{user.first_name} {user.last_name}".strip()
+    else:
+        signature_name = user.username
+
+    if user.logo_image:  # Ensure the user has a logo image
+        logo_url = request.build_absolute_uri(user.logo_image.url)
+        print(f"Logo URL: {logo_url}")  
+    else:
+        logo_url = None  # If no logo is available, set logo_url to None
+
+    template_path = 'monitoring/report_pdf2.html'
+    context = {
+        'logo_url': logo_url,    
+        'signature_name':signature_name,
+        'table': table,
+        'municipalities': municipalities,
+        'selected_municipality': selected_municipality or municipalities.first(),  # Default to the first municipality if none is selected
+        'municipality_name': municipality_name,
+        'selected_quarter': selected_quarter,
+        'barangay_list': [d['barangay'] for d in data],
+        'data': data,
+        'total_male': total_male,
+        'total_female': total_female,
+        'total_all': total_all,
+        'total_age_15_below': total_age_15_below,
+        'total_age_above_15': total_age_above_15,
+        'male_percentage': round(male_percentage, 1),
+        'female_percentage': round(female_percentage, 1),
+        'total_sex_percentage':round(total_sex_percentage),
+        'age_15_below_percentage': round(age_15_below_percentage, 1),
+        'age_above_15_percentage': round(age_above_15_percentage, 1),
+        'total_age_percentage': round(total_age_percentage, 1),
+        'total_animal_bite_I': total_animal_bite_I,
+        'total_animal_bite_II': total_animal_bite_II,
+        'total_animal_bite_III': total_animal_bite_III,
+        'total_animal_bite_I_percentage': round(total_animal_bite_I_percentage,1),
+        'total_animal_bite_II_percentage': round(total_animal_bite_II_percentage,1),
+        'total_animal_bite_III_percentage': round(total_animal_bite_III_percentage,1),
+        'total_category_percentage': round(total_category_percentage,1),
+        'overall_total':overall_total,
+        'total_percent':round(total_percent, ),
+        'total_tcv_given': total_tcv_given,
+        'total_hrig_given': total_hrig_given,
+        'total_rig_given': total_erig_given,
+        'total_tcv_percentage': round(total_tcv_percentage, 1),
+        'total_hrig_percentage': round(total_hrig_percentage, 1),
+        'total_rig_percentage': round(total_rig_percentage, 1),
+        'total_tcv_percent':round(total_tcv_percent, ),
+        'total_erig_percent':round(total_erig_percent, ),
+        'total_hrig_percent':round(total_hrig_percent, ),
+        'total_dog_bites': total_dog_bites,
+        'total_cat_bites': total_cat_bites,
+        'total_other_bites': total_other_bites,
+        'dog_bite_percentage': round(dog_bite_percentage, 1),
+        'cat_bite_percentage': round(cat_bite_percentage, 1),
+        'other_bite_percentage': round(other_bite_percentage, 1),
+        'total_animal_type_percentage': round(total_animal_type_percentage, 1),
+        'total_tcv_given': sum(entry.get('total_tcv_given', 0) for entry in data),
+        'total_hrig_given': sum(entry.get('total_hrig_given', 0) for entry in data),
+        'total_erig_given': sum(entry.get('total_erig_given', 0) for entry in data),
+        'total_immunized': total_immunized,
+        'total_unimmunized': total_unimmunized,
+        'immunized_percentage': round(immunized_percentage, 1), 
+        'unimmunized_percentage': round(unimmunized_percentage, 1),  
+        'total_human_rabies':total_human_rabies,
+
+    }
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="2ndQuarter_Report.pdf"'#attachment;
+    template = get_template(template_path)
+    html = template.render(context)
+    pisa_status = pisa.CreatePDF(
+        html,dest=response)
+    if pisa_status.err:
+        return HttpResponse('We had some errors <pre>'+html+'<prev>')
+    return response
+
+def pdf_report_create3(request):
+    user = request.user
+    municipality_map = {
+        "MAR": "Maripipi",
+        "KAW": "Kawayan",
+        "NAV": "Naval",
+        "CAIB": "Caibiran",
+        "ALM": "Almeria",
+        "BIL": "Biliran",
+        "CUL": "Culaba",
+        "CABUC": "Cabucgayan"
+    }
+    if user.is_superuser and user.code == "NAV":
+        municipality_name = "BPH"
+    else:
+        municipality_name = municipality_map.get(user.code, "Province")
+
+    # Only set for 2nd quarter (April 1 to June 30)
+    selected_quarter = '3'
+    year = date.today().year
+    # 3rd Quarter
+    start_date = date(year, 7, 1)
+    end_date = date(year, 9, 30)
+    
+
+
+    data = []
+    total_male = 0
+    total_female = 0
+    total_all = 0
+    total_age_15_below = 0
+    total_age_above_15 = 0
+    total_sex_percentage = 0
+    total_animal_bite_I = 0
+    total_animal_bite_II = 0
+    total_animal_bite_III = 0
+    total_category_percentage = 0
+    total_tcv_given = 0
+    total_hrig_given = 0
+    total_erig_given = 0  
+    total_tcv_percentage = 0
+    total_hrig_percentage = 0
+    total_rig_percentage = 0
+    total_dog_bites = 0
+    total_cat_bites = 0
+    total_other_bites = 0
+    total_animal_type_percentage = 0
+    total_animal_bite_I_percentage = 0
+    total_animal_bite_II_percentage = 0
+    total_animal_bite_III_percentage = 0
+    total_immunized = 0
+    total_unimmunized = 0
+
+    if user.is_superuser:
+        abtcs = User.objects.filter(is_superuser=False).distinct()
+        for abtc_user in abtcs:
+            if not abtc_user.code:
+                continue
+
+            male_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='male'
+            ).count()
+            female_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='female'
+            ).count()
+
+            patients = Patient.objects.filter(
+                user=abtc_user,  
+                histories__date_registered__range=(start_date, end_date)  
+            ).distinct()
+            age_15_below_count = sum(1 for patient in patients if calculate_age(patient.birthday) <= 15)
+            age_above_15_count = sum(1 for patient in patients if calculate_age(patient.birthday) > 15)
+
+            user_animal_bite_I = 0
+            user_animal_bite_II = 0
+            user_animal_bite_III = 0
+
+            animal_bite_counts = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date)
+            ).values('category_of_exposure').annotate(count=models.Count('category_of_exposure'))
+
+            for count in animal_bite_counts:
+                if count['category_of_exposure'] == 'I':
+                    user_animal_bite_I = count['count']
+                elif count['category_of_exposure'] == 'II':
+                    user_animal_bite_II = count['count']
+                elif count['category_of_exposure'] == 'III':
+                    user_animal_bite_III = count['count']
+
+            tcv_count = Treatment.objects.filter(
+                patient_id__user=abtc_user,
+                tcv_given__range=(start_date, end_date)
+            ).count()
+
+            hrig_count = Treatment.objects.filter(
+                patient_id__user=abtc_user,
+                hrig_given__range=(start_date, end_date)
+            ).count()
+
+            erig_count = Treatment.objects.filter(
+                patient_id__user=abtc_user,
+                rig_given__range=(start_date, end_date) 
+            ).count()
+
+            animal_type_counts = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date)
+            ).values('source_of_exposure').annotate(count=models.Count('source_of_exposure'))
+
+            user_dog_bites = 0
+            user_cat_bites = 0
+            user_other_bites = 0
+
+            for count in animal_type_counts:
+                if count['source_of_exposure'] == 'Dog':
+                    user_dog_bites = count['count']
+                elif count['source_of_exposure'] == 'Cat':
+                    user_cat_bites = count['count']
+                elif count['source_of_exposure'] == 'Others':
+                    user_other_bites = count['count']
+
+            user_immunized_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                immunization_status='Immunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+            
+            user_unimmunized_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                immunization_status='Unimmunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            user_human_rabies_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                human_rabies=True,
+                date_registered__range=(start_date, end_date)
+            ).count()
+                    
+            total_immunized += user_immunized_count
+            total_unimmunized += user_unimmunized_count
+            total_dog_bites += user_dog_bites
+            total_cat_bites += user_cat_bites
+            total_other_bites += user_other_bites
+            total_tcv_given += tcv_count
+            total_hrig_given += hrig_count
+            total_erig_given += erig_count
+
+            total_count = male_count + female_count
+            total_male += male_count
+            total_female += female_count
+            total_all += total_count
+            total_age_15_below += age_15_below_count
+            total_age_above_15 += age_above_15_count
+            total_animal_bite_I += user_animal_bite_I
+            total_animal_bite_II += user_animal_bite_II
+            total_animal_bite_III += user_animal_bite_III
+
+            # Determine barangay field for this ABTC user
+            if abtc_user.code == "NAV":
+                barangay_name = "BPH-ABTC"
+            else:
+                barangay_name = f"{municipality_map.get(abtc_user.code, 'Unknown')}-ABTC"
+
+            data.append({
+                'barangay': barangay_name,
+                'data_male': male_count,
+                'data_female': female_count,
+                'data_total': total_count,
+                'age_15_below': age_15_below_count,
+                'age_above_15': age_above_15_count,
+                'age_total': age_15_below_count + age_above_15_count,
+                'total_animal_bite_I': user_animal_bite_I,
+                'total_animal_bite_II': user_animal_bite_II,
+                'total_animal_bite_III': user_animal_bite_III,
+                'total_animal': user_animal_bite_I + user_animal_bite_II + user_animal_bite_III,
+                'total_tcv_given': tcv_count,
+                'total_hrig_given': hrig_count,
+                'total_erig_given': erig_count,
+                'total_dog_bites': user_dog_bites,
+                'total_cat_bites': user_cat_bites,
+                'total_other_bites': user_other_bites,
+                'total_animal_bites': user_dog_bites + user_cat_bites + user_other_bites,
+                'immunized_count': user_immunized_count,
+                'unimmunized_count': user_unimmunized_count,  
+                'human_rabies_count': user_human_rabies_count,
+            })
+    else:
+        # For non-superuser
+        patients = Patient.objects.filter(user=user)
+        barangays = Barangay.objects.filter(patients_brgy__in=patients).distinct()
+
+        # Filter barangays that have records in the 2nd quarter
+        barangays_with_data = []
+        for barangay in barangays:
+            # Check if there's any patient in the barangay with a history in the 2nd quarter
+            patient_data_exists = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date)
+            ).exists()
+            
+            if patient_data_exists:
+                barangays_with_data.append(barangay)
+
+        # Loop through barangays that have data in the 2nd quarter
+        for barangay in barangays_with_data:
+            male_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='male'
+            ).count()
+            female_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='female'
+            ).count()
+
+            patients = Patient.objects.filter(
+                brgy_id=barangay,
+                user=user,
+                histories__date_registered__range=(start_date, end_date)  # Filter by registration date within the second quarter
+            ).distinct()
+            
+            age_15_below_count = sum(1 for patient in patients if calculate_age(patient.birthday) <= 15)
+            age_above_15_count = sum(1 for patient in patients if calculate_age(patient.birthday) > 15)
+
+            # Initialize counts for animal bite categories
+            barangay_animal_bite_I = 0
+            barangay_animal_bite_II = 0
+            barangay_animal_bite_III = 0
+
+            animal_bite_counts = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date)
+            ).values('category_of_exposure').annotate(count=models.Count('category_of_exposure'))
+
+            tcv_count = Treatment.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                tcv_given__range=(start_date, end_date)
+            ).count()
+
+            hrig_count = Treatment.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                hrig_given__range=(start_date, end_date)
+            ).count()
+
+            erig_count = Treatment.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                rig_given__range=(start_date, end_date)
+            ).count()
+
+            total_tcv_given += tcv_count
+            total_hrig_given += hrig_count
+            total_erig_given += erig_count
+
+            for count in animal_bite_counts:
+                if count['category_of_exposure'] == 'I':
+                    barangay_animal_bite_I = count['count']
+                elif count['category_of_exposure'] == 'II':
+                    barangay_animal_bite_II = count['count']
+                elif count['category_of_exposure'] == 'III':
+                    barangay_animal_bite_III = count['count']
+
+            animal_type_counts = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date)
+            ).values('source_of_exposure').annotate(count=models.Count('source_of_exposure'))
+
+            barangay_dog_bites = 0
+            barangay_cat_bites = 0
+            barangay_other_bites = 0
+
+            for count in animal_type_counts:
+                if count['source_of_exposure'] == 'Dog':
+                    barangay_dog_bites = count['count']
+                elif count['source_of_exposure'] == 'Cat':
+                    barangay_cat_bites = count['count']
+                elif count['source_of_exposure'] == 'Others':
+                    barangay_other_bites = count['count']
+
+            barangay_immunized_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                immunization_status='Immunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            barangay_unimmunized_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                immunization_status='Unimmunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            barangay_human_rabies_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                human_rabies=True,
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            total_immunized += barangay_immunized_count
+            total_unimmunized += barangay_unimmunized_count
+            total_dog_bites += barangay_dog_bites
+            total_cat_bites += barangay_cat_bites
+            total_other_bites += barangay_other_bites
+            total_animal_bite_I += barangay_animal_bite_I
+            total_animal_bite_II += barangay_animal_bite_II
+            total_animal_bite_III += barangay_animal_bite_III
+
+            # Add to total counts
+            total_count = male_count + female_count
+            total_male += male_count
+            total_female += female_count
+            total_all += total_count
+            total_age_15_below += age_15_below_count
+            total_age_above_15 += age_above_15_count
+
+            data.append({
+                'barangay': barangay.brgy_name,
+                'data_male': male_count,
+                'data_female': female_count,
+                'data_total': total_count,
+                'age_15_below': age_15_below_count,
+                'age_above_15': age_above_15_count,
+                'age_total': age_15_below_count + age_above_15_count,
+                'total_animal_bite_I': barangay_animal_bite_I,
+                'total_animal_bite_II': barangay_animal_bite_II,
+                'total_animal_bite_III': barangay_animal_bite_III,
+                'total_animal': barangay_animal_bite_I + barangay_animal_bite_II + barangay_animal_bite_III,
+                'total_tcv_given': tcv_count,
+                'total_hrig_given': hrig_count,
+                'total_erig_given': erig_count,
+                'total_dog_bites': barangay_dog_bites,
+                'total_cat_bites': barangay_cat_bites,
+                'total_other_bites': barangay_other_bites,
+                'total_animal_bites': barangay_dog_bites + barangay_cat_bites + barangay_other_bites,
+                'immunized_count': barangay_immunized_count,
+                'unimmunized_count': barangay_unimmunized_count,
+                'human_rabies_count': barangay_human_rabies_count,
+            })
+    if total_all > 0:
+        male_percentage = (total_male / total_all) * 100
+        female_percentage = (total_female / total_all) * 100
+        total_sex_percentage = (male_percentage + female_percentage)
+        age_15_below_percentage = (total_age_15_below / total_all) * 100
+        age_above_15_percentage = (total_age_above_15 / total_all) * 100
+        total_age_percentage = (total_age_15_below + total_age_above_15) / total_all * 100
+        total_animal_bite_I_percentage = (total_animal_bite_I / total_all ) * 100
+        total_animal_bite_II_percentage = (total_animal_bite_II / total_all ) * 100
+        total_animal_bite_III_percentage = (total_animal_bite_III / total_all ) * 100
+        total_category_percentage = (total_animal_bite_I_percentage + total_animal_bite_II_percentage + total_animal_bite_III_percentage)
+        total_tcv_percentage = (total_tcv_given / total_all) * 100
+        total_hrig_percentage = (total_hrig_given / total_all) * 100
+        total_rig_percentage = (total_erig_given / total_all) * 100  
+        dog_bite_percentage = (total_dog_bites / total_all) * 100
+        cat_bite_percentage = (total_cat_bites / total_all) * 100
+        other_bite_percentage = (total_other_bites / total_all) * 100
+        total_animal_type_percentage = dog_bite_percentage + cat_bite_percentage + other_bite_percentage
+        if total_immunized + total_unimmunized > 0:
+            immunized_percentage = (total_immunized / (total_immunized + total_unimmunized)) * 100
+            unimmunized_percentage = (total_unimmunized / (total_immunized + total_unimmunized)) * 100
+        else:
+            immunized_percentage = 0
+            unimmunized_percentage = 0
+    else:
+        male_percentage = female_percentage = age_15_below_percentage = age_above_15_percentage = total_age_percentage = 0
+        total_tcv_percentage = total_hrig_percentage = total_rig_percentage = 0
+        dog_bite_percentage = cat_bite_percentage = other_bite_percentage = 0
+        immunized_percentage = 0
+        unimmunized_percentage = 0
+
+    overall_total = sum(entry.get('data_total', 0) for entry in data)
+    overall_total_tcv = sum(entry.get('total_tcv_given', 0) for entry in data)
+    overall_total_hrig = sum(entry.get('total_hrig_given', 0) for entry in data)
+    overall_total_erig = sum(entry.get('total_erig_given', 0) for entry in data)
+
+    for entry in data:
+        entry['percent_total'] = round((entry['data_total'] / overall_total) * 100, 1) if overall_total > 0 else 0
+        entry['percent_tcv'] = round((entry.get('total_tcv_given', 0) / overall_total_tcv) * 100, 1) if overall_total_tcv > 0 else 0
+        entry['percent_hrig'] = round((entry.get('total_hrig_given', 0) / overall_total_hrig) * 100, 1) if overall_total_hrig > 0 else 0
+        entry['percent_erig'] = round((entry.get('total_erig_given', 0) / overall_total_erig) * 100, 1) if overall_total_erig > 0 else 0
+    total_percent = sum(entry['percent_total'] for entry in data)
+    total_tcv_percent = sum(entry['percent_tcv'] for entry in data)
+    total_hrig_percent = sum(entry['percent_hrig'] for entry in data)
+    total_erig_percent = sum(entry['percent_erig'] for entry in data)   
+    total_human_rabies = sum(entry.get('human_rabies_count', 0) for entry in data)  # Add this line
+    municipalities = Municipality.objects.all()
+    selected_municipality_id = request.GET.get('municipality_id')
+    selected_municipality = municipalities.filter(muni_id=selected_municipality_id).first() if selected_municipality_id else None
+    if user.is_superuser:
+        table = "ABTC"
+    else:
+        table = "Barangay"
+
+    if user.first_name or user.last_name:
+        signature_name = f"{user.first_name} {user.last_name}".strip()
+    else:
+        signature_name = user.username
+
+    if user.logo_image:  # Ensure the user has a logo image
+        logo_url = request.build_absolute_uri(user.logo_image.url)
+        print(f"Logo URL: {logo_url}")  
+    else:
+        logo_url = None  # If no logo is available, set logo_url to None
+
+    template_path = 'monitoring/report_pdf3.html'
+    context = {
+        'logo_url': logo_url,    
+        'signature_name':signature_name,
+        'table': table,
+        'municipalities': municipalities,
+        'selected_municipality': selected_municipality or municipalities.first(),  # Default to the first municipality if none is selected
+        'municipality_name': municipality_name,
+        'selected_quarter': selected_quarter,
+        'barangay_list': [d['barangay'] for d in data],
+        'data': data,
+        'total_male': total_male,
+        'total_female': total_female,
+        'total_all': total_all,
+        'total_age_15_below': total_age_15_below,
+        'total_age_above_15': total_age_above_15,
+        'male_percentage': round(male_percentage, 1),
+        'female_percentage': round(female_percentage, 1),
+        'total_sex_percentage':round(total_sex_percentage),
+        'age_15_below_percentage': round(age_15_below_percentage, 1),
+        'age_above_15_percentage': round(age_above_15_percentage, 1),
+        'total_age_percentage': round(total_age_percentage, 1),
+        'total_animal_bite_I': total_animal_bite_I,
+        'total_animal_bite_II': total_animal_bite_II,
+        'total_animal_bite_III': total_animal_bite_III,
+        'total_animal_bite_I_percentage': round(total_animal_bite_I_percentage,1),
+        'total_animal_bite_II_percentage': round(total_animal_bite_II_percentage,1),
+        'total_animal_bite_III_percentage': round(total_animal_bite_III_percentage,1),
+        'total_category_percentage': round(total_category_percentage,1),
+        'overall_total':overall_total,
+        'total_percent':round(total_percent, ),
+        'total_tcv_given': total_tcv_given,
+        'total_hrig_given': total_hrig_given,
+        'total_rig_given': total_erig_given,
+        'total_tcv_percentage': round(total_tcv_percentage, 1),
+        'total_hrig_percentage': round(total_hrig_percentage, 1),
+        'total_rig_percentage': round(total_rig_percentage, 1),
+        'total_tcv_percent':round(total_tcv_percent, ),
+        'total_erig_percent':round(total_erig_percent, ),
+        'total_hrig_percent':round(total_hrig_percent, ),
+        'total_dog_bites': total_dog_bites,
+        'total_cat_bites': total_cat_bites,
+        'total_other_bites': total_other_bites,
+        'dog_bite_percentage': round(dog_bite_percentage, 1),
+        'cat_bite_percentage': round(cat_bite_percentage, 1),
+        'other_bite_percentage': round(other_bite_percentage, 1),
+        'total_animal_type_percentage': round(total_animal_type_percentage, 1),
+        'total_tcv_given': sum(entry.get('total_tcv_given', 0) for entry in data),
+        'total_hrig_given': sum(entry.get('total_hrig_given', 0) for entry in data),
+        'total_erig_given': sum(entry.get('total_erig_given', 0) for entry in data),
+        'total_immunized': total_immunized,
+        'total_unimmunized': total_unimmunized,
+        'immunized_percentage': round(immunized_percentage, 1), 
+        'unimmunized_percentage': round(unimmunized_percentage, 1),  
+        'total_human_rabies':total_human_rabies,
+
+    }
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="3rdQuarter_Report.pdf"'#attachment;
+    template = get_template(template_path)
+    html = template.render(context)
+    pisa_status = pisa.CreatePDF(
+        html,dest=response)
+    if pisa_status.err:
+        return HttpResponse('We had some errors <pre>'+html+'<prev>')
+    return response
+
+def pdf_report_create4(request):
+    user = request.user
+    municipality_map = {
+        "MAR": "Maripipi",
+        "KAW": "Kawayan",
+        "NAV": "Naval",
+        "CAIB": "Caibiran",
+        "ALM": "Almeria",
+        "BIL": "Biliran",
+        "CUL": "Culaba",
+        "CABUC": "Cabucgayan"
+    }
+    if user.is_superuser and user.code == "NAV":
+        municipality_name = "BPH"
+    else:
+        municipality_name = municipality_map.get(user.code, "Province")
+
+    # Only set for 2nd quarter (April 1 to June 30)
+    selected_quarter = '4'
+    year = date.today().year
+    # 4th Quarter
+    start_date = date(year, 10, 1)
+    end_date = date(year, 12, 31)
+    
+
+    data = []
+    total_male = 0
+    total_female = 0
+    total_all = 0
+    total_age_15_below = 0
+    total_age_above_15 = 0
+    total_sex_percentage = 0
+    total_animal_bite_I = 0
+    total_animal_bite_II = 0
+    total_animal_bite_III = 0
+    total_category_percentage = 0
+    total_tcv_given = 0
+    total_hrig_given = 0
+    total_erig_given = 0  
+    total_tcv_percentage = 0
+    total_hrig_percentage = 0
+    total_rig_percentage = 0
+    total_dog_bites = 0
+    total_cat_bites = 0
+    total_other_bites = 0
+    total_animal_type_percentage = 0
+    total_animal_bite_I_percentage = 0
+    total_animal_bite_II_percentage = 0
+    total_animal_bite_III_percentage = 0
+    total_immunized = 0
+    total_unimmunized = 0
+
+    if user.is_superuser:
+        abtcs = User.objects.filter(is_superuser=False).distinct()
+        for abtc_user in abtcs:
+            if not abtc_user.code:
+                continue
+
+            male_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='male'
+            ).count()
+            female_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='female'
+            ).count()
+
+            patients = Patient.objects.filter(
+                user=abtc_user,  
+                histories__date_registered__range=(start_date, end_date)  
+            ).distinct()
+            age_15_below_count = sum(1 for patient in patients if calculate_age(patient.birthday) <= 15)
+            age_above_15_count = sum(1 for patient in patients if calculate_age(patient.birthday) > 15)
+
+            user_animal_bite_I = 0
+            user_animal_bite_II = 0
+            user_animal_bite_III = 0
+
+            animal_bite_counts = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date)
+            ).values('category_of_exposure').annotate(count=models.Count('category_of_exposure'))
+
+            for count in animal_bite_counts:
+                if count['category_of_exposure'] == 'I':
+                    user_animal_bite_I = count['count']
+                elif count['category_of_exposure'] == 'II':
+                    user_animal_bite_II = count['count']
+                elif count['category_of_exposure'] == 'III':
+                    user_animal_bite_III = count['count']
+
+            tcv_count = Treatment.objects.filter(
+                patient_id__user=abtc_user,
+                tcv_given__range=(start_date, end_date)
+            ).count()
+
+            hrig_count = Treatment.objects.filter(
+                patient_id__user=abtc_user,
+                hrig_given__range=(start_date, end_date)
+            ).count()
+
+            erig_count = Treatment.objects.filter(
+                patient_id__user=abtc_user,
+                rig_given__range=(start_date, end_date) 
+            ).count()
+
+            animal_type_counts = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date)
+            ).values('source_of_exposure').annotate(count=models.Count('source_of_exposure'))
+
+            user_dog_bites = 0
+            user_cat_bites = 0
+            user_other_bites = 0
+
+            for count in animal_type_counts:
+                if count['source_of_exposure'] == 'Dog':
+                    user_dog_bites = count['count']
+                elif count['source_of_exposure'] == 'Cat':
+                    user_cat_bites = count['count']
+                elif count['source_of_exposure'] == 'Others':
+                    user_other_bites = count['count']
+
+            user_immunized_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                immunization_status='Immunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+            
+            user_unimmunized_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                immunization_status='Unimmunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            user_human_rabies_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                human_rabies=True,
+                date_registered__range=(start_date, end_date)
+            ).count()
+                    
+            total_immunized += user_immunized_count
+            total_unimmunized += user_unimmunized_count
+            total_dog_bites += user_dog_bites
+            total_cat_bites += user_cat_bites
+            total_other_bites += user_other_bites
+            total_tcv_given += tcv_count
+            total_hrig_given += hrig_count
+            total_erig_given += erig_count
+
+            total_count = male_count + female_count
+            total_male += male_count
+            total_female += female_count
+            total_all += total_count
+            total_age_15_below += age_15_below_count
+            total_age_above_15 += age_above_15_count
+            total_animal_bite_I += user_animal_bite_I
+            total_animal_bite_II += user_animal_bite_II
+            total_animal_bite_III += user_animal_bite_III
+
+            # Determine barangay field for this ABTC user
+            if abtc_user.code == "NAV":
+                barangay_name = "BPH-ABTC"
+            else:
+                barangay_name = f"{municipality_map.get(abtc_user.code, 'Unknown')}-ABTC"
+
+            data.append({
+                'barangay': barangay_name,
+                'data_male': male_count,
+                'data_female': female_count,
+                'data_total': total_count,
+                'age_15_below': age_15_below_count,
+                'age_above_15': age_above_15_count,
+                'age_total': age_15_below_count + age_above_15_count,
+                'total_animal_bite_I': user_animal_bite_I,
+                'total_animal_bite_II': user_animal_bite_II,
+                'total_animal_bite_III': user_animal_bite_III,
+                'total_animal': user_animal_bite_I + user_animal_bite_II + user_animal_bite_III,
+                'total_tcv_given': tcv_count,
+                'total_hrig_given': hrig_count,
+                'total_erig_given': erig_count,
+                'total_dog_bites': user_dog_bites,
+                'total_cat_bites': user_cat_bites,
+                'total_other_bites': user_other_bites,
+                'total_animal_bites': user_dog_bites + user_cat_bites + user_other_bites,
+                'immunized_count': user_immunized_count,
+                'unimmunized_count': user_unimmunized_count,  
+                'human_rabies_count': user_human_rabies_count,
+            })
+    else:
+        # For non-superuser
+        patients = Patient.objects.filter(user=user)
+        barangays = Barangay.objects.filter(patients_brgy__in=patients).distinct()
+
+        # Filter barangays that have records in the 2nd quarter
+        barangays_with_data = []
+        for barangay in barangays:
+            # Check if there's any patient in the barangay with a history in the 2nd quarter
+            patient_data_exists = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date)
+            ).exists()
+            
+            if patient_data_exists:
+                barangays_with_data.append(barangay)
+
+        # Loop through barangays that have data in the 2nd quarter
+        for barangay in barangays_with_data:
+            male_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='male'
+            ).count()
+            female_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='female'
+            ).count()
+
+            patients = Patient.objects.filter(
+                brgy_id=barangay,
+                user=user,
+                histories__date_registered__range=(start_date, end_date)  # Filter by registration date within the second quarter
+            ).distinct()
+            
+            age_15_below_count = sum(1 for patient in patients if calculate_age(patient.birthday) <= 15)
+            age_above_15_count = sum(1 for patient in patients if calculate_age(patient.birthday) > 15)
+
+            # Initialize counts for animal bite categories
+            barangay_animal_bite_I = 0
+            barangay_animal_bite_II = 0
+            barangay_animal_bite_III = 0
+
+            animal_bite_counts = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date)
+            ).values('category_of_exposure').annotate(count=models.Count('category_of_exposure'))
+
+            tcv_count = Treatment.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                tcv_given__range=(start_date, end_date)
+            ).count()
+
+            hrig_count = Treatment.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                hrig_given__range=(start_date, end_date)
+            ).count()
+
+            erig_count = Treatment.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                rig_given__range=(start_date, end_date)
+            ).count()
+
+            total_tcv_given += tcv_count
+            total_hrig_given += hrig_count
+            total_erig_given += erig_count
+
+            for count in animal_bite_counts:
+                if count['category_of_exposure'] == 'I':
+                    barangay_animal_bite_I = count['count']
+                elif count['category_of_exposure'] == 'II':
+                    barangay_animal_bite_II = count['count']
+                elif count['category_of_exposure'] == 'III':
+                    barangay_animal_bite_III = count['count']
+
+            animal_type_counts = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date)
+            ).values('source_of_exposure').annotate(count=models.Count('source_of_exposure'))
+
+            barangay_dog_bites = 0
+            barangay_cat_bites = 0
+            barangay_other_bites = 0
+
+            for count in animal_type_counts:
+                if count['source_of_exposure'] == 'Dog':
+                    barangay_dog_bites = count['count']
+                elif count['source_of_exposure'] == 'Cat':
+                    barangay_cat_bites = count['count']
+                elif count['source_of_exposure'] == 'Others':
+                    barangay_other_bites = count['count']
+
+            barangay_immunized_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                immunization_status='Immunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            barangay_unimmunized_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                immunization_status='Unimmunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            barangay_human_rabies_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                human_rabies=True,
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            total_immunized += barangay_immunized_count
+            total_unimmunized += barangay_unimmunized_count
+            total_dog_bites += barangay_dog_bites
+            total_cat_bites += barangay_cat_bites
+            total_other_bites += barangay_other_bites
+            total_animal_bite_I += barangay_animal_bite_I
+            total_animal_bite_II += barangay_animal_bite_II
+            total_animal_bite_III += barangay_animal_bite_III
+
+            # Add to total counts
+            total_count = male_count + female_count
+            total_male += male_count
+            total_female += female_count
+            total_all += total_count
+            total_age_15_below += age_15_below_count
+            total_age_above_15 += age_above_15_count
+
+            data.append({
+                'barangay': barangay.brgy_name,
+                'data_male': male_count,
+                'data_female': female_count,
+                'data_total': total_count,
+                'age_15_below': age_15_below_count,
+                'age_above_15': age_above_15_count,
+                'age_total': age_15_below_count + age_above_15_count,
+                'total_animal_bite_I': barangay_animal_bite_I,
+                'total_animal_bite_II': barangay_animal_bite_II,
+                'total_animal_bite_III': barangay_animal_bite_III,
+                'total_animal': barangay_animal_bite_I + barangay_animal_bite_II + barangay_animal_bite_III,
+                'total_tcv_given': tcv_count,
+                'total_hrig_given': hrig_count,
+                'total_erig_given': erig_count,
+                'total_dog_bites': barangay_dog_bites,
+                'total_cat_bites': barangay_cat_bites,
+                'total_other_bites': barangay_other_bites,
+                'total_animal_bites': barangay_dog_bites + barangay_cat_bites + barangay_other_bites,
+                'immunized_count': barangay_immunized_count,
+                'unimmunized_count': barangay_unimmunized_count,
+                'human_rabies_count': barangay_human_rabies_count,
+            })
+    if total_all > 0:
+        male_percentage = (total_male / total_all) * 100
+        female_percentage = (total_female / total_all) * 100
+        total_sex_percentage = (male_percentage + female_percentage)
+        age_15_below_percentage = (total_age_15_below / total_all) * 100
+        age_above_15_percentage = (total_age_above_15 / total_all) * 100
+        total_age_percentage = (total_age_15_below + total_age_above_15) / total_all * 100
+        total_animal_bite_I_percentage = (total_animal_bite_I / total_all ) * 100
+        total_animal_bite_II_percentage = (total_animal_bite_II / total_all ) * 100
+        total_animal_bite_III_percentage = (total_animal_bite_III / total_all ) * 100
+        total_category_percentage = (total_animal_bite_I_percentage + total_animal_bite_II_percentage + total_animal_bite_III_percentage)
+        total_tcv_percentage = (total_tcv_given / total_all) * 100
+        total_hrig_percentage = (total_hrig_given / total_all) * 100
+        total_rig_percentage = (total_erig_given / total_all) * 100  
+        dog_bite_percentage = (total_dog_bites / total_all) * 100
+        cat_bite_percentage = (total_cat_bites / total_all) * 100
+        other_bite_percentage = (total_other_bites / total_all) * 100
+        total_animal_type_percentage = dog_bite_percentage + cat_bite_percentage + other_bite_percentage
+        if total_immunized + total_unimmunized > 0:
+            immunized_percentage = (total_immunized / (total_immunized + total_unimmunized)) * 100
+            unimmunized_percentage = (total_unimmunized / (total_immunized + total_unimmunized)) * 100
+        else:
+            immunized_percentage = 0
+            unimmunized_percentage = 0
+    else:
+        male_percentage = female_percentage = age_15_below_percentage = age_above_15_percentage = total_age_percentage = 0
+        total_tcv_percentage = total_hrig_percentage = total_rig_percentage = 0
+        dog_bite_percentage = cat_bite_percentage = other_bite_percentage = 0
+        immunized_percentage = 0
+        unimmunized_percentage = 0
+
+    overall_total = sum(entry.get('data_total', 0) for entry in data)
+    overall_total_tcv = sum(entry.get('total_tcv_given', 0) for entry in data)
+    overall_total_hrig = sum(entry.get('total_hrig_given', 0) for entry in data)
+    overall_total_erig = sum(entry.get('total_erig_given', 0) for entry in data)
+
+    for entry in data:
+        entry['percent_total'] = round((entry['data_total'] / overall_total) * 100, 1) if overall_total > 0 else 0
+        entry['percent_tcv'] = round((entry.get('total_tcv_given', 0) / overall_total_tcv) * 100, 1) if overall_total_tcv > 0 else 0
+        entry['percent_hrig'] = round((entry.get('total_hrig_given', 0) / overall_total_hrig) * 100, 1) if overall_total_hrig > 0 else 0
+        entry['percent_erig'] = round((entry.get('total_erig_given', 0) / overall_total_erig) * 100, 1) if overall_total_erig > 0 else 0
+    total_percent = sum(entry['percent_total'] for entry in data)
+    total_tcv_percent = sum(entry['percent_tcv'] for entry in data)
+    total_hrig_percent = sum(entry['percent_hrig'] for entry in data)
+    total_erig_percent = sum(entry['percent_erig'] for entry in data)   
+    total_human_rabies = sum(entry.get('human_rabies_count', 0) for entry in data)  # Add this line
+    municipalities = Municipality.objects.all()
+    selected_municipality_id = request.GET.get('municipality_id')
+    selected_municipality = municipalities.filter(muni_id=selected_municipality_id).first() if selected_municipality_id else None
+    if user.is_superuser:
+        table = "ABTC"
+    else:
+        table = "Barangay"
+
+    if user.first_name or user.last_name:
+        signature_name = f"{user.first_name} {user.last_name}".strip()
+    else:
+        signature_name = user.username
+
+    if user.logo_image:  # Ensure the user has a logo image
+        logo_url = request.build_absolute_uri(user.logo_image.url)
+        print(f"Logo URL: {logo_url}")  
+    else:
+        logo_url = None  # If no logo is available, set logo_url to None
+
+    template_path = 'monitoring/report_pdf4.html'
+    context = {
+        'logo_url': logo_url,    
+        'signature_name':signature_name,
+        'table': table,
+        'municipalities': municipalities,
+        'selected_municipality': selected_municipality or municipalities.first(),  # Default to the first municipality if none is selected
+        'municipality_name': municipality_name,
+        'selected_quarter': selected_quarter,
+        'barangay_list': [d['barangay'] for d in data],
+        'data': data,
+        'total_male': total_male,
+        'total_female': total_female,
+        'total_all': total_all,
+        'total_age_15_below': total_age_15_below,
+        'total_age_above_15': total_age_above_15,
+        'male_percentage': round(male_percentage, 1),
+        'female_percentage': round(female_percentage, 1),
+        'total_sex_percentage':round(total_sex_percentage),
+        'age_15_below_percentage': round(age_15_below_percentage, 1),
+        'age_above_15_percentage': round(age_above_15_percentage, 1),
+        'total_age_percentage': round(total_age_percentage, 1),
+        'total_animal_bite_I': total_animal_bite_I,
+        'total_animal_bite_II': total_animal_bite_II,
+        'total_animal_bite_III': total_animal_bite_III,
+        'total_animal_bite_I_percentage': round(total_animal_bite_I_percentage,1),
+        'total_animal_bite_II_percentage': round(total_animal_bite_II_percentage,1),
+        'total_animal_bite_III_percentage': round(total_animal_bite_III_percentage,1),
+        'total_category_percentage': round(total_category_percentage,1),
+        'overall_total':overall_total,
+        'total_percent':round(total_percent, ),
+        'total_tcv_given': total_tcv_given,
+        'total_hrig_given': total_hrig_given,
+        'total_rig_given': total_erig_given,
+        'total_tcv_percentage': round(total_tcv_percentage, 1),
+        'total_hrig_percentage': round(total_hrig_percentage, 1),
+        'total_rig_percentage': round(total_rig_percentage, 1),
+        'total_tcv_percent':round(total_tcv_percent, ),
+        'total_erig_percent':round(total_erig_percent, ),
+        'total_hrig_percent':round(total_hrig_percent, ),
+        'total_dog_bites': total_dog_bites,
+        'total_cat_bites': total_cat_bites,
+        'total_other_bites': total_other_bites,
+        'dog_bite_percentage': round(dog_bite_percentage, 1),
+        'cat_bite_percentage': round(cat_bite_percentage, 1),
+        'other_bite_percentage': round(other_bite_percentage, 1),
+        'total_animal_type_percentage': round(total_animal_type_percentage, 1),
+        'total_tcv_given': sum(entry.get('total_tcv_given', 0) for entry in data),
+        'total_hrig_given': sum(entry.get('total_hrig_given', 0) for entry in data),
+        'total_erig_given': sum(entry.get('total_erig_given', 0) for entry in data),
+        'total_immunized': total_immunized,
+        'total_unimmunized': total_unimmunized,
+        'immunized_percentage': round(immunized_percentage, 1), 
+        'unimmunized_percentage': round(unimmunized_percentage, 1),  
+        'total_human_rabies':total_human_rabies,
+
+    }
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="4thQuarter_Report.pdf"'#attachment;
+    template = get_template(template_path)
+    html = template.render(context)
+    pisa_status = pisa.CreatePDF(
+        html,dest=response)
+    if pisa_status.err:
+        return HttpResponse('We had some errors <pre>'+html+'<prev>')
+    return response
+
+
+
+
+
+
+
 
 @login_required
 def tables(request):
@@ -1981,7 +3285,7 @@ def tables(request):
 
     return render(request, 'monitoring/table.html', context)
 
-@login_required
+""" @login_required
 def tables(request):
     user = request.user
 
@@ -2123,6 +3427,9 @@ def tables(request):
     }
 
     return render(request, 'monitoring/table.html', context)
+ """
+
+
 
 @login_required
 def download(request):
@@ -2204,6 +3511,11 @@ def download(request):
     cat_count = source_of_exposure_counter.get('Cat', 0)
     other_animal_count = source_of_exposure_counter.get('Others', 0)
 
+    
+    # Calculate total number of distinct patients
+    total_patients = histories.values('patient_id').distinct().count()
+    
+
     paginator = Paginator(histories,10)  
     page_number = request.GET.get('page',1)
     try:
@@ -2247,19 +3559,132 @@ def download(request):
         'age_15_or_less_count' : age_15_or_less_count,
         'age_above_15_count' : age_above_15_count,
         'query_string' : query_string,
-        'users':users
+        'users':users,
+        'total_patients': total_patients,
     }
 
     return render(request, 'monitoring/download.html',context)
 
-from datetime import date
-from django.shortcuts import render
-from .models import Municipality, Barangay, Patient, History, Treatment, Logo
-from django.contrib.auth.decorators import login_required
+@login_required
+def pdf_masterlist_create(request):
+    template_path = 'monitoring/download_pdf.html'
+    user = request.user
+
+    # Get filters from the request
+    selected_municipality = request.GET.get('municipality')
+    selected_barangay = request.GET.get('barangay')
+    selected_user = request.GET.get('searchUsername') 
+    start_month = request.GET.get('startMonth', '')
+    end_month = request.GET.get('endMonth', '')
+    search_name = request.GET.get('searchName')
+    
+    # Base queryset with filters applied
+    histories = History.objects.select_related('patient_id', 'muni_id', 'brgy_id').order_by('-registration_no')
+    if not user.is_superuser:
+        histories = histories.filter(patient_id__user=user)
+    
+    # Apply filters
+    histories = histories.filter(
+        Q(muni_id=selected_municipality) if selected_municipality else Q(),
+        Q(brgy_id=selected_barangay) if selected_barangay else Q(),
+        Q(patient_id__user__username=selected_user) if user.is_superuser and selected_user else Q(),
+        Q(patient_id__first_name__icontains=search_name) | Q(patient_id__last_name__icontains=search_name) if search_name else Q()
+    )
+
+    # Date filter
+    try:
+        if start_month and end_month:
+            current_year = datetime.now().year
+            start_date = datetime.strptime(f"{start_month} {current_year}", "%B %Y").replace(day=1)
+            end_date = datetime.strptime(f"{end_month} {current_year}", "%B %Y").replace(day=1) + relativedelta(months=1) - relativedelta(days=1)
+            histories = histories.filter(date_registered__range=(start_date, end_date))
+    except ValueError as e:
+        messages.error(request, "Invalid date range selected.")
+    
+    # Calculate statistics
+    male = histories.filter(patient_id__sex__iexact='Male').count()
+    female = histories.filter(patient_id__sex__iexact='Female').count()
+
+    age_15_or_less_count = age_above_15_count = 0
+    for history in histories:
+        history.age = calculate_age(history.patient_id.birthday)
+        history.treatment = Treatment.objects.filter(patient_id=history.patient_id).first()
+        if history.age <= 15:
+            age_15_or_less_count += 1
+        else:
+            age_above_15_count += 1
+
+    animal_counts = Counter(histories.values_list('source_of_exposure', flat=True))
+    dog_count, cat_count, other_animal_count = animal_counts.get('Dog', 0), animal_counts.get('Cat', 0), animal_counts.get('Others', 0)
+
+    # Calculate total number of distinct patients
+    total_patients = histories.values('patient_id').distinct().count()
+    # Set context for the PDF template
+    context = {
+        'signature_name': f"{user.first_name} {user.last_name}".strip() or user.username,
+        'histories': histories,
+        'total_patients': total_patients,
+        'male': male,
+        'female': female,
+        'dog_count': dog_count,
+        'cat_count': cat_count,
+        'other_animal_count': other_animal_count,
+        'age_15_or_less_count': age_15_or_less_count,
+        'age_above_15_count': age_above_15_count,
+        'municipalities': Municipality.objects.all(),
+        'barangays': Barangay.objects.all(),
+        'start_month': start_month,
+        'end_month': end_month,
+    }
+    
+    # Render PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="MasterList.pdf"'#attachment;
+    template = get_template(template_path)
+    html = template.render(context)
+
+    pisa_status = pisa.CreatePDF(html, dest=response)
+    if pisa_status.err:
+        return HttpResponse('Error generating PDF file')
+
+    return response
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 @login_required
 def cohort(request):
     user = request.user
+    municipality_map = {
+        "MAR": "Maripipi",
+        "KAW": "Kawayan",
+        "NAV": "Naval",
+        "CAIB": "Caibiran",
+        "ALM": "Almeria",
+        "BIL": "Biliran",
+        "CUL": "Culaba",
+        "CABUC": "Cabucgayan"
+    }
+    if user.is_superuser and user.code == "NAV":
+        municipality_name = "BPH"
+    else:
+        municipality_name = municipality_map.get(user.code, "Province")
 
     # Retrieve the selected quarter and year from user input; default to Q1 and current year if not provided
     selected_quarter = request.GET.get('quarter', '1')
@@ -2326,7 +3751,6 @@ def cohort(request):
             patient_id__histories__date_registered__range=(start_date, end_date)
         ).distinct()
         
-        # Check if the patient had human rabies
         if history.human_rabies:
             category_ii_died += 1
             continue
@@ -2335,13 +3759,14 @@ def cohort(request):
             # Check if all of day0, day3, and day7 are marked True
             if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
                 category_ii_complete += 1
-            # Check if at least one of day0, day3, or day7 is marked True
-            elif treatments.filter(day0_arrived=True) | treatments.filter(day3_arrived=True) | treatments.filter(day7_arrived=True):
+            # Check if at least one or two of day0, day3, or day7 are True (but not all)
+            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
                 category_ii_incomplete += 1
-            else:
+            # If none of the fields are True
+            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
                 category_ii_none += 1
-    else:
-        category_ii_none += 1
+        else:
+            category_ii_none += 1
 
     # Process Category III outcomes
     for history in histories.filter(category_of_exposure='III'):
@@ -2357,28 +3782,33 @@ def cohort(request):
             # Check if all of day0, day3, and day7 are marked True
             if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
                 category_iii_complete += 1
-            # Check if at least one of day0, day3, or day7 is marked True
-            elif treatments.filter(day0_arrived=True) | treatments.filter(day3_arrived=True) | treatments.filter(day7_arrived=True):
+            # Check if at least one or two of day0, day3, or day7 are True (but not all)
+            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
                 category_iii_incomplete += 1
-            else:
+            # If none of the fields are True
+            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
                 category_iii_none += 1
         else:
             category_iii_none += 1
+
 
     total_complete = category_ii_complete + category_iii_complete
     total_incomplete = category_ii_incomplete + category_iii_incomplete
     total_none = category_ii_none + category_iii_none
     total_died = category_ii_died + category_iii_died
 
-    # Retrieve logo and signature
-    logo = Logo.objects.filter(logo_name="Province" if user.is_superuser else user.code).first()
-    logo_url = logo.logo_image.url if logo and logo.logo_image else None
     signature_name = f"{user.first_name} {user.last_name}".strip() if user.first_name or user.last_name else user.username
 
+    if user.logo_image:  # Ensure the user has a logo image
+        logo_url = request.build_absolute_uri(user.logo_image.url)
+    else:
+        logo_url = None  # If no logo is available, set logo_url to None
+
     context = {
+        'logo_url': logo_url,
+        'municipality_name': municipality_name,
         'selected_quarter': selected_quarter,
         'selected_year': selected_year,
-        'logo_url': logo_url,
         'signature_name': signature_name,
         'municipalities': municipalities,
         'barangays': barangays,
@@ -2406,6 +3836,680 @@ def cohort(request):
     }
 
     return render(request, 'monitoring/cohort.html', context)
+
+def pdf_cohort_create1(request):
+    user = request.user
+
+    municipality_map = {
+        "MAR": "Maripipi",
+        "KAW": "Kawayan",
+        "NAV": "Naval",
+        "CAIB": "Caibiran",
+        "ALM": "Almeria",
+        "BIL": "Biliran",
+        "CUL": "Culaba",
+        "CABUC": "Cabucgayan"
+    }
+    if user.is_superuser and user.code == "NAV":
+        municipality_name = "BPH"
+    else:
+        municipality_name = municipality_map.get(user.code, "Province")
+
+    selected_quarter = '1'
+    year = date.today().year
+    start_date = date(year, 1, 1)
+    end_date = date(year, 3, 31)
+
+    # Retrieve data based on the user type and date range
+    if user.is_superuser:
+        municipalities = Municipality.objects.all()
+        barangays = Barangay.objects.all()
+        patients = Patient.objects.all()
+        histories = History.objects.filter(date_registered__range=(start_date, end_date))
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+    else:
+        patients = Patient.objects.filter(user=user)
+        histories = History.objects.filter(patient_id__in=patients, date_registered__range=(start_date, end_date))
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+        municipalities = Municipality.objects.filter(muni_id__in=patients.values_list('muni_id', flat=True))
+        barangays = Barangay.objects.filter(brgy_id__in=patients.values_list('brgy_id', flat=True))
+
+    # Calculate counts for each category of exposure
+    category_i_count = histories.filter(category_of_exposure='I').count()
+    category_ii_count = histories.filter(category_of_exposure='II').count()
+    category_iii_count = histories.filter(category_of_exposure='III').count()
+    total_count = category_i_count + category_ii_count + category_iii_count
+
+    # RIG counts by category
+    category_ii_with_rig = histories.filter(
+        category_of_exposure='II',
+        patient_id__treatments_patient__rig_given__isnull=False,
+        date_registered__range=(start_date, end_date)
+    ).distinct().count()
+
+    category_iii_with_rig = histories.filter(
+        category_of_exposure='III',
+        patient_id__treatments_patient__rig_given__isnull=False,
+        date_registered__range=(start_date, end_date)
+    ).distinct().count()
+
+    total_count_rig = category_ii_with_rig + category_iii_with_rig
+
+    # Outcome counters for each category and date range
+    category_ii_complete = category_ii_incomplete = category_ii_none = category_ii_died = 0
+    category_iii_complete = category_iii_incomplete = category_iii_none = category_iii_died = 0
+
+    # Process Category II outcomes
+    for history in histories.filter(category_of_exposure='II'):
+        # Filter treatments associated with the patient within the date range
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+        
+        if history.human_rabies:
+            category_ii_died += 1
+            continue
+
+        if treatments.exists():
+            # Check if all of day0, day3, and day7 are marked True
+            if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
+                category_ii_complete += 1
+            # Check if at least one or two of day0, day3, or day7 are True (but not all)
+            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
+                category_ii_incomplete += 1
+            # If none of the fields are True
+            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
+                category_ii_none += 1
+        else:
+            category_ii_none += 1
+
+    # Process Category III outcomes
+    for history in histories.filter(category_of_exposure='III'):
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+        
+        if history.human_rabies:
+            category_iii_died += 1
+            continue
+
+        if treatments.exists():
+            # Check if all of day0, day3, and day7 are marked True
+            if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
+                category_iii_complete += 1
+            # Check if at least one or two of day0, day3, or day7 are True (but not all)
+            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
+                category_iii_incomplete += 1
+            # If none of the fields are True
+            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
+                category_iii_none += 1
+        else:
+            category_iii_none += 1
+
+
+    total_complete = category_ii_complete + category_iii_complete
+    total_incomplete = category_ii_incomplete + category_iii_incomplete
+    total_none = category_ii_none + category_iii_none
+    total_died = category_ii_died + category_iii_died
+
+    signature_name = f"{user.first_name} {user.last_name}".strip() if user.first_name or user.last_name else user.username
+
+    if user.logo_image:  # Ensure the user has a logo image
+        logo_url = request.build_absolute_uri(user.logo_image.url)
+    else:
+        logo_url = None  # If no logo is available, set logo_url to None
+
+    
+    template_path = 'monitoring/cohort_pdf1.html'
+    context = {
+        'logo_url': logo_url,
+        'municipality_name': municipality_name,
+        'selected_quarter': selected_quarter,
+        'signature_name': signature_name,
+        'municipalities': municipalities,
+        'barangays': barangays,
+        'patients': patients,
+        'histories': histories,
+        'treatments': treatments,
+        'category_ii_count': category_ii_count,
+        'category_iii_count': category_iii_count,
+        'total_count': total_count,
+        'total_count_rig': total_count_rig,
+        'category_ii_with_rig': category_ii_with_rig,
+        'category_iii_with_rig': category_iii_with_rig,
+        'category_ii_complete': category_ii_complete,
+        'category_ii_incomplete': category_ii_incomplete,
+        'category_ii_none': category_ii_none,
+        'category_ii_died': category_ii_died,
+        'category_iii_complete': category_iii_complete,
+        'category_iii_incomplete': category_iii_incomplete,
+        'category_iii_none': category_iii_none,
+        'category_iii_died': category_iii_died,
+        'total_complete': total_complete,
+        'total_incomplete': total_incomplete,
+        'total_none': total_none,
+        'total_died': total_died,
+    }
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'filename="1stQuarter_Cohort.pdf"'#attachment;
+    template = get_template(template_path)
+    html = template.render(context)
+    pisa_status = pisa.CreatePDF(
+        html,dest=response)
+    if pisa_status.err:
+        return HttpResponse('We had some errors <pre>'+html+'<prev>')
+    return response
+
+def pdf_cohort_create2(request):
+    user = request.user
+
+    municipality_map = {
+        "MAR": "Maripipi",
+        "KAW": "Kawayan",
+        "NAV": "Naval",
+        "CAIB": "Caibiran",
+        "ALM": "Almeria",
+        "BIL": "Biliran",
+        "CUL": "Culaba",
+        "CABUC": "Cabucgayan"
+    }
+    if user.is_superuser and user.code == "NAV":
+        municipality_name = "BPH"
+    else:
+        municipality_name = municipality_map.get(user.code, "Province")
+    
+    selected_quarter = '2'
+    year = date.today().year
+    start_date = date(year, 4, 1)
+    end_date = date(year, 6, 30)
+
+    # Retrieve data based on the user type and date range
+    if user.is_superuser:
+        municipalities = Municipality.objects.all()
+        barangays = Barangay.objects.all()
+        patients = Patient.objects.all()
+        histories = History.objects.filter(date_registered__range=(start_date, end_date))
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+    else:
+        patients = Patient.objects.filter(user=user)
+        histories = History.objects.filter(patient_id__in=patients, date_registered__range=(start_date, end_date))
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+        municipalities = Municipality.objects.filter(muni_id__in=patients.values_list('muni_id', flat=True))
+        barangays = Barangay.objects.filter(brgy_id__in=patients.values_list('brgy_id', flat=True))
+
+    # Calculate counts for each category of exposure
+    category_i_count = histories.filter(category_of_exposure='I').count()
+    category_ii_count = histories.filter(category_of_exposure='II').count()
+    category_iii_count = histories.filter(category_of_exposure='III').count()
+    total_count = category_i_count + category_ii_count + category_iii_count
+
+    # RIG counts by category
+    category_ii_with_rig = histories.filter(
+        category_of_exposure='II',
+        patient_id__treatments_patient__rig_given__isnull=False,
+        date_registered__range=(start_date, end_date)
+    ).distinct().count()
+
+    category_iii_with_rig = histories.filter(
+        category_of_exposure='III',
+        patient_id__treatments_patient__rig_given__isnull=False,
+        date_registered__range=(start_date, end_date)
+    ).distinct().count()
+
+    total_count_rig = category_ii_with_rig + category_iii_with_rig
+
+    # Outcome counters for each category and date range
+    category_ii_complete = category_ii_incomplete = category_ii_none = category_ii_died = 0
+    category_iii_complete = category_iii_incomplete = category_iii_none = category_iii_died = 0
+
+    # Process Category II outcomes
+    for history in histories.filter(category_of_exposure='II'):
+        # Filter treatments associated with the patient within the date range
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+        
+        if history.human_rabies:
+            category_ii_died += 1
+            continue
+
+        if treatments.exists():
+            # Check if all of day0, day3, and day7 are marked True
+            if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
+                category_ii_complete += 1
+            # Check if at least one or two of day0, day3, or day7 are True (but not all)
+            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
+                category_ii_incomplete += 1
+            # If none of the fields are True
+            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
+                category_ii_none += 1
+        else:
+            category_ii_none += 1
+
+    # Process Category III outcomes
+    for history in histories.filter(category_of_exposure='III'):
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+        
+        if history.human_rabies:
+            category_iii_died += 1
+            continue
+
+        if treatments.exists():
+            # Check if all of day0, day3, and day7 are marked True
+            if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
+                category_iii_complete += 1
+            # Check if at least one or two of day0, day3, or day7 are True (but not all)
+            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
+                category_iii_incomplete += 1
+            # If none of the fields are True
+            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
+                category_iii_none += 1
+        else:
+            category_iii_none += 1
+
+
+    total_complete = category_ii_complete + category_iii_complete
+    total_incomplete = category_ii_incomplete + category_iii_incomplete
+    total_none = category_ii_none + category_iii_none
+    total_died = category_ii_died + category_iii_died
+
+    signature_name = f"{user.first_name} {user.last_name}".strip() if user.first_name or user.last_name else user.username
+
+    if user.logo_image:  # Ensure the user has a logo image
+        logo_url = request.build_absolute_uri(user.logo_image.url)
+    else:
+        logo_url = None  # If no logo is available, set logo_url to None
+
+    
+    template_path = 'monitoring/cohort_pdf2.html'
+    context = {
+        'logo_url': logo_url,
+        'municipality_name': municipality_name,
+        'selected_quarter': selected_quarter,
+        'signature_name': signature_name,
+        'municipalities': municipalities,
+        'barangays': barangays,
+        'patients': patients,
+        'histories': histories,
+        'treatments': treatments,
+        'category_ii_count': category_ii_count,
+        'category_iii_count': category_iii_count,
+        'total_count': total_count,
+        'total_count_rig': total_count_rig,
+        'category_ii_with_rig': category_ii_with_rig,
+        'category_iii_with_rig': category_iii_with_rig,
+        'category_ii_complete': category_ii_complete,
+        'category_ii_incomplete': category_ii_incomplete,
+        'category_ii_none': category_ii_none,
+        'category_ii_died': category_ii_died,
+        'category_iii_complete': category_iii_complete,
+        'category_iii_incomplete': category_iii_incomplete,
+        'category_iii_none': category_iii_none,
+        'category_iii_died': category_iii_died,
+        'total_complete': total_complete,
+        'total_incomplete': total_incomplete,
+        'total_none': total_none,
+        'total_died': total_died,
+    }
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'filename="2ndQuarter_Cohort.pdf"'#attachment;
+    template = get_template(template_path)
+    html = template.render(context)
+    pisa_status = pisa.CreatePDF(
+        html,dest=response)
+    if pisa_status.err:
+        return HttpResponse('We had some errors <pre>'+html+'<prev>')
+    return response
+
+def pdf_cohort_create3(request):
+    user = request.user
+
+    municipality_map = {
+        "MAR": "Maripipi",
+        "KAW": "Kawayan",
+        "NAV": "Naval",
+        "CAIB": "Caibiran",
+        "ALM": "Almeria",
+        "BIL": "Biliran",
+        "CUL": "Culaba",
+        "CABUC": "Cabucgayan"
+    }
+    if user.is_superuser and user.code == "NAV":
+        municipality_name = "BPH"
+    else:
+        municipality_name = municipality_map.get(user.code, "Province")
+
+    selected_quarter = '3'
+    year = date.today().year
+    start_date = date(year, 7, 1)
+    end_date = date(year, 9, 30)
+
+    # Retrieve data based on the user type and date range
+    if user.is_superuser:
+        municipalities = Municipality.objects.all()
+        barangays = Barangay.objects.all()
+        patients = Patient.objects.all()
+        histories = History.objects.filter(date_registered__range=(start_date, end_date))
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+    else:
+        patients = Patient.objects.filter(user=user)
+        histories = History.objects.filter(patient_id__in=patients, date_registered__range=(start_date, end_date))
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+        municipalities = Municipality.objects.filter(muni_id__in=patients.values_list('muni_id', flat=True))
+        barangays = Barangay.objects.filter(brgy_id__in=patients.values_list('brgy_id', flat=True))
+
+    # Calculate counts for each category of exposure
+    category_i_count = histories.filter(category_of_exposure='I').count()
+    category_ii_count = histories.filter(category_of_exposure='II').count()
+    category_iii_count = histories.filter(category_of_exposure='III').count()
+    total_count = category_i_count + category_ii_count + category_iii_count
+
+    # RIG counts by category
+    category_ii_with_rig = histories.filter(
+        category_of_exposure='II',
+        patient_id__treatments_patient__rig_given__isnull=False,
+        date_registered__range=(start_date, end_date)
+    ).distinct().count()
+
+    category_iii_with_rig = histories.filter(
+        category_of_exposure='III',
+        patient_id__treatments_patient__rig_given__isnull=False,
+        date_registered__range=(start_date, end_date)
+    ).distinct().count()
+
+    total_count_rig = category_ii_with_rig + category_iii_with_rig
+
+    # Outcome counters for each category and date range
+    category_ii_complete = category_ii_incomplete = category_ii_none = category_ii_died = 0
+    category_iii_complete = category_iii_incomplete = category_iii_none = category_iii_died = 0
+
+    # Process Category II outcomes
+    for history in histories.filter(category_of_exposure='II'):
+        # Filter treatments associated with the patient within the date range
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+        
+        if history.human_rabies:
+            category_ii_died += 1
+            continue
+
+        if treatments.exists():
+            # Check if all of day0, day3, and day7 are marked True
+            if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
+                category_ii_complete += 1
+            # Check if at least one or two of day0, day3, or day7 are True (but not all)
+            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
+                category_ii_incomplete += 1
+            # If none of the fields are True
+            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
+                category_ii_none += 1
+        else:
+            category_ii_none += 1
+
+    # Process Category III outcomes
+    for history in histories.filter(category_of_exposure='III'):
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+        
+        if history.human_rabies:
+            category_iii_died += 1
+            continue
+
+        if treatments.exists():
+            # Check if all of day0, day3, and day7 are marked True
+            if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
+                category_iii_complete += 1
+            # Check if at least one or two of day0, day3, or day7 are True (but not all)
+            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
+                category_iii_incomplete += 1
+            # If none of the fields are True
+            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
+                category_iii_none += 1
+        else:
+            category_iii_none += 1
+
+
+    total_complete = category_ii_complete + category_iii_complete
+    total_incomplete = category_ii_incomplete + category_iii_incomplete
+    total_none = category_ii_none + category_iii_none
+    total_died = category_ii_died + category_iii_died
+
+    signature_name = f"{user.first_name} {user.last_name}".strip() if user.first_name or user.last_name else user.username
+
+    if user.logo_image:  # Ensure the user has a logo image
+        logo_url = request.build_absolute_uri(user.logo_image.url)
+    else:
+        logo_url = None  # If no logo is available, set logo_url to None
+
+    
+    template_path = 'monitoring/cohort_pdf3.html'
+    context = {
+        'logo_url': logo_url,
+        'municipality_name': municipality_name,
+        'signature_name': signature_name,
+        'municipalities': municipalities,
+        'barangays': barangays,
+        'patients': patients,
+        'histories': histories,
+        'treatments': treatments,
+        'category_ii_count': category_ii_count,
+        'category_iii_count': category_iii_count,
+        'total_count': total_count,
+        'total_count_rig': total_count_rig,
+        'category_ii_with_rig': category_ii_with_rig,
+        'category_iii_with_rig': category_iii_with_rig,
+        'category_ii_complete': category_ii_complete,
+        'category_ii_incomplete': category_ii_incomplete,
+        'category_ii_none': category_ii_none,
+        'category_ii_died': category_ii_died,
+        'category_iii_complete': category_iii_complete,
+        'category_iii_incomplete': category_iii_incomplete,
+        'category_iii_none': category_iii_none,
+        'category_iii_died': category_iii_died,
+        'total_complete': total_complete,
+        'total_incomplete': total_incomplete,
+        'total_none': total_none,
+        'total_died': total_died,
+    }
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment;filename="3rdQuarter_Cohort.pdf"'#attachment;
+    template = get_template(template_path)
+    html = template.render(context)
+    pisa_status = pisa.CreatePDF(
+        html,dest=response)
+    if pisa_status.err:
+        return HttpResponse('We had some errors <pre>'+html+'<prev>')
+    return response
+
+def pdf_cohort_create4(request):
+    user = request.user
+
+    municipality_map = {
+        "MAR": "Maripipi",
+        "KAW": "Kawayan",
+        "NAV": "Naval",
+        "CAIB": "Caibiran",
+        "ALM": "Almeria",
+        "BIL": "Biliran",
+        "CUL": "Culaba",
+        "CABUC": "Cabucgayan"
+    }
+    if user.is_superuser and user.code == "NAV":
+        municipality_name = "BPH"
+    else:
+        municipality_name = municipality_map.get(user.code, "Province")
+
+    # Only set for 2nd quarter (April 1 to June 30)
+    selected_quarter = '4'
+    year = date.today().year
+    # 4th Quarter
+    start_date = date(year, 10, 1)
+    end_date = date(year, 12, 31)
+
+    # Retrieve data based on the user type and date range
+    if user.is_superuser:
+        municipalities = Municipality.objects.all()
+        barangays = Barangay.objects.all()
+        patients = Patient.objects.all()
+        histories = History.objects.filter(date_registered__range=(start_date, end_date))
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+    else:
+        patients = Patient.objects.filter(user=user)
+        histories = History.objects.filter(patient_id__in=patients, date_registered__range=(start_date, end_date))
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+        municipalities = Municipality.objects.filter(muni_id__in=patients.values_list('muni_id', flat=True))
+        barangays = Barangay.objects.filter(brgy_id__in=patients.values_list('brgy_id', flat=True))
+
+    # Calculate counts for each category of exposure
+    category_i_count = histories.filter(category_of_exposure='I').count()
+    category_ii_count = histories.filter(category_of_exposure='II').count()
+    category_iii_count = histories.filter(category_of_exposure='III').count()
+    total_count = category_i_count + category_ii_count + category_iii_count
+
+    # RIG counts by category
+    category_ii_with_rig = histories.filter(
+        category_of_exposure='II',
+        patient_id__treatments_patient__rig_given__isnull=False,
+        date_registered__range=(start_date, end_date)
+    ).distinct().count()
+
+    category_iii_with_rig = histories.filter(
+        category_of_exposure='III',
+        patient_id__treatments_patient__rig_given__isnull=False,
+        date_registered__range=(start_date, end_date)
+    ).distinct().count()
+
+    total_count_rig = category_ii_with_rig + category_iii_with_rig
+
+    # Outcome counters for each category and date range
+    category_ii_complete = category_ii_incomplete = category_ii_none = category_ii_died = 0
+    category_iii_complete = category_iii_incomplete = category_iii_none = category_iii_died = 0
+
+    # Process Category II outcomes
+    for history in histories.filter(category_of_exposure='II'):
+        # Filter treatments associated with the patient within the date range
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+        
+        if history.human_rabies:
+            category_ii_died += 1
+            continue
+
+        if treatments.exists():
+            # Check if all of day0, day3, and day7 are marked True
+            if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
+                category_ii_complete += 1
+            # Check if at least one or two of day0, day3, or day7 are True (but not all)
+            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
+                category_ii_incomplete += 1
+            # If none of the fields are True
+            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
+                category_ii_none += 1
+        else:
+            category_ii_none += 1
+
+    # Process Category III outcomes
+    for history in histories.filter(category_of_exposure='III'):
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+        
+        if history.human_rabies:
+            category_iii_died += 1
+            continue
+
+        if treatments.exists():
+            # Check if all of day0, day3, and day7 are marked True
+            if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
+                category_iii_complete += 1
+            # Check if at least one or two of day0, day3, or day7 are True (but not all)
+            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
+                category_iii_incomplete += 1
+            # If none of the fields are True
+            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
+                category_iii_none += 1
+        else:
+            category_iii_none += 1
+
+
+    total_complete = category_ii_complete + category_iii_complete
+    total_incomplete = category_ii_incomplete + category_iii_incomplete
+    total_none = category_ii_none + category_iii_none
+    total_died = category_ii_died + category_iii_died
+
+    signature_name = f"{user.first_name} {user.last_name}".strip() if user.first_name or user.last_name else user.username
+
+    if user.logo_image:  # Ensure the user has a logo image
+        logo_url = request.build_absolute_uri(user.logo_image.url)
+    else:
+        logo_url = None  # If no logo is available, set logo_url to None
+
+    
+    template_path = 'monitoring/cohort_pdf4.html'
+    context = {
+        'logo_url': logo_url,
+        'municipality_name': municipality_name,
+        'selected_quarter': selected_quarter,
+        'signature_name': signature_name,
+        'municipalities': municipalities,
+        'barangays': barangays,
+        'patients': patients,
+        'histories': histories,
+        'treatments': treatments,
+        'category_ii_count': category_ii_count,
+        'category_iii_count': category_iii_count,
+        'total_count': total_count,
+        'total_count_rig': total_count_rig,
+        'category_ii_with_rig': category_ii_with_rig,
+        'category_iii_with_rig': category_iii_with_rig,
+        'category_ii_complete': category_ii_complete,
+        'category_ii_incomplete': category_ii_incomplete,
+        'category_ii_none': category_ii_none,
+        'category_ii_died': category_ii_died,
+        'category_iii_complete': category_iii_complete,
+        'category_iii_incomplete': category_iii_incomplete,
+        'category_iii_none': category_iii_none,
+        'category_iii_died': category_iii_died,
+        'total_complete': total_complete,
+        'total_incomplete': total_incomplete,
+        'total_none': total_none,
+        'total_died': total_died,
+    }
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment;filename="4thQuarter_Cohort.pdf"'#attachment;
+    template = get_template(template_path)
+    html = template.render(context)
+    pisa_status = pisa.CreatePDF(
+        html,dest=response)
+    if pisa_status.err:
+        return HttpResponse('We had some errors <pre>'+html+'<prev>')
+    return response
+
+
+
+
+
 
 @login_required
 def download_excel(request):
@@ -2569,7 +4673,6 @@ def exp_excel(request):
 
     return response
 
-
 @login_required
 # Function to generate the Excel report
 def download_report_excel(request):
@@ -2648,7 +4751,6 @@ def download_report_excel(request):
     response['Content-Disposition'] = 'attachment; filename="animal_bite_report.xlsx"'
 
     return response
-
 
 @login_required
 def download_report_pdf(request):
@@ -3131,7 +5233,6 @@ def download_report_pdf(request):
 
     return response
 
-
 # PDF Generation Function
 @login_required
 def download_masterlist_pdf(request):
@@ -3266,7 +5367,6 @@ def download_masterlist_pdf(request):
         return HttpResponse('We had some errors <pre>' + html_content + '</pre>', content_type='text/html')
 
     return response
-
 
 # Excel Generation Function
 @login_required

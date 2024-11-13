@@ -1,267 +1,157 @@
-<!-- monitoring/download.html -->
-{% extends "admin/base_site.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        table {
+            border: 1px solid black;
+            border-collapse: collapse;
+            width: 100%; /* Adjusts to full width of container */
+            max-width: 800px; /* Limits the table's width */
+            margin: auto; /* Centers the table on the page */
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 5px; /* Reduces padding for a more compact look */
+            text-align: center;
+            font-size: 14px; /* Slightly smaller font size for compactness */
+            max-width: 80px; /* Limits column width */
+            word-wrap: break-word; /* Wraps text within cells */
+        }
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            max-width: 800px;
+            margin: auto;
+            align-items: center;
+            width: 100%; /* Ensures the header container takes full width of the page */
+        }
 
-{% block content %}
-<h1>Download Page</h1>
-<!-- Your custom content here -->\
- 
-<div class="container-fluid border border-muted shadow">
-    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow">
-            <img src="{% static 'assets/images/3.jpeg' %}" alt="Logo" class="rounded-circle navbar-brand-logo ms-5"  style="width: 50px; height: 50px;">
-            <span class="text-primary font-weight-bold ms-2 me-3" style="font-size: 30px;">ABRMS-GEO Mapping</span>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse mr-3" id="navbarNav">
-            <ul class="navbar-nav ml-auto">
-                <div class="topbar-divider d-none d-sm-block"></div>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle mr-3" href="#" id="userDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                        <span class="mr-2 d-none d-lg-inline  text-gray-600" id="download-admin">Admin</span>
-                        <i class="fas fa-user" id="download-icon-admin"></i>
-                    </a>
-                    <style>
-                        
-                    </style>
-                    <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in" aria-labelledby="userDropdown">
-                        <a class="dropdown-item" href="/admin/">
-                            <i class="fas fa-arrow-left fa-sm fa-fw mr-2 text-gray-400"></i>
-                            Back
-                        </a>
-                        <div class="dropdown-divider"></div>
-                        <a class="dropdown-item" href="{% url 'admin:logout' %}" data-toggle="modal" data-target="#logoutModal">
-                            <i class="fas fa-door-open fa-sm fa-fw mr-2 text-gray-400"></i>
-                            Logout
-                        </a>
-                        
-                    </div>
-                </li>
-            </ul>
+        .header-left {
+            text-align: left;
+        }
+
+        .header-center {
+            text-align: center;
+            flex-grow: 1; /* Makes the center div grow to take available space */
+        }
+    </style>
+    
+</head>
+<body>
+    <div class="header-container">
+        <!-- Name of Animal Bite Center left-aligned -->
+        <div class="header-left">
+            <p>Name of Animal Bite Center<br>
+            <u>BPH Center</u></p>
         </div>
-    </nav>
-</div>
 
-
-
-<div class="container-fluid">
-    <div class="container-fluid">
-        <section class="content">
-            <div class="row">
-                
-                <div class="col-12">
-                    <!-- Filter Form -->
-                    <form method="GET" class="form-inline filter-container d-flex justify-content-start" id="filterForm">
-
-                        <div class="form-group mr-5">
-                            <select id="searchUsername" name="searchUsername" class="form-select shadow">
-                                <option value="">User</option>
-                                {% for user in users %}
-                                    <option value="{{ user.username }}" {% if selected_user == user.username %}selected{% endif %}>{{ user.username }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <div class="form-group ">
-                            <select id="municipality" name="municipality" class="form-select search-filter shadow select-hidden accessible" style="width: 150px;">
-                                <option value="">Municipality</option>
-                                <option value="">----------</option>
-                                {% for municipality in municipalities %}
-                                <option value="{{ municipality.muni_id }}" {% if selected_municipality == municipality.muni_id|stringformat:"s" %}selected{% endif %}>{{ municipality.muni_name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <div class="form-group mr-5">
-                            <select id="barangay" name="barangay" class="form-select shadow" style="width: 150px;">
-                                <option value="">Barangay</option>
-                                <option value="">----------</option>
-                                {% for barangay in barangays %}
-                                <option value="{{ barangay.brgy_id }}" {% if selected_barangay == barangay.brgy_id %}selected{% endif %}>{{ barangay.brgy_name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <!-- Start Month and End Month selectors -->
-                        <div class="form-group">
-                            <select id="startMonth" name="startMonth" class="form-select shadow">
-                                <option value="">Month Start</option>
-                                {% for month in months %}
-                                <option value="{{ month }}" {% if start_month == month %}selected{% endif %}>{{ month }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="form-group mr-5">
-                            <select id="endMonth" name="endMonth" class="form-select mr-5 shadow">
-                                <option value="">Month End</option>
-                                {% for month in months %}
-                                <option value="{{ month }}" {% if end_month == month %}selected{% endif %}>{{ month }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        
-                        <div class="form-group">
-                            <input type="text" id="searchName" name="searchName" class="form-control shadow" placeholder="Search by Name" value="{{ request.GET.searchName }}">
-                        </div>
-
-                        
-
-                        <!-- <button type="submit" class="btn btn-outline-secondary ml-3 mr-5  filter-button">
-                            <i class="fas fa-filter"></i> FILTER
-                        </button> -->
-                        <button type="submit" class="btn btn-outline-primary ml-3 mr-5  filter-button">
-                            <i class=""></i> Search
-                        </button>
-
-
-                        <!-- Download Buttons -->
-                        <!-- <div class="d-flex justify-content-end my-3 ml-5">
-                            <a href="" class="btn btn-danger btn-sm me-2"><i class="fas fa-file-pdf"></i> Download PDF</a>
-                            <a href="" class="btn btn-success btn-sm"><i class="fas fa-file-excel"></i> Download Excel</a>
-                        </div> -->
-                    </form>
-                </div>
-                
-                
-                <div class="col-12">
-                    <!-- Table Section -->
-                    <div class="content">
-                        <div class="container-fluid">
-                            <section class="content">
-                                <div class="row">
-                                    <div class="col-12">                                     
-                                        <div class="card px-3">
-                                            <div class="card-body table-responsive">
-                                                <h4 class="text-center mb-4 text-primary">BILIRAN PROVINCIAL HOSPITAL <br>ANIMAL BITE TREATMENT CENTER</h4>  
-                                                <div class="d-flex justify-content-between mb-2">
-                                                    <span id="reportingPeriod"></span>
-                                                    <div>
-                                                        <strong class="ms-3">Total patients: </strong> <span style="color: red; font-size: 18px;">{{ histories.paginator.count }}</span>
-                                                        <strong class="ms-3">Male: </strong> <span style="color: red; font-size: 18px;">{{ male }}</span>
-                                                        <strong class="ms-3">Female: </strong> <span style="color: red; font-size: 18px;">{{ female }}</span>
-                                                        <strong class="ms-3">Dog: </strong> <span style="color: red; font-size: 18px;">{{ dog_count }}</span>
-                                                        <strong class="ms-3">Cat: </strong> <span style="color: red; font-size: 18px;">{{ cat_count }}</span>
-                                                        <strong class="ms-3">Other: </strong> <span style="color: red; font-size: 18px;">{{ other_animal_count }}</span>
-                                                        <strong class="ms-3">15 and Below: </strong> <span style="color: red; font-size: 18px;">{{ age_15_or_less_count }}</span>
-                                                        <strong class="ms-3">Above 15: </strong> <span style="color: red; font-size: 18px;">{{ age_above_15_count }}</span>
-                                                    </div>
-                                                </div>
-                                                <div id="table-content">
-                                                    <table class="table table-bordered table-striped table-hover">
-                                                        <thead class="thead-secondary">
-                                                            <tr>
-                                                                <th rowspan="2">Registration No.</th>
-                                                                <th rowspan="2">Registration Date</th>
-                                                                <th rowspan="2">First Name</th>
-                                                                <th rowspan="2">Last Name</th>
-                                                                <th rowspan="2">Barangay</th>
-                                                                <th rowspan="2">Municipality</th>
-                                                                <th colspan="2">Age</th> 
-                                                                <th rowspan="2">Sex</th>
-                                                                <th rowspan="2">Date of Exposure</th>
-                                                                <th rowspan="2">Biting Animal</th>
-                                                                <th rowspan="2">Status of Biting Animal</th>
-                                                                <th rowspan="2">Category of Bite</th>
-                                                                <th rowspan="2">Anatomical Location</th>
-                                                                <th rowspan="2">Animal Vaccination</th>
-                                                                <th rowspan="2">Date of Birth</th>
-                                                                <th colspan="6">Post Exposure Treatment</th>
-                                                            </tr>
-                                                            <tr>
-                                                                <th>≤15</th>
-                                                                <th>≥15</th>
-                                                                <th>D0</th>
-                                                                <th>D3</th>
-                                                                <th>D7</th>
-                                                                <th>D28</th>
-                                                                <th>ERIG</th>
-                                                                <th>HRIG</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {% for history in histories %}
-                                                            <tr>
-                                                                <td>{{ history.registration_no }}</td>
-                                                                <td>{{ history.date_registered }}</td>
-                                                                <td>{{ history.patient_id.first_name }}</td>
-                                                                <td>{{ history.patient_id.last_name }}</td>
-                                                                <td>{{ history.brgy_id.brgy_name }}</td>
-                                                                <td>{{ history.muni_id.muni_name }}</td>
-                                                                <td>{% if history.age <= 15 %}{{ history.age }}{% endif %}</td>
-                                                                <td>{% if history.age > 15 %}{{ history.age }}{% endif %}</td>
-                                                                <td>{{ history.patient_id.sex }}</td>
-                                                                <td>{{ history.date_of_exposure }}</td>
-                                                                <td>{{ history.source_of_exposure }}</td>
-                                                                <td>{{ history.status_of_animal }}</td>
-                                                                <td>{{ history.category_of_exposure }}</td>
-                                                                <td>{{ history.bite_site }}</td>
-                                                                <td>{{ history.immunization_status }}</td>
-                                                                <td>{{ history.patient_id.birthday }}</td>                                                            
-                                                                <td>{{ history.treatment.day0 }}</td>
-                                                                <td>{{ history.treatment.day3 }}</td>
-                                                                <td>{{ history.treatment.day7}}</td>
-                                                                <td>{{ history.treatment.day28}}</td>
-                                                                <td>{{ history.treatment.rig_given}}</td>
-                                                                <td>{{ history.treatment.hrig }}</td>
-                                                            </tr>   
-                                                            {% endfor %}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                                <!-- Pagination -->
-                                                <div id="pagination-content">
-                                                    <ul class="pagination justify-content-center">
-                                                        {% if histories.has_previous %}
-                                                            <li class="page-item">
-                                                                <a href="?page=1&{{ query_string }}" class="page-link">&laquo; First</a>
-                                                            </li>
-                                                            <li class="page-item">
-                                                                <a href="?page={{ histories.previous_page_number }}&{{ query_string }}" class="page-link">Previous</a>
-                                                            </li>
-                                                        {% endif %}
-                                                    
-                                                        {% for num in histories.paginator.page_range %}
-                                                            {% if histories.number == num %}
-                                                                <li class="page-item active">
-                                                                    <span class="page-link">{{ num }}</span>
-                                                                </li>
-                                                            {% elif num > histories.number|add:'-5' and num < histories.number|add:'5' %}
-                                                                <li class="page-item">
-                                                                    <a href="?page={{ num }}&{{ query_string }}" class="page-link">{{ num }}</a>
-                                                                </li>
-                                                            {% endif %}
-                                                        {% endfor %}
-                                                    
-                                                        {% if histories.has_next %}
-                                                            <li class="page-item">
-                                                                <a href="?page={{ histories.next_page_number }}&{{ query_string }}" class="page-link">Next</a>
-                                                            </li>
-                                                            <li class="page-item">
-                                                                <a href="?page={{ histories.paginator.num_pages }}&{{ query_string }}" class="page-link">Last &raquo;</a>
-                                                            </li>
-                                                        {% endif %}
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </section>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
+        <!-- Department of Health centered -->
+        <div class="header-center">
+            <p>Department of Health<br>
+            National Rabies Prevention and Control Program<br>
+            <strong>Rabies Exposure Registry</strong></p>
+        </div>    
     </div>
-</div>
-
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/2.9.2/umd/popper.min.js" integrity="sha512-2rNj2KJ+D8s1ceNasTIex6z4HWyOnEYLVC3FigGOmyQCZc2eBXKgOxQmo3oKLHyfcj53uz4QMsRCWNbLd32Q1g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="{% static 'assets/js/download.js' %}"></script>
-
-<!-- Include jQuery and jQuery UI libraries -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
-<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
-{% endblock %}
+    <table>
+        <thead>
+            
+            <tr>
+                <th colspan="2">Registration No.</th>
+                <th rowspan="3">Name of Patient</th>
+                <th rowspan="3">Address</th>
+                <th colspan="7">History of Exposure</th> 
+                <th colspan="10">Post Exposure Prophylaxis(PEP)</th>
+                <th >Outcome</th>
+                <th colspan="2">Biting animal status</th>
+                <th rowspan="3">Remarks</th>
+            </tr>
+            <tr>
+                <th rowspan="2">No.</th>
+                <th rowspan="2">Date</th>
+                <th rowspan="2">Age</th>
+                <th rowspan="2">Sex</th>
+                <th rowspan="2">Date</th>
+                <th rowspan="2">Place<br>(Where biting occured)</th>
+                <th rowspan="2">Type of animal</th>
+                <th rowspan="2">Type<br>(B/NB)</th>
+                <th rowspan="2">Site<br>(Body parts)</th>
+                <th rowspan="2">Category<br>(1,2,3)</th>
+                <th rowspan="2">Washing of Bite<br>(Y/N)</th>
+                <th rowspan="2">RIG<br>Date given</th>
+                <th colspan="7">Tissue Culture Vaccine(Date Give)</th>
+                <th rowspan="2">(C/Inc/N/D)</th>
+                <th rowspan="2" colspan="2">(After 14 days)<br>(Alive/Dead/Lost)</th>
+            </tr>
+            <tr>
+                <th>Route</th>
+                <th>D0</th>
+                <th>D3</th>
+                <th>D7</th>
+                <th>D14(IM)</th>
+                <th>D28</th>
+                <th>Brand Name</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+            </tr>
+            <tr>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+                <th>1</th>
+            </tr>
+        </tbody>
+    </table>
+    
+</body>
+</html>

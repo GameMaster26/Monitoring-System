@@ -27,6 +27,11 @@
             text-align: center; /* Center the text */
         }
 
+        .custom-h6 {
+            font-size: 20px;         /* Equivalent to Bootstrap's h1 */
+            margin: 10px 0 5px;      /* Adjust top and bottom margin */
+            font-weight: normal;     /* Remove bold */
+        }
         .custom-h1 {
             font-size: 20px; /* Equivalent to Bootstrap's h1 */
             margin: 10px 0 5px; /* Adjust top and bottom margin */
@@ -41,16 +46,21 @@
             font-size: 18px; /* Equivalent to Bootstrap's h3 */
             margin: 0; /* Remove default margins */
         }
+        .custom-h7 {
+            font-size: 18px; /* Equivalent to Bootstrap's h3 */
+            margin: 0; /* Remove default margins */
+            font-weight: normal;
+        }
+        .quarter {
+            margin: 0 auto; /* Center the div in its container */
+            padding: 0; /* Remove any default padding */
+        }
 
+        
         .grey {
             background-color: yellow;
             font-weight: bold;
             color: black;
-        }
-
-        .quarter {
-            margin: 0 auto; /* Center the div in its container */
-            padding: 0; /* Remove any default padding */
         }
 
         table {
@@ -95,17 +105,21 @@
     <!-- report_pdf.html -->
     <div class="container">
         <div class="d-flex" style="display: flex; align-items: flex-start; margin-bottom: 20px;"> <!-- Flexbox for logo and text -->
-            <div style="margin-right: 20px;"> <!-- Logo on the left -->
-                {% if logo_url %}
-                    <img src="{% static logo_url %}" alt="Logo" style="height: 150px;">
+            <!-- <div style="margin-right: 20px;">
+                <div class="d-flex align-items-center">
+                {% if logo_url  %}
+                    <img src="{{ logo_url }}" alt="Logo" style="height: 120px; margin-right: 20px; margin-left: 20px;">
+                {% else %}
+                    <p>No logo available</p>
                 {% endif %}
+            </div> -->
             </div>
             <div class="custom-center quarter">
                 <h1 class="custom-h1">MUNICIPAL REPORT FORM ON ANIMAL BITE/HUMAN RABIES CASES</h1>
                 <h2 class="custom-h2">Municipality of {{ municipality_name }}</h2>
                 <h3 class="custom-h3">
                     <u>
-                        {{ selected_quarter }}{% if selected_quarter == '1' %}st{% elif selected_quarter == '2' %}nd{% elif selected_quarter == '3' %}rd{% elif selected_quarter == '4' %}th{% endif %} Quarter 2024
+                        1st Quarter 2024
                     </u>
                 </h3>
             </div>
@@ -239,15 +253,15 @@
                 </tr>
             </tbody>
         </table>
-        <div class="signature-section">
-            <p>Prepared by:</p>
-            <div class="signature-line">
-                <span class="signature-name">
-                    {{ full_name }}
-                </span>
-            </div>
-            <p class="signature-title">Municipality Report</p>
-        </div>   
+        <div class="custom-center quarter">
+            <h1 class="custom-h6">Prepared by:</h1>
+            <h3 class="custom-h3">
+                <u>
+                    {{ signature_name }}
+                </u>
+            </h3>
+            <h2 class="custom-h7">Municipality Report</h2>
+        </div> 
     </div>
 </body>
 </html>

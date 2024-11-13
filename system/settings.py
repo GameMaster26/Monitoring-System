@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 import os
 from pathlib import Path
 from .jasmine import JAZZMIN_SETTINGS,JAZZMIN_UI_TWEAKS
+from datetime import timedelta
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -53,13 +54,12 @@ INSTALLED_APPS = [
     
 
     #installed apps
-    'monitoring',
     'leaflet',
     'djgeojson',
+    'monitoring',
+    'import_export',
     
 ]
-
-
 
 
 MIDDLEWARE = [
@@ -72,6 +72,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     
 ]
+
 
 ROOT_URLCONF = 'system.urls'
 
@@ -100,7 +101,7 @@ WSGI_APPLICATION = 'system.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',#'ENGINE': 'django.contrib.gis.db.backends.mysql',
-        'NAME': 'animal_bite',
+        'NAME': 'animalbite',
         'USER': 'postgres',
         'PASSWORD': 'Password',
         'PORT': '5432',
@@ -164,7 +165,7 @@ LEAFLET_CONFIG = {
     'DEFAULT_ZOOM': 10,
     'MIN_ZOOM': 3,
     'MAX_ZOOM': 18,
-    'RESET_VIEW': True,
+    'RESET_VIEW': False,
     'TILES': [
         ('Mapbox', 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {'attribution': '&copy; OpenStreetMap contributors'}),
     ],
@@ -183,14 +184,13 @@ jasmine = JAZZMIN_SETTINGS
 
 # Session settings
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Expire session when browser closes
 SESSION_COOKIE_SECURE = False  # Set to True if using HTTPS
 SESSION_COOKIE_HTTPONLY = True  # Set to True for security
 
+
 # Login URL setting to redirect non-authenticated users
 LOGIN_URL = '/admin/login/'
-#AUTH_USER_MODEL = 'auth.User'
+AUTH_USER_MODEL = 'monitoring.User'
 LOGIN_REDIRECT_URL = '/admin/'  # Redirect to the overview page after login
-
-
-
