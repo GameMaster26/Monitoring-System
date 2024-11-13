@@ -1,26 +1,8 @@
 services:
   - type: web
-    name: monitoring
+    name: my-django-app
     env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn system.wsgi:application --log-file -"
-    envVars:
-      - key: DJANGO_SECRET_KEY
-        sync: false
-      - key: DATABASE_URL
-        sync: false
-
-  - type: web
-    name: MyGISApp
-    env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn system.wsgi"
-    build:
-      aptPackages:
-        - gdal-bin
-        - libgdal-dev
-    envVars:
-      - key: DJANGO_SECRET_KEY
-        sync: false
-      - key: DATABASE_URL
-        sync: false
+    buildCommand: 'pip install -r requirements.txt'
+    startCommand: 'gunicorn system.wsgi:application --bind 0.0.0.0:$PORT'
+    ports:
+      - port: 80
