@@ -21,7 +21,7 @@ Master List
             <form method="GET" class="form-inline filter-container d-flex justify-content-start flex-wrap col" id="filterForm">
                 {% if user.is_superuser %}
                 <div class="form-group me-2">
-                    <select id="searchUsername" name="searchUsername" class="form-select form-select-sm shadow" style="width: 120px;">
+                    <select id="searchUsername" name="searchUsername" class="form-select form-select-sm shadow" >
                         <option value="">User</option>
                         {% for user in users %}
                             <option value="{{ user.username }}" {% if selected_user == user.username %}selected{% endif %}>{{ user.username }}</option>
@@ -30,7 +30,7 @@ Master List
                 </div>
                 {% endif %}
                 <div class="form-group me-2">
-                    <select id="municipality" name="municipality" class="form-select form-select-sm shadow" style="width: 120px;">
+                    <select id="municipality" name="municipality" class="form-select form-select-sm shadow" >
                         <option value="">Municipality</option>
                         <option value="">----------</option>
                         {% for municipality in municipalities %}
@@ -39,7 +39,7 @@ Master List
                     </select>
                 </div>
                 <div class="form-group me-2">
-                    <select id="barangay" name="barangay" class="form-select form-select-sm shadow" style="width: 120px;">
+                    <select id="barangay" name="barangay" class="form-select form-select-sm shadow" >
                         <option value="">Barangay</option>
                         <option value="">----------</option>
                         {% for barangay in barangays %}
@@ -48,7 +48,7 @@ Master List
                     </select>
                 </div>
                 <div class="form-group me-2">
-                    <select id="startMonth" name="startMonth" class="form-select form-select-sm shadow" style="width: 120px;">
+                    <select id="startMonth" name="startMonth" class="form-select form-select-sm shadow" >
                         <option value="">Month Start</option>
                         {% for month in months %}
                         <option value="{{ month }}" {% if start_month == month %}selected{% endif %}>{{ month }}</option>
@@ -56,7 +56,7 @@ Master List
                     </select>
                 </div>
                 <div class="form-group me-2">
-                    <select id="endMonth" name="endMonth" class="form-select form-select-sm shadow" style="width: 120px;">
+                    <select id="endMonth" name="endMonth" class="form-select form-select-sm shadow" >
                         <option value="">Month End</option>
                         {% for month in months %}
                         <option value="{{ month }}" {% if end_month == month %}selected{% endif %}>{{ month }}</option>
@@ -64,23 +64,20 @@ Master List
                     </select>
                 </div>
                 <div class="form-group me-2">
-                    <input type="text" id="searchName" name="searchName" class="form-control form-control-sm shadow" placeholder="Search by Name" value="{{ request.GET.searchName }}" style="width: 120px;">
+                    <input type="text" id="searchName" name="searchName" class="form-control form-control-sm shadow" placeholder="Search by Name" value="{{ request.GET.searchName }}" >
                 </div>
                 <div class="form-group me-2">
-                    <button type="submit" class="btn btn-outline-primary btn-sm filter-button">
+                    <button type="submit" class="btn btn-outline-primary searchButton btn-sm filter-button">
                         <i class="mt-2"></i> Search
                     </button>
                 </div>
                 <!-- Move the Download PDF button to the right -->
-                <a href="{% url 'monitoring:download_masterlist_pdf' %}?{{ request.GET.urlencode }}" target="_blank" class="btn btn-success btn-sm ml-auto" style="width: 100px;">
+                <a href="{% url 'monitoring:download_masterlist_pdf' %}?{{ request.GET.urlencode }}" target="_blank" class="btn btn-success btn-sm ml-auto" >
                     <i class="fas fa-download me-2"></i> PDF
                 </a>                
             </form>
         </div>
-        
-        
-        
-        
+           
         <div class="col-12 mt-5">                                     
             <div class="card-body table-responsive">
                 <h4 class="text-center mb-4 text-primary">BILIRAN PROVINCIAL HOSPITAL <br>ANIMAL BITE TREATMENT CENTER</h4>  
@@ -99,9 +96,9 @@ Master List
                 </div>
                 <div id="table-content">
                     <table class="table table-bordered table-striped table-hover">
-                        <thead class="thead-secondary">
+                        <thead class="thead-secondary" style="text-align: center;">
                             <tr>
-                                <th rowspan="2">Registration No.</th>
+                                <th rowspan="2" >Registration No.</th>
                                 <th rowspan="2">Registration Date</th>
                                 <th rowspan="2">First Name</th>
                                 <th rowspan="2">Last Name</th>
@@ -129,7 +126,7 @@ Master List
                                 <th>HRIG</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody class="wraptext">
                             {% for history in histories %}
                             <tr>
                                 <td>{{ history.registration_no }}</td>
@@ -194,15 +191,29 @@ Master List
                     </ul>
                 </div>
             </div>
-            <div class="signature-section mt-5 text-center">
-                <p>Prepared by:</p>
-                <div class="signature-line">
-                    <span class="signature-name">
-                        {{signature_name}}
-                    </span>
+            <div style="display: table; width: 100%; margin-top: 30px;">
+                <div style="display: table-row;">
+                    <!-- Prepared By -->
+                    <div style="display: table-cell; width: 50%; text-align: center; vertical-align: top;">
+                        <p style="margin: 0; font-weight: bold; text-align: left;">Prepared By:</p>
+                        <div style="margin-top: 10px;">
+                            <span style="display: block; font-weight: bold; text-align: center;">{{ signature_name }}</span>
+                            <div style="border-top: 1px solid black; margin: 5px auto 0; width: 50%;"></div>
+                        </div>
+                        <p style="margin-top: 10px; font-size: 14px; text-align: center;">{{ coordinator }}</p>
+                    </div>
+                    
+                    <!-- Noted By -->
+                    <div style="display: table-cell; width: 50%; text-align: center; vertical-align: top;">
+                        <p style="margin: 0; font-weight: bold; text-align: left;">Noted By:</p>
+                        <div style="margin-top: 10px;">
+                            <span style="display: block; font-weight: bold; text-align: center;">{{ doctor }}</span>
+                            <div style="border-top: 1px solid black; margin: 5px auto 0; width: 50%;"></div>
+                        </div>
+                        <p style="margin-top: 10px; font-size: 14px; text-align: center;">{{ pho }}</p>
+                    </div>
                 </div>
-                <p class="signature-title">Municipality Report Master List</p>
-            </div>
+            </div>   
         </div>
 
     </div>

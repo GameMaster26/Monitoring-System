@@ -121,27 +121,53 @@ td {
     text-align: center; /* Align text to center */
 }
 
+
 .signature-section {
+    margin-top: 3rem;
+}
+.signatures {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    width: 100%;
+}
+.prepared,
+.noted {
+    width: 45%; /* Control the width of each section */
     text-align: center;
+    position: relative;
 }
-
+.label {
+    font-weight: bold;
+    margin: 0;
+    text-align: left;
+    position: absolute;
+    left: 0;
+}
 .signature-line {
-    margin-top: 5px;
-    margin-bottom: 10px;
-    border-bottom: 1px solid black;
-    width: 300px; /* Adjust width as needed */
-    margin-left: auto;
-    margin-right: auto;
+    margin-top: 1rem;
+    text-align: center;
+    position: relative;
 }
-
 .signature-name {
     font-weight: bold;
-    margin-top: -25px; /* Keeps it close to the line */
+    display: inline-block;
+    margin-bottom: 0.5rem;
+}
+.line {
+    width: 50%; /* Adjust underline width */
+    height: 1px;
+    background-color: #000;
+    margin: 0 auto;
+}
+.signature-title {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    color: #333;
 }
 
-.signature-title {
-    margin-top: -10px; /* Adjusts spacing below the signature */
-}
+
+
 .highlightTotal{
     font-weight: bold;
 }

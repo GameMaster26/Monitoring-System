@@ -21,24 +21,39 @@ body {
     display: none !important;
 }
 
-#searchUsername{
-    width: 150px;
+.filter-container select, .filter-container input {
+    width: 120px;
 }
-#startMonth{
-    width: 150px;
+
+.filter-container .btn {
+    width: 100px;
 }
-#endMonth{
-    width: 150px;
+.searchButton{
+    height: 30px;
 }
-#searchName{
-    width: 150px;
+
+
+.wraptext td:nth-child(5),  /* Target the 4th column */
+.wraptext td:nth-child(14) { /* Target the 13th column */
+
+
+    white-space: normal; /* Allow text to wrap */
 }
+
+/* table,td,th{
+    border: 1px solid black !important;
+    
+}
+th{
+    font-size: 12px !important;
+} */
+
 .card {
-    border: none; /* Remove any border from the card */
+    border: none;
 }
 
 .card-body {
-    border: none; /* Ensure the card body doesn't have a border */
+    border: none;
 }
 
 .signature-section {
@@ -49,16 +64,16 @@ body {
     margin-top: 50px;
     margin-bottom: 10px;
     border-bottom: 1px solid black;
-    width: 300px; /* Adjust width as needed */
+    width: 300px;
     margin-left: auto;
     margin-right: auto;
 }
 
 .signature-name {
     font-weight: bold;
-    margin-top: -25px; /* Keeps it close to the line */
+    margin-top: -25px;
 }
 
 .signature-title {
-    margin-top: -10px; /* Adjusts spacing below the signature */
+    margin-top: -10px;
 }

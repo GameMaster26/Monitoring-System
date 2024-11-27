@@ -1,49 +1,56 @@
 import io
 from io import BytesIO  
 import os  
+import pdfkit
 import json
-from .models import Patient, History, Treatment,Barangay,Municipality,User
-from django.shortcuts import render,redirect
-from django.http import HttpResponse
-from django.db.models import Count, F,Sum
-from django.db.models.functions import ExtractWeek, ExtractYear, ExtractDay, ExtractMonth
-from datetime import datetime, timedelta,date
+
+from urllib.parse import urlencode
+from datetime import datetime, timedelta, date
 from dateutil.relativedelta import relativedelta 
+from calendar import month_name
+
+# Django imports
+from django.shortcuts import render, redirect
+from django.http import HttpResponse, JsonResponse
+from django.db.models import Count, F, Sum, Q
+from django.db.models.functions import ExtractWeek, ExtractYear, ExtractDay, ExtractMonth, TruncDay, TruncDate, TruncMonth, TruncQuarter, TruncYear
 from django.utils import timezone
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.contrib.admin.views.decorators import staff_member_required
-from django.contrib.auth.decorators import login_required,user_passes_test
-from django.contrib.auth import get_user_model
-from django.contrib.admin.models import LogEntry
-from django.template.loader import get_template
-#from weasyprint import HTML
-import pandas as pd
-from openpyxl import Workbook
-import openpyxl  # Import the openpyxl library
-from openpyxl.drawing.image import Image as OpenpyxlImage
-from openpyxl.styles import Font,Alignment
-from openpyxl.utils import get_column_letter
-from xhtml2pdf import pisa
-from django.db.models import Q
-from django.db.models.functions import TruncDay,TruncDate,TruncMonth, TruncQuarter,TruncYear
-from collections import Counter
-from urllib.parse import urlencode
-from django.http import JsonResponse
-from django.template.loader import render_to_string
-from calendar import month_name
-from django.contrib.auth.models import Group,User as AuthUser
-from django.shortcuts import redirect
-from django.contrib.auth import logout as auth_logout
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth import get_user_model, logout as auth_logout
 from django.contrib import messages
+from django.contrib.admin.models import LogEntry
+from django.contrib.auth.models import Group, User as AuthUser
+from django.template.loader import get_template, render_to_string
+from django.core.serializers import serialize
 from django.db import models
 from django.contrib.gis.geos import GEOSGeometry
-from django.core.serializers import serialize
+from django.template import loader
+
+# Third-party libraries
 import pandas as pd
+import openpyxl  # Import the openpyxl library
+from openpyxl import Workbook
+from openpyxl.drawing.image import Image as OpenpyxlImage
+from openpyxl.styles import Font, Alignment
+from openpyxl.utils import get_column_letter
 import PyPDF2
 from fpdf import FPDF
-from django.views.generic import ListView,FormView
+import xhtml2pdf.pisa as pisa
+#from weasyprint import HTML
+
+# Local imports
+from .models import Patient, History, Treatment, Barangay, Municipality, User,Doctor
 from .forms import FormatForm
 from .admin import PatientResource
+
+# Python collections
+from collections import Counter
+
+# Django views
+from django.views.generic import ListView, FormView
+
 
 class PatientListView(ListView, FormView):
     model = Patient
@@ -75,6 +82,32 @@ class PatientListView(ListView, FormView):
         response = HttpResponse(ds, content_type=content_type)
         response['Content-Disposition'] = f'attachment; filename="patients.{file_extension}"'
         return response
+
+def paginate_histories(histories):
+    pages = []
+    current_page = []
+    max_rows_13 = 10  # Maximum rows for pages meant to hold smaller groups
+    max_rows_15 = 15  # Maximum rows for other pages
+    current_row_count = 0  # Counter to keep track of rows in the current page
+
+    for history in histories:
+        if current_row_count < max_rows_13:
+            max_rows = max_rows_13
+        else:
+            max_rows = max_rows_15
+
+        current_page.append(history)
+        current_row_count += 1
+
+        if len(current_page) >= max_rows:
+            pages.append(current_page)
+            current_page = []
+            current_row_count = 0  # Reset row counter for the new page
+
+    if current_page:  # Add remaining rows to the last page
+        pages.append(current_page)
+
+    return pages
 
 
 def excel_masterlist_create(request):
@@ -397,9 +430,9 @@ def index(request):
     }
     return render(request, 'monitoring/index.html', context)
 
+
 def choropleth_map(request):
-    
-    #Choropleth Map
+    # Choropleth Map
     barangay_density = History.objects.values('brgy_id').annotate(patient_count=Count('patient_id')).order_by('brgy_id')
 
     # Convert this to a dictionary where the key is brgy_id and the value is the patient_count
@@ -494,6 +527,16 @@ def choropleth_map(request):
                 'total_cases': total_patients,
             }
         ]
+    
+    # Calculate total patients for all municipalities or barangays
+    total_patients_all = total_patients  # This already includes all patients for the selected filter
+
+    # For Barangay or Municipality summary, calculate percentage
+    for record in barangay_summary:
+        record['percentage'] = (record['total_patients'] / total_patients_all) * 100
+
+    for record in municipality_summary:
+        record['percentage'] = (record['total_cases'] / total_patients_all) * 100
 
     # Pass the data to the template as part of the context
     context = {
@@ -512,6 +555,7 @@ def choropleth_map(request):
     }
 
     return render(request, 'monitoring/choropleth.html', context)
+
 
 @login_required
 def choro(request):
@@ -588,7 +632,29 @@ def superuser_required(view_func):
 @staff_member_required
 @login_required
 def overview(request):
+    staff = request.user
+    
+    CODE_TO_MUNICIPALITY = {
+        'ALM': 'ALMERIA',
+        'BIL': 'BILIRAN',
+        'CABUC': 'CABUCGAYAN',
+        'CAIB': 'CAIBIRAN',
+        'CUL': 'CULABA',
+        'KAW': 'KAWAYAN',
+        'MAR': 'MARIPIPI',
+        'NAV': 'NAVAL',
+    }
 
+
+    if staff.is_superuser:
+        municipality = "BPH"
+        treatment_center = "Animal Bite Treatment Center: Biliran Province Hospital"
+    else:
+        municipality = CODE_TO_MUNICIPALITY.get(staff.code, "Unknown Municipality")
+        treatment_center = f"Animal Bite Treatment Center: {municipality}"
+
+    fname = staff.first_name
+    lname = staff.last_name
 
     # Get the start and end dates from the GET parameters
     start_date = request.GET.get('startDate')
@@ -597,12 +663,11 @@ def overview(request):
     # Check if the current user is a superuser
     is_superuser = request.user.is_superuser
 
-    # Query all history data if the user is superuser, otherwise filter by specific user
     if is_superuser:
         history_queryset = History.objects.all()
     else:
-        # Filter history data by the specific patient linked to the logged-in user
-        history_queryset = History.objects.filter(patient_id__user=request.user)
+        # Filter history data by the specific patient linked to the logged-in user's username
+        history_queryset = History.objects.filter(patient_id__user__username=request.user.username)
 
     # Apply date filtering if start and end dates are provided
     if start_date and end_date:
@@ -724,6 +789,11 @@ def overview(request):
         'quarterly_case_counts': quarterly_case_counts,
         'years': years,
         'annual_case_counts': annual_case_counts,
+        'username': request.user.username,
+        'fname': fname,
+        'lname': lname,
+        'municipality': municipality,
+        'treatment_center': treatment_center,
     }
 
     return render(request, 'monitoring/overview.html', context)
@@ -753,7 +823,7 @@ def reports(request):
     else:
         municipality_name = municipality_map.get(user.code, "Naval")
 
-    selected_quarter = request.GET.get('quarter', '1')
+    selected_quarter = request.GET.get('quarter', '1')  # Default to '1' if no quarter is selected
     year = date.today().year
 
     quarter_ranges = {
@@ -763,16 +833,22 @@ def reports(request):
         '4': (date(year, 10, 1), date(year, 12, 31)),
     }
 
-    start_date, end_date = quarter_ranges[selected_quarter]
-
-    if selected_quarter == '1':
-        quarter_select = '1st'
-    elif selected_quarter == '2':
-        quarter_select = '2nd'
-    elif selected_quarter == '3':
-        quarter_select = '3rd'
-    elif selected_quarter == '4':
-        quarter_select = '4th'
+    # Generate the title and date range based on the selected quarter
+    if selected_quarter == 'annual':
+        start_date, end_date = date(year, 1, 1), date(year, 12, 31)
+        quarter_select = "Annual"
+        report_title = f"{quarter_select} Report {year}"  # Annual report title
+    else:
+        start_date, end_date = quarter_ranges[selected_quarter]
+        if selected_quarter == '1':
+            quarter_select = '1st'
+        elif selected_quarter == '2':
+            quarter_select = '2nd'
+        elif selected_quarter == '3':
+            quarter_select = '3rd'
+        elif selected_quarter == '4':
+            quarter_select = '4th'
+        report_title = f"{quarter_select} Quarter Report {year}"
 
     data = []
     total_male = 0
@@ -1167,7 +1243,56 @@ def reports(request):
     else:
         logo_url = None  # If no logo is available, set logo_url to None
     
+    code_to_muni_name = {
+        'ALM': 'Almeria',
+        'BIL': 'Biliran',
+        'CABUC': 'Cabucgayan',
+        'CAIB': 'Caibiran',
+        'CUL': 'Culaba',
+        'KAW': 'Kawayan',
+        'MAR': 'Maripipi',
+        'NAV': 'Naval',
+    }
+    
+    if user.is_superuser:
+        coordinator = "Provincial Rabies Coordinator"
+        pho = "PHO II"
+        # Get the first lead doctor
+        doct = Doctor.objects.filter(is_superdoctor=True).first()
+        doctor = doct.full_name() if doct else "No Doctor Assigned"
+    else:
+        # Map user code to municipality name
+        muni_name = code_to_muni_name.get(user.code)
+
+        if muni_name:
+            try:
+                # Find the municipality with this name
+                municipality = Municipality.objects.get(muni_name=muni_name)
+                # Filter doctors by this municipality
+                doct = Doctor.objects.filter(muni_id=municipality).first()
+                doctor = doct.full_name() if doct else "No Doctor Assigned"
+                coordinator = f"Municipality of {municipality.muni_name}"
+                pho = f"Doctor of {municipality.muni_name}"
+            except Municipality.DoesNotExist:
+                # Handle case where the municipality name does not exist
+                coordinator = "Unknown Municipality"
+                pho = "No Doctor Assigned"
+                doctor = "No Doctor Assigned"
+        else:
+            # Handle case where the user's code does not match any municipality
+            coordinator = "Unknown Municipality"
+            pho = "No Doctor Assigned"
+            doctor = "No Doctor Assigned"
+        
+        
+
+    karon = date.today().year
     context = {
+        'doctor': doctor,
+        'coordinator': coordinator,
+        'pho': pho,
+        'report_title': report_title,
+        'karon': karon,
         'quarter_select': quarter_select,
         'logo_url': logo_url,
         'signature_name':signature_name,
@@ -1225,8 +1350,6 @@ def reports(request):
     }
     return render(request, 'monitoring/report.html', context)
 
-
-
 def pdf_report_create(request):
     user = request.user
     municipality_map = {
@@ -1243,6 +1366,13 @@ def pdf_report_create(request):
         municipality_name = "BPH"
     else:
         municipality_name = municipality_map.get(user.code, "Province")
+
+    if user.is_superuser:
+        municipal = "Province of Biliran"
+    else:
+        munici = municipality_map.get(user.code)
+        municipal = (f"Municipality of {munici}")
+
 
     # Only set for 2nd quarter (April 1 to June 30)
     selected_quarter = '1'
@@ -1640,18 +1770,76 @@ def pdf_report_create(request):
 
     if user.logo_image:  # Ensure the user has a logo image
         logo_url = request.build_absolute_uri(user.logo_image.url)
-        print(f"Logo URL: {logo_url}")  
     else:
         logo_url = None  # If no logo is available, set logo_url to None
 
-    template_path = 'monitoring/report_pdf.html'
+    karon = date.today().year
+
+    code_to_muni_name = {
+        'ALM': 'Almeria',
+        'BIL': 'Biliran',
+        'CABUC': 'Cabucgayan',
+        'CAIB': 'Caibiran',
+        'CUL': 'Culaba',
+        'KAW': 'Kawayan',
+        'MAR': 'Maripipi',
+        'NAV': 'Naval',
+    }
+
+    if user.is_superuser:
+        coordinator = "Provincial Rabies Coordinator"
+        pho = "PHO II"
+        # Get the first lead doctor
+        doct = Doctor.objects.filter(is_superdoctor=True).first()
+        doctor = doct.full_name() if doct else "No Doctor Assigned"
+        center = "Biliran Province Hospital"
+        center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+    else:
+        # Map user code to municipality name
+        muni_name = code_to_muni_name.get(user.code)
+
+        if muni_name:
+            try:
+                # Find the municipality with this name
+                municipality = Municipality.objects.get(muni_name=muni_name)
+                # Filter doctors by this municipality
+                doct = Doctor.objects.filter(muni_id=municipality).first()
+                doctor = doct.full_name() if doct else "No Doctor Assigned"
+                coordinator = f"Municipality of {municipality.muni_name}"
+                pho = f"Doctor of {municipality.muni_name}"
+                center = muni_name  # Use the user's code to determine the center
+                center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+            except Municipality.DoesNotExist:
+                # Handle case where the municipality name does not exist
+                coordinator = "Unknown Municipality"
+                pho = "No Doctor Assigned"
+                doctor = "No Doctor Assigned"
+                center = "Unknown Center"
+                center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+        else:
+            # Handle case where the user's code does not match any municipality
+            coordinator = "Unknown Municipality"
+            pho = "No Doctor Assigned"
+            doctor = "No Doctor Assigned"
+            center = "Unknown Center"
+            center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+
+        
+    
     context = {
+        'doctor': doctor,
+        'center': center,
+        'center_label': center_label,
+        'coordinator': coordinator,
+        'pho': pho,
+        'karon': karon,    
         'logo_url': logo_url,    
         'signature_name':signature_name,
         'table': table,
         'municipalities': municipalities,
         'selected_municipality': selected_municipality or municipalities.first(),  # Default to the first municipality if none is selected
         'municipality_name': municipality_name,
+        'municipal': municipal,
         'selected_quarter': selected_quarter,
         'barangay_list': [d['barangay'] for d in data],
         'data': data,
@@ -1701,14 +1889,33 @@ def pdf_report_create(request):
         'total_human_rabies':total_human_rabies,
 
     }
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="1stQuarter_Report.pdf"'#attachment;
-    template = get_template(template_path)
+    template = loader.get_template('monitoring/report_pdf.html')
     html = template.render(context)
-    pisa_status = pisa.CreatePDF(
-        html,dest=response)
-    if pisa_status.err:
-        return HttpResponse('We had some errors <pre>'+html+'<prev>')
+
+    # Specify path to wkhtmltopdf executable
+    path_to_wkhtmltopdf = r"C:\wkhtmltox\bin\wkhtmltopdf.exe"
+    
+    # Configure pdfkit with the path
+    config = pdfkit.configuration(wkhtmltopdf=path_to_wkhtmltopdf)
+
+    # Options for landscape orientation
+    options = {
+        'orientation': 'Landscape',  # Set to Landscape
+        'page-size': 'A4',  # A4 paper size, you can adjust if needed
+        'footer-left': center_label,  # Add page numbers
+        'footer-right': 'Page [page] of [toPage]',  # Add page numbers
+        'footer-font-size': '10',  # Adjust font size for the footer
+        'footer-spacing': '5',  # Space between footer and content
+        'margin-bottom': '15mm',  # Ensure space for the footer
+    }
+    
+    # Generate PDF from HTML using pdfkit with configuration
+    pdf = pdfkit.from_string(html, configuration=config,options=options)
+
+    # Return the PDF as a responsev 
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment;filename="1st Quarter Report.pdf"'
+
     return response
 
 def pdf_report_create2(request):
@@ -1727,6 +1934,12 @@ def pdf_report_create2(request):
         municipality_name = "BPH"
     else:
         municipality_name = municipality_map.get(user.code, "Province")
+
+    if user.is_superuser:
+        municipal = "Province of Biliran"
+    else:
+        munici = municipality_map.get(user.code)
+        municipal = (f"Municipality of {munici}")
 
     # Only set for 2nd quarter (April 1 to June 30)
     selected_quarter = '2'
@@ -2123,18 +2336,76 @@ def pdf_report_create2(request):
 
     if user.logo_image:  # Ensure the user has a logo image
         logo_url = request.build_absolute_uri(user.logo_image.url)
-        print(f"Logo URL: {logo_url}")  
     else:
         logo_url = None  # If no logo is available, set logo_url to None
 
-    template_path = 'monitoring/report_pdf2.html'
+    karon = date.today().year
+
+    code_to_muni_name = {
+        'ALM': 'Almeria',
+        'BIL': 'Biliran',
+        'CABUC': 'Cabucgayan',
+        'CAIB': 'Caibiran',
+        'CUL': 'Culaba',
+        'KAW': 'Kawayan',
+        'MAR': 'Maripipi',
+        'NAV': 'Naval',
+    }
+
+    if user.is_superuser:
+        coordinator = "Provincial Rabies Coordinator"
+        pho = "PHO II"
+        # Get the first lead doctor
+        doct = Doctor.objects.filter(is_superdoctor=True).first()
+        doctor = doct.full_name() if doct else "No Doctor Assigned"
+        center = "Biliran Province Hospital"
+        center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+    else:
+        # Map user code to municipality name
+        muni_name = code_to_muni_name.get(user.code)
+
+        if muni_name:
+            try:
+                # Find the municipality with this name
+                municipality = Municipality.objects.get(muni_name=muni_name)
+                # Filter doctors by this municipality
+                doct = Doctor.objects.filter(muni_id=municipality).first()
+                doctor = doct.full_name() if doct else "No Doctor Assigned"
+                coordinator = f"Municipality of {municipality.muni_name}"
+                pho = f"Doctor of {municipality.muni_name}"
+                center = muni_name  # Use the user's code to determine the center
+                center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+            except Municipality.DoesNotExist:
+                # Handle case where the municipality name does not exist
+                coordinator = "Unknown Municipality"
+                pho = "No Doctor Assigned"
+                doctor = "No Doctor Assigned"
+                center = "Unknown Center"
+                center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+        else:
+            # Handle case where the user's code does not match any municipality
+            coordinator = "Unknown Municipality"
+            pho = "No Doctor Assigned"
+            doctor = "No Doctor Assigned"
+            center = "Unknown Center"
+            center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+
+        
+
     context = {
+        'doctor': doctor,
+        'center': center,
+        'center_label': center_label,
+        'coordinator': coordinator,
+        'pho': pho,
+        'karon': karon,    
         'logo_url': logo_url,    
         'signature_name':signature_name,
         'table': table,
         'municipalities': municipalities,
         'selected_municipality': selected_municipality or municipalities.first(),  # Default to the first municipality if none is selected
         'municipality_name': municipality_name,
+        'municipal': municipal,
         'selected_quarter': selected_quarter,
         'barangay_list': [d['barangay'] for d in data],
         'data': data,
@@ -2184,14 +2455,33 @@ def pdf_report_create2(request):
         'total_human_rabies':total_human_rabies,
 
     }
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="2ndQuarter_Report.pdf"'#attachment;
-    template = get_template(template_path)
+    template = loader.get_template('monitoring/report_pdf2.html')
     html = template.render(context)
-    pisa_status = pisa.CreatePDF(
-        html,dest=response)
-    if pisa_status.err:
-        return HttpResponse('We had some errors <pre>'+html+'<prev>')
+
+    # Specify path to wkhtmltopdf executable
+    path_to_wkhtmltopdf = r"C:\wkhtmltox\bin\wkhtmltopdf.exe"
+    
+    # Configure pdfkit with the path
+    config = pdfkit.configuration(wkhtmltopdf=path_to_wkhtmltopdf)
+
+    # Options for landscape orientation
+    options = {
+        'orientation': 'Landscape',  # Set to Landscape
+        'page-size': 'A4',  # A4 paper size, you can adjust if needed
+        'footer-left': center_label,  # Add page numbers
+        'footer-right': 'Page [page] of [toPage]',  # Add page numbers
+        'footer-font-size': '10',  # Adjust font size for the footer
+        'footer-spacing': '5',  # Space between footer and content
+        'margin-bottom': '15mm',  # Ensure space for the footer
+    }
+    
+    # Generate PDF from HTML using pdfkit with configuration
+    pdf = pdfkit.from_string(html, configuration=config,options=options)
+
+    # Return the PDF as a responsev 
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="2nd Quarter Report.pdf"'
+
     return response
 
 def pdf_report_create3(request):
@@ -2210,6 +2500,12 @@ def pdf_report_create3(request):
         municipality_name = "BPH"
     else:
         municipality_name = municipality_map.get(user.code, "Province")
+
+    if user.is_superuser:
+        municipal = "Province of Biliran"
+    else:
+        munici = municipality_map.get(user.code)
+        municipal = (f"Municipality of {munici}")
 
     # Only set for 2nd quarter (April 1 to June 30)
     selected_quarter = '3'
@@ -2609,18 +2905,75 @@ def pdf_report_create3(request):
 
     if user.logo_image:  # Ensure the user has a logo image
         logo_url = request.build_absolute_uri(user.logo_image.url)
-        print(f"Logo URL: {logo_url}")  
     else:
         logo_url = None  # If no logo is available, set logo_url to None
 
-    template_path = 'monitoring/report_pdf3.html'
+    karon = date.today().year
+
+    code_to_muni_name = {
+        'ALM': 'Almeria',
+        'BIL': 'Biliran',
+        'CABUC': 'Cabucgayan',
+        'CAIB': 'Caibiran',
+        'CUL': 'Culaba',
+        'KAW': 'Kawayan',
+        'MAR': 'Maripipi',
+        'NAV': 'Naval',
+    }
+
+    if user.is_superuser:
+        coordinator = "Provincial Rabies Coordinator"
+        pho = "PHO II"
+        # Get the first lead doctor
+        doct = Doctor.objects.filter(is_superdoctor=True).first()
+        doctor = doct.full_name() if doct else "No Doctor Assigned"
+        center = "Biliran Province Hospital"
+        center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+    else:
+        # Map user code to municipality name
+        muni_name = code_to_muni_name.get(user.code)
+
+        if muni_name:
+            try:
+                # Find the municipality with this name
+                municipality = Municipality.objects.get(muni_name=muni_name)
+                # Filter doctors by this municipality
+                doct = Doctor.objects.filter(muni_id=municipality).first()
+                doctor = doct.full_name() if doct else "No Doctor Assigned"
+                coordinator = f"Municipality of {municipality.muni_name}"
+                pho = f"Doctor of {municipality.muni_name}"
+                center = muni_name  # Use the user's code to determine the center
+                center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+            except Municipality.DoesNotExist:
+                # Handle case where the municipality name does not exist
+                coordinator = "Unknown Municipality"
+                pho = "No Doctor Assigned"
+                doctor = "No Doctor Assigned"
+                center = "Unknown Center"
+                center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+        else:
+            # Handle case where the user's code does not match any municipality
+            coordinator = "Unknown Municipality"
+            pho = "No Doctor Assigned"
+            doctor = "No Doctor Assigned"
+            center = "Unknown Center"
+            center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+
+
     context = {
+        'doctor': doctor,
+        'center': center,
+        'center_label': center_label,
+        'coordinator': coordinator,
+        'pho': pho,
+        'karon': karon,    
         'logo_url': logo_url,    
         'signature_name':signature_name,
         'table': table,
         'municipalities': municipalities,
         'selected_municipality': selected_municipality or municipalities.first(),  # Default to the first municipality if none is selected
         'municipality_name': municipality_name,
+        'municipal': municipal,
         'selected_quarter': selected_quarter,
         'barangay_list': [d['barangay'] for d in data],
         'data': data,
@@ -2670,14 +3023,33 @@ def pdf_report_create3(request):
         'total_human_rabies':total_human_rabies,
 
     }
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="3rdQuarter_Report.pdf"'#attachment;
-    template = get_template(template_path)
+    template = loader.get_template('monitoring/report_pdf3.html')
     html = template.render(context)
-    pisa_status = pisa.CreatePDF(
-        html,dest=response)
-    if pisa_status.err:
-        return HttpResponse('We had some errors <pre>'+html+'<prev>')
+
+    # Specify path to wkhtmltopdf executable
+    path_to_wkhtmltopdf = r"C:\wkhtmltox\bin\wkhtmltopdf.exe"
+    
+    # Configure pdfkit with the path
+    config = pdfkit.configuration(wkhtmltopdf=path_to_wkhtmltopdf)
+
+    # Options for landscape orientation
+    options = {
+        'orientation': 'Landscape',  # Set to Landscape
+        'page-size': 'A4',  # A4 paper size, you can adjust if needed
+        'footer-left': center_label,  # Add page numbers
+        'footer-right': 'Page [page] of [toPage]',  # Add page numbers
+        'footer-font-size': '10',  # Adjust font size for the footer
+        'footer-spacing': '5',  # Space between footer and content
+        'margin-bottom': '15mm',  # Ensure space for the footer
+    }
+    
+    # Generate PDF from HTML using pdfkit with configuration
+    pdf = pdfkit.from_string(html, configuration=config,options=options)
+
+    # Return the PDF as a responsev 
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment;filename="3rd Quarter Report.pdf"'
+
     return response
 
 def pdf_report_create4(request):
@@ -2697,6 +3069,11 @@ def pdf_report_create4(request):
     else:
         municipality_name = municipality_map.get(user.code, "Province")
 
+    if user.is_superuser:
+        municipal = "Province of Biliran"
+    else:
+        munici = municipality_map.get(user.code)
+        municipal = (f"Municipality of {munici}")
     # Only set for 2nd quarter (April 1 to June 30)
     selected_quarter = '4'
     year = date.today().year
@@ -3093,19 +3470,76 @@ def pdf_report_create4(request):
         signature_name = user.username
 
     if user.logo_image:  # Ensure the user has a logo image
-        logo_url = request.build_absolute_uri(user.logo_image.url)
-        print(f"Logo URL: {logo_url}")  
+        logo_url = request.build_absolute_uri(user.logo_image.url)  
     else:
         logo_url = None  # If no logo is available, set logo_url to None
 
-    template_path = 'monitoring/report_pdf4.html'
+    karon = date.today().year
+
+    code_to_muni_name = {
+        'ALM': 'Almeria',
+        'BIL': 'Biliran',
+        'CABUC': 'Cabucgayan',
+        'CAIB': 'Caibiran',
+        'CUL': 'Culaba',
+        'KAW': 'Kawayan',
+        'MAR': 'Maripipi',
+        'NAV': 'Naval',
+    }
+
+    if user.is_superuser:
+        coordinator = "Provincial Rabies Coordinator"
+        pho = "PHO II"
+        # Get the first lead doctor
+        doct = Doctor.objects.filter(is_superdoctor=True).first()
+        doctor = doct.full_name() if doct else "No Doctor Assigned"
+        center = "Biliran Province Hospital"
+        center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+    else:
+        # Map user code to municipality name
+        muni_name = code_to_muni_name.get(user.code)
+
+        if muni_name:
+            try:
+                # Find the municipality with this name
+                municipality = Municipality.objects.get(muni_name=muni_name)
+                # Filter doctors by this municipality
+                doct = Doctor.objects.filter(muni_id=municipality).first()
+                doctor = doct.full_name() if doct else "No Doctor Assigned"
+                coordinator = f"Municipality of {municipality.muni_name}"
+                pho = f"Doctor of {municipality.muni_name}"
+                center = muni_name  # Use the user's code to determine the center
+                center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+            except Municipality.DoesNotExist:
+                # Handle case where the municipality name does not exist
+                coordinator = "Unknown Municipality"
+                pho = "No Doctor Assigned"
+                doctor = "No Doctor Assigned"
+                center = "Unknown Center"
+                center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+        else:
+            # Handle case where the user's code does not match any municipality
+            coordinator = "Unknown Municipality"
+            pho = "No Doctor Assigned"
+            doctor = "No Doctor Assigned"
+            center = "Unknown Center"
+            center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+
+        
     context = {
+        'doctor': doctor,
+        'center': center,
+        'center_label': center_label,
+        'coordinator': coordinator,
+        'pho': pho,
+        'karon': karon,    
         'logo_url': logo_url,    
         'signature_name':signature_name,
         'table': table,
         'municipalities': municipalities,
         'selected_municipality': selected_municipality or municipalities.first(),  # Default to the first municipality if none is selected
         'municipality_name': municipality_name,
+        'municipal': municipal,
         'selected_quarter': selected_quarter,
         'barangay_list': [d['barangay'] for d in data],
         'data': data,
@@ -3155,20 +3589,598 @@ def pdf_report_create4(request):
         'total_human_rabies':total_human_rabies,
 
     }
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="4thQuarter_Report.pdf"'#attachment;
-    template = get_template(template_path)
+    template = loader.get_template('monitoring/report_pdf4.html')
     html = template.render(context)
-    pisa_status = pisa.CreatePDF(
-        html,dest=response)
-    if pisa_status.err:
-        return HttpResponse('We had some errors <pre>'+html+'<prev>')
+
+    # Specify path to wkhtmltopdf executable
+    path_to_wkhtmltopdf = r"C:\wkhtmltox\bin\wkhtmltopdf.exe"
+    
+    # Configure pdfkit with the path
+    config = pdfkit.configuration(wkhtmltopdf=path_to_wkhtmltopdf)
+
+    # Options for landscape orientation
+    options = {
+        'orientation': 'Landscape',  # Set to Landscape
+        'page-size': 'A4',  # A4 paper size, you can adjust if needed
+        'footer-left': center_label,  # Add page numbers
+        'footer-right': 'Page [page] of [toPage]',  # Add page numbers
+        'footer-font-size': '10',  # Adjust font size for the footer
+        'footer-spacing': '5',  # Space between footer and content
+        'margin-bottom': '15mm',  # Ensure space for the footer
+    }
+    
+    # Generate PDF from HTML using pdfkit with configuration
+    pdf = pdfkit.from_string(html, configuration=config,options=options)
+
+    # Return the PDF as a responsev 
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment;filename="4th Quarter Report.pdf"'
     return response
 
+def pdf_report_create_annual(request):
+    user = request.user
+    municipality_map = {
+        "MAR": "Maripipi",
+        "KAW": "Kawayan",
+        "NAV": "Naval",
+        "CAIB": "Caibiran",
+        "ALM": "Almeria",
+        "BIL": "Biliran",
+        "CUL": "Culaba",
+        "CABUC": "Cabucgayan"
+    }
+    if user.is_superuser and user.code == "NAV":
+        municipality_name = "BPH"
+    else:
+        municipality_name = municipality_map.get(user.code, "Province")
+
+    if user.is_superuser:
+        municipal = "Province of Biliran"
+    else:
+        munici = municipality_map.get(user.code)
+        municipal = (f"Municipality of {munici}")
+    # Only set for 2nd quarter (April 1 to June 30)
+    selected_quarter = 'annual'
+    year = date.today().year
+    #Annual
+    start_date = date(year, 1, 1)
+    end_date = date(year, 12, 31)
+
+    data = []
+    total_male = 0
+    total_female = 0
+    total_all = 0
+    total_age_15_below = 0
+    total_age_above_15 = 0
+    total_sex_percentage = 0
+    total_animal_bite_I = 0
+    total_animal_bite_II = 0
+    total_animal_bite_III = 0
+    total_category_percentage = 0
+    total_tcv_given = 0
+    total_hrig_given = 0
+    total_erig_given = 0  
+    total_tcv_percentage = 0
+    total_hrig_percentage = 0
+    total_rig_percentage = 0
+    total_dog_bites = 0
+    total_cat_bites = 0
+    total_other_bites = 0
+    total_animal_type_percentage = 0
+    total_animal_bite_I_percentage = 0
+    total_animal_bite_II_percentage = 0
+    total_animal_bite_III_percentage = 0
+    total_immunized = 0
+    total_unimmunized = 0
+
+    if user.is_superuser:
+        abtcs = User.objects.filter(is_superuser=False).distinct()
+        for abtc_user in abtcs:
+            if not abtc_user.code:
+                continue
+
+            male_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='male'
+            ).count()
+            female_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='female'
+            ).count()
+
+            patients = Patient.objects.filter(
+                user=abtc_user,  
+                histories__date_registered__range=(start_date, end_date)  
+            ).distinct()
+            age_15_below_count = sum(1 for patient in patients if calculate_age(patient.birthday) <= 15)
+            age_above_15_count = sum(1 for patient in patients if calculate_age(patient.birthday) > 15)
+
+            user_animal_bite_I = 0
+            user_animal_bite_II = 0
+            user_animal_bite_III = 0
+
+            animal_bite_counts = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date)
+            ).values('category_of_exposure').annotate(count=models.Count('category_of_exposure'))
+
+            for count in animal_bite_counts:
+                if count['category_of_exposure'] == 'I':
+                    user_animal_bite_I = count['count']
+                elif count['category_of_exposure'] == 'II':
+                    user_animal_bite_II = count['count']
+                elif count['category_of_exposure'] == 'III':
+                    user_animal_bite_III = count['count']
+
+            tcv_count = Treatment.objects.filter(
+                patient_id__user=abtc_user,
+                tcv_given__range=(start_date, end_date)
+            ).count()
+
+            hrig_count = Treatment.objects.filter(
+                patient_id__user=abtc_user,
+                hrig_given__range=(start_date, end_date)
+            ).count()
+
+            erig_count = Treatment.objects.filter(
+                patient_id__user=abtc_user,
+                rig_given__range=(start_date, end_date) 
+            ).count()
+
+            animal_type_counts = History.objects.filter(
+                patient_id__user=abtc_user,
+                date_registered__range=(start_date, end_date)
+            ).values('source_of_exposure').annotate(count=models.Count('source_of_exposure'))
+
+            user_dog_bites = 0
+            user_cat_bites = 0
+            user_other_bites = 0
+
+            for count in animal_type_counts:
+                if count['source_of_exposure'] == 'Dog':
+                    user_dog_bites = count['count']
+                elif count['source_of_exposure'] == 'Cat':
+                    user_cat_bites = count['count']
+                elif count['source_of_exposure'] == 'Others':
+                    user_other_bites = count['count']
+
+            user_immunized_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                immunization_status='Immunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+            
+            user_unimmunized_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                immunization_status='Unimmunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            user_human_rabies_count = History.objects.filter(
+                patient_id__user=abtc_user,
+                human_rabies=True,
+                date_registered__range=(start_date, end_date)
+            ).count()
+                    
+            total_immunized += user_immunized_count
+            total_unimmunized += user_unimmunized_count
+            total_dog_bites += user_dog_bites
+            total_cat_bites += user_cat_bites
+            total_other_bites += user_other_bites
+            total_tcv_given += tcv_count
+            total_hrig_given += hrig_count
+            total_erig_given += erig_count
+
+            total_count = male_count + female_count
+            total_male += male_count
+            total_female += female_count
+            total_all += total_count
+            total_age_15_below += age_15_below_count
+            total_age_above_15 += age_above_15_count
+            total_animal_bite_I += user_animal_bite_I
+            total_animal_bite_II += user_animal_bite_II
+            total_animal_bite_III += user_animal_bite_III
+
+            # Determine barangay field for this ABTC user
+            if abtc_user.code == "NAV":
+                barangay_name = "BPH-ABTC"
+            else:
+                barangay_name = f"{municipality_map.get(abtc_user.code, 'Unknown')}-ABTC"
+
+            data.append({
+                'barangay': barangay_name,
+                'data_male': male_count,
+                'data_female': female_count,
+                'data_total': total_count,
+                'age_15_below': age_15_below_count,
+                'age_above_15': age_above_15_count,
+                'age_total': age_15_below_count + age_above_15_count,
+                'total_animal_bite_I': user_animal_bite_I,
+                'total_animal_bite_II': user_animal_bite_II,
+                'total_animal_bite_III': user_animal_bite_III,
+                'total_animal': user_animal_bite_I + user_animal_bite_II + user_animal_bite_III,
+                'total_tcv_given': tcv_count,
+                'total_hrig_given': hrig_count,
+                'total_erig_given': erig_count,
+                'total_dog_bites': user_dog_bites,
+                'total_cat_bites': user_cat_bites,
+                'total_other_bites': user_other_bites,
+                'total_animal_bites': user_dog_bites + user_cat_bites + user_other_bites,
+                'immunized_count': user_immunized_count,
+                'unimmunized_count': user_unimmunized_count,  
+                'human_rabies_count': user_human_rabies_count,
+            })
+    else:
+        # For non-superuser
+        patients = Patient.objects.filter(user=user)
+        barangays = Barangay.objects.filter(patients_brgy__in=patients).distinct()
+
+        # Filter barangays that have records in the 2nd quarter
+        barangays_with_data = []
+        for barangay in barangays:
+            # Check if there's any patient in the barangay with a history in the 2nd quarter
+            patient_data_exists = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date)
+            ).exists()
+            
+            if patient_data_exists:
+                barangays_with_data.append(barangay)
+
+        # Loop through barangays that have data in the 2nd quarter
+        for barangay in barangays_with_data:
+            male_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='male'
+            ).count()
+            female_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date),
+                patient_id__sex='female'
+            ).count()
+
+            patients = Patient.objects.filter(
+                brgy_id=barangay,
+                user=user,
+                histories__date_registered__range=(start_date, end_date)  # Filter by registration date within the second quarter
+            ).distinct()
+            
+            age_15_below_count = sum(1 for patient in patients if calculate_age(patient.birthday) <= 15)
+            age_above_15_count = sum(1 for patient in patients if calculate_age(patient.birthday) > 15)
+
+            # Initialize counts for animal bite categories
+            barangay_animal_bite_I = 0
+            barangay_animal_bite_II = 0
+            barangay_animal_bite_III = 0
+
+            animal_bite_counts = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date)
+            ).values('category_of_exposure').annotate(count=models.Count('category_of_exposure'))
+
+            tcv_count = Treatment.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                tcv_given__range=(start_date, end_date)
+            ).count()
+
+            hrig_count = Treatment.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                hrig_given__range=(start_date, end_date)
+            ).count()
+
+            erig_count = Treatment.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                rig_given__range=(start_date, end_date)
+            ).count()
+
+            total_tcv_given += tcv_count
+            total_hrig_given += hrig_count
+            total_erig_given += erig_count
+
+            for count in animal_bite_counts:
+                if count['category_of_exposure'] == 'I':
+                    barangay_animal_bite_I = count['count']
+                elif count['category_of_exposure'] == 'II':
+                    barangay_animal_bite_II = count['count']
+                elif count['category_of_exposure'] == 'III':
+                    barangay_animal_bite_III = count['count']
+
+            animal_type_counts = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                date_registered__range=(start_date, end_date)
+            ).values('source_of_exposure').annotate(count=models.Count('source_of_exposure'))
+
+            barangay_dog_bites = 0
+            barangay_cat_bites = 0
+            barangay_other_bites = 0
+
+            for count in animal_type_counts:
+                if count['source_of_exposure'] == 'Dog':
+                    barangay_dog_bites = count['count']
+                elif count['source_of_exposure'] == 'Cat':
+                    barangay_cat_bites = count['count']
+                elif count['source_of_exposure'] == 'Others':
+                    barangay_other_bites = count['count']
+
+            barangay_immunized_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                immunization_status='Immunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            barangay_unimmunized_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                immunization_status='Unimmunized',
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            barangay_human_rabies_count = History.objects.filter(
+                patient_id__brgy_id=barangay,
+                patient_id__user=user,
+                human_rabies=True,
+                date_registered__range=(start_date, end_date)
+            ).count()
+
+            total_immunized += barangay_immunized_count
+            total_unimmunized += barangay_unimmunized_count
+            total_dog_bites += barangay_dog_bites
+            total_cat_bites += barangay_cat_bites
+            total_other_bites += barangay_other_bites
+            total_animal_bite_I += barangay_animal_bite_I
+            total_animal_bite_II += barangay_animal_bite_II
+            total_animal_bite_III += barangay_animal_bite_III
+
+            # Add to total counts
+            total_count = male_count + female_count
+            total_male += male_count
+            total_female += female_count
+            total_all += total_count
+            total_age_15_below += age_15_below_count
+            total_age_above_15 += age_above_15_count
+
+            data.append({
+                'barangay': barangay.brgy_name,
+                'data_male': male_count,
+                'data_female': female_count,
+                'data_total': total_count,
+                'age_15_below': age_15_below_count,
+                'age_above_15': age_above_15_count,
+                'age_total': age_15_below_count + age_above_15_count,
+                'total_animal_bite_I': barangay_animal_bite_I,
+                'total_animal_bite_II': barangay_animal_bite_II,
+                'total_animal_bite_III': barangay_animal_bite_III,
+                'total_animal': barangay_animal_bite_I + barangay_animal_bite_II + barangay_animal_bite_III,
+                'total_tcv_given': tcv_count,
+                'total_hrig_given': hrig_count,
+                'total_erig_given': erig_count,
+                'total_dog_bites': barangay_dog_bites,
+                'total_cat_bites': barangay_cat_bites,
+                'total_other_bites': barangay_other_bites,
+                'total_animal_bites': barangay_dog_bites + barangay_cat_bites + barangay_other_bites,
+                'immunized_count': barangay_immunized_count,
+                'unimmunized_count': barangay_unimmunized_count,
+                'human_rabies_count': barangay_human_rabies_count,
+            })
+    if total_all > 0:
+        male_percentage = (total_male / total_all) * 100
+        female_percentage = (total_female / total_all) * 100
+        total_sex_percentage = (male_percentage + female_percentage)
+        age_15_below_percentage = (total_age_15_below / total_all) * 100
+        age_above_15_percentage = (total_age_above_15 / total_all) * 100
+        total_age_percentage = (total_age_15_below + total_age_above_15) / total_all * 100
+        total_animal_bite_I_percentage = (total_animal_bite_I / total_all ) * 100
+        total_animal_bite_II_percentage = (total_animal_bite_II / total_all ) * 100
+        total_animal_bite_III_percentage = (total_animal_bite_III / total_all ) * 100
+        total_category_percentage = (total_animal_bite_I_percentage + total_animal_bite_II_percentage + total_animal_bite_III_percentage)
+        total_tcv_percentage = (total_tcv_given / total_all) * 100
+        total_hrig_percentage = (total_hrig_given / total_all) * 100
+        total_rig_percentage = (total_erig_given / total_all) * 100  
+        dog_bite_percentage = (total_dog_bites / total_all) * 100
+        cat_bite_percentage = (total_cat_bites / total_all) * 100
+        other_bite_percentage = (total_other_bites / total_all) * 100
+        total_animal_type_percentage = dog_bite_percentage + cat_bite_percentage + other_bite_percentage
+        if total_immunized + total_unimmunized > 0:
+            immunized_percentage = (total_immunized / (total_immunized + total_unimmunized)) * 100
+            unimmunized_percentage = (total_unimmunized / (total_immunized + total_unimmunized)) * 100
+        else:
+            immunized_percentage = 0
+            unimmunized_percentage = 0
+    else:
+        male_percentage = female_percentage = age_15_below_percentage = age_above_15_percentage = total_age_percentage = 0
+        total_tcv_percentage = total_hrig_percentage = total_rig_percentage = 0
+        dog_bite_percentage = cat_bite_percentage = other_bite_percentage = 0
+        immunized_percentage = 0
+        unimmunized_percentage = 0
+
+    overall_total = sum(entry.get('data_total', 0) for entry in data)
+    overall_total_tcv = sum(entry.get('total_tcv_given', 0) for entry in data)
+    overall_total_hrig = sum(entry.get('total_hrig_given', 0) for entry in data)
+    overall_total_erig = sum(entry.get('total_erig_given', 0) for entry in data)
+
+    for entry in data:
+        entry['percent_total'] = round((entry['data_total'] / overall_total) * 100, 1) if overall_total > 0 else 0
+        entry['percent_tcv'] = round((entry.get('total_tcv_given', 0) / overall_total_tcv) * 100, 1) if overall_total_tcv > 0 else 0
+        entry['percent_hrig'] = round((entry.get('total_hrig_given', 0) / overall_total_hrig) * 100, 1) if overall_total_hrig > 0 else 0
+        entry['percent_erig'] = round((entry.get('total_erig_given', 0) / overall_total_erig) * 100, 1) if overall_total_erig > 0 else 0
+    total_percent = sum(entry['percent_total'] for entry in data)
+    total_tcv_percent = sum(entry['percent_tcv'] for entry in data)
+    total_hrig_percent = sum(entry['percent_hrig'] for entry in data)
+    total_erig_percent = sum(entry['percent_erig'] for entry in data)   
+    total_human_rabies = sum(entry.get('human_rabies_count', 0) for entry in data)  # Add this line
+    municipalities = Municipality.objects.all()
+    selected_municipality_id = request.GET.get('municipality_id')
+    selected_municipality = municipalities.filter(muni_id=selected_municipality_id).first() if selected_municipality_id else None
+    if user.is_superuser:
+        table = "ABTC"
+    else:
+        table = "Barangay"
+
+    if user.first_name or user.last_name:
+        signature_name = f"{user.first_name} {user.last_name}".strip()
+    else:
+        signature_name = user.username
+
+    if user.logo_image:  # Ensure the user has a logo image
+        logo_url = request.build_absolute_uri(user.logo_image.url)
+    else:
+        logo_url = None  # If no logo is available, set logo_url to None
+    
+    karon = date.today().year
+    
+    code_to_muni_name = {
+        'ALM': 'Almeria',
+        'BIL': 'Biliran',
+        'CABUC': 'Cabucgayan',
+        'CAIB': 'Caibiran',
+        'CUL': 'Culaba',
+        'KAW': 'Kawayan',
+        'MAR': 'Maripipi',
+        'NAV': 'Naval',
+    }
+
+    if user.is_superuser:
+        coordinator = "Provincial Rabies Coordinator"
+        pho = "PHO II"
+        # Get the first lead doctor
+        doct = Doctor.objects.filter(is_superdoctor=True).first()
+        doctor = doct.full_name() if doct else "No Doctor Assigned"
+        center = "Biliran Province Hospital"
+        center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+    else:
+        # Map user code to municipality name
+        muni_name = code_to_muni_name.get(user.code)
+
+        if muni_name:
+            try:
+                # Find the municipality with this name
+                municipality = Municipality.objects.get(muni_name=muni_name)
+                # Filter doctors by this municipality
+                doct = Doctor.objects.filter(muni_id=municipality).first()
+                doctor = doct.full_name() if doct else "No Doctor Assigned"
+                coordinator = f"Municipality of {municipality.muni_name}"
+                pho = f"Doctor of {municipality.muni_name}"
+                center = muni_name  # Use the user's code to determine the center
+                center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+            except Municipality.DoesNotExist:
+                # Handle case where the municipality name does not exist
+                coordinator = "Unknown Municipality"
+                pho = "No Doctor Assigned"
+                doctor = "No Doctor Assigned"
+                center = "Unknown Center"
+                center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+        else:
+            # Handle case where the user's code does not match any municipality
+            coordinator = "Unknown Municipality"
+            pho = "No Doctor Assigned"
+            doctor = "No Doctor Assigned"
+            center = "Unknown Center"
+            center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
 
 
+    context = {
+        'doctor': doctor,
+        'center': center,
+        'center_label': center_label,
+        'coordinator': coordinator,
+        'pho': pho,
+        'karon': karon,    
+        'logo_url': logo_url,    
+        'signature_name':signature_name,
+        'table': table,
+        'municipalities': municipalities,
+        'selected_municipality': selected_municipality or municipalities.first(),  # Default to the first municipality if none is selected
+        'municipality_name': municipality_name,
+        'municipal': municipal,
+        'selected_quarter': selected_quarter,
+        'barangay_list': [d['barangay'] for d in data],
+        'data': data,
+        'total_male': total_male,
+        'total_female': total_female,
+        'total_all': total_all,
+        'total_age_15_below': total_age_15_below,
+        'total_age_above_15': total_age_above_15,
+        'male_percentage': round(male_percentage, 1),
+        'female_percentage': round(female_percentage, 1),
+        'total_sex_percentage':round(total_sex_percentage),
+        'age_15_below_percentage': round(age_15_below_percentage, 1),
+        'age_above_15_percentage': round(age_above_15_percentage, 1),
+        'total_age_percentage': round(total_age_percentage, 1),
+        'total_animal_bite_I': total_animal_bite_I,
+        'total_animal_bite_II': total_animal_bite_II,
+        'total_animal_bite_III': total_animal_bite_III,
+        'total_animal_bite_I_percentage': round(total_animal_bite_I_percentage,1),
+        'total_animal_bite_II_percentage': round(total_animal_bite_II_percentage,1),
+        'total_animal_bite_III_percentage': round(total_animal_bite_III_percentage,1),
+        'total_category_percentage': round(total_category_percentage,1),
+        'overall_total':overall_total,
+        'total_percent':round(total_percent, ),
+        'total_tcv_given': total_tcv_given,
+        'total_hrig_given': total_hrig_given,
+        'total_rig_given': total_erig_given,
+        'total_tcv_percentage': round(total_tcv_percentage, 1),
+        'total_hrig_percentage': round(total_hrig_percentage, 1),
+        'total_rig_percentage': round(total_rig_percentage, 1),
+        'total_tcv_percent':round(total_tcv_percent, ),
+        'total_erig_percent':round(total_erig_percent, ),
+        'total_hrig_percent':round(total_hrig_percent, ),
+        'total_dog_bites': total_dog_bites,
+        'total_cat_bites': total_cat_bites,
+        'total_other_bites': total_other_bites,
+        'dog_bite_percentage': round(dog_bite_percentage, 1),
+        'cat_bite_percentage': round(cat_bite_percentage, 1),
+        'other_bite_percentage': round(other_bite_percentage, 1),
+        'total_animal_type_percentage': round(total_animal_type_percentage, 1),
+        'total_tcv_given': sum(entry.get('total_tcv_given', 0) for entry in data),
+        'total_hrig_given': sum(entry.get('total_hrig_given', 0) for entry in data),
+        'total_erig_given': sum(entry.get('total_erig_given', 0) for entry in data),
+        'total_immunized': total_immunized,
+        'total_unimmunized': total_unimmunized,
+        'immunized_percentage': round(immunized_percentage, 1), 
+        'unimmunized_percentage': round(unimmunized_percentage, 1),  
+        'total_human_rabies':total_human_rabies,
 
+    }
+    template = loader.get_template('monitoring/report_pdf_annual.html')
+    html = template.render(context)
 
+    # Specify path to wkhtmltopdf executable
+    path_to_wkhtmltopdf = r"C:\wkhtmltox\bin\wkhtmltopdf.exe"
+    
+    # Configure pdfkit with the path
+    config = pdfkit.configuration(wkhtmltopdf=path_to_wkhtmltopdf)
+
+    # Options for landscape orientation
+    options = {
+        'orientation': 'Landscape',  # Set to Landscape
+        'page-size': 'A4',  # A4 paper size, you can adjust if needed
+        'footer-left': center_label,  # Add page numbers
+        'footer-right': 'Page [page] of [toPage]',  # Add page numbers
+        'footer-font-size': '10',  # Adjust font size for the footer
+        'footer-spacing': '5',  # Space between footer and content
+        'margin-bottom': '15mm',  # Ensure space for the footer
+    }
+    
+    # Generate PDF from HTML using pdfkit with configuration
+    pdf = pdfkit.from_string(html, configuration=config,options=options)
+
+    # Return the PDF as a responsev 
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment;filename="Annual Report.pdf"'
+
+    return response
 
 
 
@@ -3430,11 +4442,20 @@ def tables(request):
  """
 
 
-
 @login_required
 def download(request):
     user = request.user
 
+    municipality_map = {
+        "MAR": "Maripipi",
+        "KAW": "Kawayan",
+        "NAV": "Naval",
+        "CAIB": "Caibiran",
+        "ALM": "Almeria",
+        "BIL": "Biliran",
+        "CUL": "Culaba",
+        "CABUC": "Cabucgayan"
+    }
     # Get selected filters from request
     selected_municipality = request.GET.get('municipality')
     selected_barangay = request.GET.get('barangay')
@@ -3538,11 +4559,57 @@ def download(request):
         signature_name = f"{user.first_name} {user.last_name}".strip()
     else:
         signature_name = user.username
+
+    code_to_muni_name = {
+        'ALM': 'Almeria',
+        'BIL': 'Biliran',
+        'CABUC': 'Cabucgayan',
+        'CAIB': 'Caibiran',
+        'CUL': 'Culaba',
+        'KAW': 'Kawayan',
+        'MAR': 'Maripipi',
+        'NAV': 'Naval',
+    }
     
+    if user.is_superuser:
+        coordinator = "Provincial Rabies Coordinator"
+        pho = "PHO II"
+        # Get the first lead doctor
+        doct = Doctor.objects.filter(is_superdoctor=True).first()
+        doctor = doct.full_name() if doct else "No Doctor Assigned"
+    else:
+        # Map user code to municipality name
+        muni_name = code_to_muni_name.get(user.code)
+
+        if muni_name:
+            try:
+                # Find the municipality with this name
+                municipality = Municipality.objects.get(muni_name=muni_name)
+                # Filter doctors by this municipality
+                doct = Doctor.objects.filter(muni_id=municipality).first()
+                doctor = doct.full_name() if doct else "No Doctor Assigned"
+                coordinator = f"Municipality of {municipality.muni_name}"
+                pho = f"Doctor of {municipality.muni_name}"
+            except Municipality.DoesNotExist:
+                # Handle case where the municipality name does not exist
+                coordinator = "Unknown Municipality"
+                pho = "No Doctor Assigned"
+                doctor = "No Doctor Assigned"
+        else:
+            # Handle case where the user's code does not match any municipality
+            coordinator = "Unknown Municipality"
+            pho = "No Doctor Assigned"
+            doctor = "No Doctor Assigned"
+
+        
+
     context = {
+        'doctor':doctor,
         'signature_name':signature_name,
         'histories': histories,
         'municipalities': municipalities,
+        'coordinator': coordinator,
+        'pho': pho,
         'barangays': barangays,
         'selected_municipality': selected_municipality,
         'selected_barangay': selected_barangay,
@@ -3565,10 +4632,22 @@ def download(request):
 
     return render(request, 'monitoring/download.html',context)
 
+
 @login_required
 def pdf_masterlist_create(request):
-    template_path = 'monitoring/download_pdf.html'
+    
     user = request.user
+
+    municipality_map = {
+        "MAR": "Maripipi",
+        "KAW": "Kawayan",
+        "NAV": "Naval",
+        "CAIB": "Caibiran",
+        "ALM":"Almeria",
+        "BIL":"Biliran",
+        "CUL":"Culaba",
+        "CABUC":"Cabucgayan"
+    }
 
     # Get filters from the request
     selected_municipality = request.GET.get('municipality')
@@ -3619,9 +4698,69 @@ def pdf_masterlist_create(request):
 
     # Calculate total number of distinct patients
     total_patients = histories.values('patient_id').distinct().count()
+
+    code_to_muni_name = {
+        'ALM': 'Almeria',
+        'BIL': 'Biliran',
+        'CABUC': 'Cabucgayan',
+        'CAIB': 'Caibiran',
+        'CUL': 'Culaba',
+        'KAW': 'Kawayan',
+        'MAR': 'Maripipi',
+        'NAV': 'Naval',
+    }
+
+    if user.is_superuser:
+        coordinator = "Provincial Rabies Coordinator"
+        pho = "PHO II"
+        # Get the first lead doctor
+        doct = Doctor.objects.filter(is_superdoctor=True).first()
+        doctor = doct.full_name() if doct else "No Doctor Assigned"
+        center = "Biliran Province Hospital"
+        center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+    else:
+        # Map user code to municipality name
+        muni_name = code_to_muni_name.get(user.code)
+
+        if muni_name:
+            try:
+                # Find the municipality with this name
+                municipality = Municipality.objects.get(muni_name=muni_name)
+                # Filter doctors by this municipality
+                doct = Doctor.objects.filter(muni_id=municipality).first()
+                doctor = doct.full_name() if doct else "No Doctor Assigned"
+                coordinator = f"Municipality of {municipality.muni_name}"
+                pho = f"Doctor of {municipality.muni_name}"
+                center = muni_name  # Use the user's code to determine the center
+                center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+            except Municipality.DoesNotExist:
+                # Handle case where the municipality name does not exist
+                coordinator = "Unknown Municipality"
+                pho = "No Doctor Assigned"
+                doctor = "No Doctor Assigned"
+                center = "Unknown Center"
+                center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+        else:
+            # Handle case where the user's code does not match any municipality
+            coordinator = "Unknown Municipality"
+            pho = "No Doctor Assigned"
+            doctor = "No Doctor Assigned"
+            center = "Unknown Center"
+            center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+        
+    
+    
+    karon = date.today().year
     # Set context for the PDF template
     context = {
+        
         'signature_name': f"{user.first_name} {user.last_name}".strip() or user.username,
+        'center_label': center_label,
+        'center': center,
+        'doctor': doctor,
+        'karon': karon,
+        'coordinator': coordinator,
+        'pho': pho,
         'histories': histories,
         'total_patients': total_patients,
         'male': male,
@@ -3636,36 +4775,33 @@ def pdf_masterlist_create(request):
         'start_month': start_month,
         'end_month': end_month,
     }
-    
-    # Render PDF
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="MasterList.pdf"'#attachment;
-    template = get_template(template_path)
+    template = loader.get_template('monitoring/download_pdf.html')
     html = template.render(context)
 
-    pisa_status = pisa.CreatePDF(html, dest=response)
-    if pisa_status.err:
-        return HttpResponse('Error generating PDF file')
+    # Specify path to wkhtmltopdf executable
+    path_to_wkhtmltopdf = r"C:\wkhtmltox\bin\wkhtmltopdf.exe"
+    
+    # Configure pdfkit with the path
+    config = pdfkit.configuration(wkhtmltopdf=path_to_wkhtmltopdf)
+
+    options = {
+        'orientation': 'Landscape',  # Set to Landscape
+        'page-size': 'A4',  # A4 paper size, you can adjust if neededs
+        'footer-left': center_label,
+        'footer-right': 'Page [page] of [toPage]',  # Add page numbers
+        'footer-font-size': '10',  # Adjust font size for the footer
+        'footer-spacing': '5',  # Space between footer and content
+        'margin-bottom': '15mm',  # Ensure space for the footer
+    }
+    
+    # Generate PDF from HTML using pdfkit with configuration
+    pdf = pdfkit.from_string(html, configuration=config,options=options)
+
+    # Return the PDF as a responsev 
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment;filename="Master List.pdf"'
 
     return response
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 @login_required
@@ -3686,20 +4822,34 @@ def cohort(request):
     else:
         municipality_name = municipality_map.get(user.code, "Province")
 
-    # Retrieve the selected quarter and year from user input; default to Q1 and current year if not provided
-    selected_quarter = request.GET.get('quarter', '1')
-    selected_year = int(request.GET.get('year', date.today().year))
+    
 
-    # Define date ranges for each quarter based on the selected year
+    selected_quarter = request.GET.get('quarter', '1')  # Default to '1' if no quarter is selected
+    year = date.today().year
+
     quarter_ranges = {
-        '1': (date(selected_year, 1, 1), date(selected_year, 3, 31)),
-        '2': (date(selected_year, 4, 1), date(selected_year, 6, 30)),
-        '3': (date(selected_year, 7, 1), date(selected_year, 9, 30)),
-        '4': (date(selected_year, 10, 1), date(selected_year, 12, 31)),
+        '1': (date(year, 1, 1), date(year, 3, 31)),
+        '2': (date(year, 4, 1), date(year, 6, 30)),
+        '3': (date(year, 7, 1), date(year, 9, 30)),
+        '4': (date(year, 10, 1), date(year, 12, 31)),
     }
 
-    # Determine start and end dates for the selected quarter
-    start_date, end_date = quarter_ranges[selected_quarter]
+    # Generate the title and date range based on the selected quarter
+    if selected_quarter == 'annual':
+        start_date, end_date = date(year, 1, 1), date(year, 12, 31)
+        quarter_select = "Annual"
+        report_title = f"{quarter_select} Report {year}"  # Annual report title
+    else:
+        start_date, end_date = quarter_ranges[selected_quarter]
+        if selected_quarter == '1':
+            quarter_select = '1st'
+        elif selected_quarter == '2':
+            quarter_select = '2nd'
+        elif selected_quarter == '3':
+            quarter_select = '3rd'
+        elif selected_quarter == '4':
+            quarter_select = '4th'
+        report_title = f"{quarter_select} Quarter Report {year}"
 
     # Retrieve data based on the user type and date range
     if user.is_superuser:
@@ -3744,26 +4894,30 @@ def cohort(request):
     category_ii_complete = category_ii_incomplete = category_ii_none = category_ii_died = 0
     category_iii_complete = category_iii_incomplete = category_iii_none = category_iii_died = 0
 
+    
     # Process Category II outcomes
     for history in histories.filter(category_of_exposure='II'):
         # Filter treatments associated with the patient within the date range
         treatments = Treatment.objects.filter(
+            patient_id=history.patient_id,
             patient_id__histories__date_registered__range=(start_date, end_date)
         ).distinct()
-        
+
         if history.human_rabies:
             category_ii_died += 1
             continue
 
         if treatments.exists():
-            # Check if all of day0, day3, and day7 are marked True
+            # Check if all of day0, day3, and day7 are marked True (Complete)
             if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
                 category_ii_complete += 1
-            # Check if at least one or two of day0, day3, or day7 are True (but not all)
-            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
+            # Check if any one of day0, day3, or day7 is False (Incomplete)
+            elif treatments.filter(day0_arrived=False).exists() or \
+                treatments.filter(day3_arrived=False).exists() or \
+                treatments.filter(day7_arrived=False).exists():
                 category_ii_incomplete += 1
-            # If none of the fields are True
-            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
+            # If all day0, day3, and day7 are False (None)
+            elif treatments.filter(day0_arrived=False, day3_arrived=False, day7_arrived=False).exists():
                 category_ii_none += 1
         else:
             category_ii_none += 1
@@ -3771,22 +4925,25 @@ def cohort(request):
     # Process Category III outcomes
     for history in histories.filter(category_of_exposure='III'):
         treatments = Treatment.objects.filter(
+            patient_id=history.patient_id,
             patient_id__histories__date_registered__range=(start_date, end_date)
         ).distinct()
-        
+
         if history.human_rabies:
             category_iii_died += 1
             continue
 
         if treatments.exists():
-            # Check if all of day0, day3, and day7 are marked True
+            # Check if all of day0, day3, and day7 are marked True (Complete)
             if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
                 category_iii_complete += 1
-            # Check if at least one or two of day0, day3, or day7 are True (but not all)
-            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
+            # Check if any one of day0, day3, or day7 is False (Incomplete)
+            elif treatments.filter(day0_arrived=False).exists() or \
+                treatments.filter(day3_arrived=False).exists() or \
+                treatments.filter(day7_arrived=False).exists():
                 category_iii_incomplete += 1
-            # If none of the fields are True
-            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
+            # If all day0, day3, and day7 are False (None)
+            elif treatments.filter(day0_arrived=False, day3_arrived=False, day7_arrived=False).exists():
                 category_iii_none += 1
         else:
             category_iii_none += 1
@@ -3804,11 +4961,59 @@ def cohort(request):
     else:
         logo_url = None  # If no logo is available, set logo_url to None
 
+    karon = date.today().year
+        
+    code_to_muni_name = {
+        'ALM': 'Almeria',
+        'BIL': 'Biliran',
+        'CABUC': 'Cabucgayan',
+        'CAIB': 'Caibiran',
+        'CUL': 'Culaba',
+        'KAW': 'Kawayan',
+        'MAR': 'Maripipi',
+        'NAV': 'Naval',
+    }
+    
+    if user.is_superuser:
+        coordinator = "Provincial Rabies Coordinator"
+        pho = "PHO II"
+        # Get the first lead doctor
+        doct = Doctor.objects.filter(is_superdoctor=True).first()
+        doctor = doct.full_name() if doct else "No Doctor Assigned"
+    else:
+        # Map user code to municipality name
+        muni_name = code_to_muni_name.get(user.code)
+
+        if muni_name:
+            try:
+                # Find the municipality with this name
+                municipality = Municipality.objects.get(muni_name=muni_name)
+                # Filter doctors by this municipality
+                doct = Doctor.objects.filter(muni_id=municipality).first()
+                doctor = doct.full_name() if doct else "No Doctor Assigned"
+                coordinator = f"Municipality of {municipality.muni_name}"
+                pho = f"Doctor of {municipality.muni_name}"
+            except Municipality.DoesNotExist:
+                # Handle case where the municipality name does not exist
+                coordinator = "Unknown Municipality"
+                pho = "No Doctor Assigned"
+                doctor = "No Doctor Assigned"
+        else:
+            # Handle case where the user's code does not match any municipality
+            coordinator = "Unknown Municipality"
+            pho = "No Doctor Assigned"
+            doctor = "No Doctor Assigned"
+
     context = {
+        'coordinator': coordinator,
+        'pho': pho,
+        'doctor': doctor,
+        'report_title': report_title,
+        'karon': karon,
         'logo_url': logo_url,
         'municipality_name': municipality_name,
         'selected_quarter': selected_quarter,
-        'selected_year': selected_year,
+        'quarter_select': quarter_select,
         'signature_name': signature_name,
         'municipalities': municipalities,
         'barangays': barangays,
@@ -3854,6 +5059,14 @@ def pdf_cohort_create1(request):
         municipality_name = "BPH"
     else:
         municipality_name = municipality_map.get(user.code, "Province")
+
+    if user.is_superuser:
+        municipal = "Province of Biliran"
+    else:
+        munici = municipality_map.get(user.code)
+        municipal = (f"Municipality of {munici}")
+
+
 
     selected_quarter = '1'
     year = date.today().year
@@ -3907,22 +5120,25 @@ def pdf_cohort_create1(request):
     for history in histories.filter(category_of_exposure='II'):
         # Filter treatments associated with the patient within the date range
         treatments = Treatment.objects.filter(
+            patient_id=history.patient_id,
             patient_id__histories__date_registered__range=(start_date, end_date)
         ).distinct()
-        
+
         if history.human_rabies:
             category_ii_died += 1
             continue
 
         if treatments.exists():
-            # Check if all of day0, day3, and day7 are marked True
+            # Check if all of day0, day3, and day7 are marked True (Complete)
             if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
                 category_ii_complete += 1
-            # Check if at least one or two of day0, day3, or day7 are True (but not all)
-            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
+            # Check if any one of day0, day3, or day7 is False (Incomplete)
+            elif treatments.filter(day0_arrived=False).exists() or \
+                treatments.filter(day3_arrived=False).exists() or \
+                treatments.filter(day7_arrived=False).exists():
                 category_ii_incomplete += 1
-            # If none of the fields are True
-            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
+            # If all day0, day3, and day7 are False (None)
+            elif treatments.filter(day0_arrived=False, day3_arrived=False, day7_arrived=False).exists():
                 category_ii_none += 1
         else:
             category_ii_none += 1
@@ -3930,22 +5146,25 @@ def pdf_cohort_create1(request):
     # Process Category III outcomes
     for history in histories.filter(category_of_exposure='III'):
         treatments = Treatment.objects.filter(
+            patient_id=history.patient_id,
             patient_id__histories__date_registered__range=(start_date, end_date)
         ).distinct()
-        
+
         if history.human_rabies:
             category_iii_died += 1
             continue
 
         if treatments.exists():
-            # Check if all of day0, day3, and day7 are marked True
+            # Check if all of day0, day3, and day7 are marked True (Complete)
             if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
                 category_iii_complete += 1
-            # Check if at least one or two of day0, day3, or day7 are True (but not all)
-            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
+            # Check if any one of day0, day3, or day7 is False (Incomplete)
+            elif treatments.filter(day0_arrived=False).exists() or \
+                treatments.filter(day3_arrived=False).exists() or \
+                treatments.filter(day7_arrived=False).exists():
                 category_iii_incomplete += 1
-            # If none of the fields are True
-            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
+            # If all day0, day3, and day7 are False (None)
+            elif treatments.filter(day0_arrived=False, day3_arrived=False, day7_arrived=False).exists():
                 category_iii_none += 1
         else:
             category_iii_none += 1
@@ -3963,14 +5182,70 @@ def pdf_cohort_create1(request):
     else:
         logo_url = None  # If no logo is available, set logo_url to None
 
-    
-    template_path = 'monitoring/cohort_pdf1.html'
+    karon =  date.today().year
+
+    code_to_muni_name = {
+        'ALM': 'Almeria',
+        'BIL': 'Biliran',
+        'CABUC': 'Cabucgayan',
+        'CAIB': 'Caibiran',
+        'CUL': 'Culaba',
+        'KAW': 'Kawayan',
+        'MAR': 'Maripipi',
+        'NAV': 'Naval',
+    }
+
+    if user.is_superuser:
+        coordinator = "Provincial Rabies Coordinator"
+        pho = "PHO II"
+        # Get the first lead doctor
+        doct = Doctor.objects.filter(is_superdoctor=True).first()
+        doctor = doct.full_name() if doct else "No Doctor Assigned"
+        center = "Biliran Province Hospital"
+        center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+    else:
+        # Map user code to municipality name
+        muni_name = code_to_muni_name.get(user.code)
+
+        if muni_name:
+            try:
+                # Find the municipality with this name
+                municipality = Municipality.objects.get(muni_name=muni_name)
+                # Filter doctors by this municipality
+                doct = Doctor.objects.filter(muni_id=municipality).first()
+                doctor = doct.full_name() if doct else "No Doctor Assigned"
+                coordinator = f"Municipality of {municipality.muni_name}"
+                pho = f"Doctor of {municipality.muni_name}"
+                center = muni_name  # Use the user's code to determine the center
+                center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+            except Municipality.DoesNotExist:
+                # Handle case where the municipality name does not exist
+                coordinator = "Unknown Municipality"
+                pho = "No Doctor Assigned"
+                doctor = "No Doctor Assigned"
+                center = "Unknown Center"
+                center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+        else:
+            # Handle case where the user's code does not match any municipality
+            coordinator = "Unknown Municipality"
+            pho = "No Doctor Assigned"
+            doctor = "No Doctor Assigned"
+            center = "Unknown Center"
+            center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+
     context = {
+        'doctor': doctor,
+        'coordinator': coordinator,
+        'center': center,
+        'center_label':center_label,
+        'pho': pho,
+        'karon': karon,
         'logo_url': logo_url,
         'municipality_name': municipality_name,
         'selected_quarter': selected_quarter,
         'signature_name': signature_name,
         'municipalities': municipalities,
+        'municipal': municipal,
         'barangays': barangays,
         'patients': patients,
         'histories': histories,
@@ -3994,14 +5269,33 @@ def pdf_cohort_create1(request):
         'total_none': total_none,
         'total_died': total_died,
     }
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'filename="1stQuarter_Cohort.pdf"'#attachment;
-    template = get_template(template_path)
+    template = loader.get_template('monitoring/cohort_pdf1.html')
     html = template.render(context)
-    pisa_status = pisa.CreatePDF(
-        html,dest=response)
-    if pisa_status.err:
-        return HttpResponse('We had some errors <pre>'+html+'<prev>')
+
+    # Specify path to wkhtmltopdf executable
+    path_to_wkhtmltopdf = r"C:\wkhtmltox\bin\wkhtmltopdf.exe"
+    
+    # Configure pdfkit with the path
+    config = pdfkit.configuration(wkhtmltopdf=path_to_wkhtmltopdf)
+
+    # Options for landscape orientation
+    options = {
+        'orientation': 'Landscape',  # Set to Landscape
+        'page-size': 'A4',  # A4 paper size, you can adjust if needed
+        'footer-left': center_label,  # Add page numbers
+        'footer-right': 'Page [page] of [toPage]',  # Add page numbers
+        'footer-font-size': '10',  # Adjust font size for the footer
+        'footer-spacing': '5',  # Space between footer and content
+        'margin-bottom': '15mm',  # Ensure space for the footer
+    }
+    
+    # Generate PDF from HTML using pdfkit with configuration
+    pdf = pdfkit.from_string(html, configuration=config,options=options)
+
+    # Return the PDF as a responsev 
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment;filename="1st Quarter Cohort.pdf"'
+
     return response
 
 def pdf_cohort_create2(request):
@@ -4022,6 +5316,12 @@ def pdf_cohort_create2(request):
     else:
         municipality_name = municipality_map.get(user.code, "Province")
     
+    if user.is_superuser:
+        municipal = "Province of Biliran"
+    else:
+        munici = municipality_map.get(user.code)
+        municipal = (f"Municipality of {munici}")
+
     selected_quarter = '2'
     year = date.today().year
     start_date = date(year, 4, 1)
@@ -4074,22 +5374,25 @@ def pdf_cohort_create2(request):
     for history in histories.filter(category_of_exposure='II'):
         # Filter treatments associated with the patient within the date range
         treatments = Treatment.objects.filter(
+            patient_id=history.patient_id,
             patient_id__histories__date_registered__range=(start_date, end_date)
         ).distinct()
-        
+
         if history.human_rabies:
             category_ii_died += 1
             continue
 
         if treatments.exists():
-            # Check if all of day0, day3, and day7 are marked True
+            # Check if all of day0, day3, and day7 are marked True (Complete)
             if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
                 category_ii_complete += 1
-            # Check if at least one or two of day0, day3, or day7 are True (but not all)
-            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
+            # Check if any one of day0, day3, or day7 is False (Incomplete)
+            elif treatments.filter(day0_arrived=False).exists() or \
+                treatments.filter(day3_arrived=False).exists() or \
+                treatments.filter(day7_arrived=False).exists():
                 category_ii_incomplete += 1
-            # If none of the fields are True
-            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
+            # If all day0, day3, and day7 are False (None)
+            elif treatments.filter(day0_arrived=False, day3_arrived=False, day7_arrived=False).exists():
                 category_ii_none += 1
         else:
             category_ii_none += 1
@@ -4097,22 +5400,25 @@ def pdf_cohort_create2(request):
     # Process Category III outcomes
     for history in histories.filter(category_of_exposure='III'):
         treatments = Treatment.objects.filter(
+            patient_id=history.patient_id,
             patient_id__histories__date_registered__range=(start_date, end_date)
         ).distinct()
-        
+
         if history.human_rabies:
             category_iii_died += 1
             continue
 
         if treatments.exists():
-            # Check if all of day0, day3, and day7 are marked True
+            # Check if all of day0, day3, and day7 are marked True (Complete)
             if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
                 category_iii_complete += 1
-            # Check if at least one or two of day0, day3, or day7 are True (but not all)
-            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
+            # Check if any one of day0, day3, or day7 is False (Incomplete)
+            elif treatments.filter(day0_arrived=False).exists() or \
+                treatments.filter(day3_arrived=False).exists() or \
+                treatments.filter(day7_arrived=False).exists():
                 category_iii_incomplete += 1
-            # If none of the fields are True
-            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
+            # If all day0, day3, and day7 are False (None)
+            elif treatments.filter(day0_arrived=False, day3_arrived=False, day7_arrived=False).exists():
                 category_iii_none += 1
         else:
             category_iii_none += 1
@@ -4130,14 +5436,70 @@ def pdf_cohort_create2(request):
     else:
         logo_url = None  # If no logo is available, set logo_url to None
 
-    
-    template_path = 'monitoring/cohort_pdf2.html'
+    karon =  date.today().year
+
+    code_to_muni_name = {
+        'ALM': 'Almeria',
+        'BIL': 'Biliran',
+        'CABUC': 'Cabucgayan',
+        'CAIB': 'Caibiran',
+        'CUL': 'Culaba',
+        'KAW': 'Kawayan',
+        'MAR': 'Maripipi',
+        'NAV': 'Naval',
+    }
+
+    if user.is_superuser:
+        coordinator = "Provincial Rabies Coordinator"
+        pho = "PHO II"
+        # Get the first lead doctor
+        doct = Doctor.objects.filter(is_superdoctor=True).first()
+        doctor = doct.full_name() if doct else "No Doctor Assigned"
+        center = "Biliran Province Hospital"
+        center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+    else:
+        # Map user code to municipality name
+        muni_name = code_to_muni_name.get(user.code)
+
+        if muni_name:
+            try:
+                # Find the municipality with this name
+                municipality = Municipality.objects.get(muni_name=muni_name)
+                # Filter doctors by this municipality
+                doct = Doctor.objects.filter(muni_id=municipality).first()
+                doctor = doct.full_name() if doct else "No Doctor Assigned"
+                coordinator = f"Municipality of {municipality.muni_name}"
+                pho = f"Doctor of {municipality.muni_name}"
+                center = muni_name  # Use the user's code to determine the center
+                center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+            except Municipality.DoesNotExist:
+                # Handle case where the municipality name does not exist
+                coordinator = "Unknown Municipality"
+                pho = "No Doctor Assigned"
+                doctor = "No Doctor Assigned"
+                center = "Unknown Center"
+                center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+        else:
+            # Handle case where the user's code does not match any municipality
+            coordinator = "Unknown Municipality"
+            pho = "No Doctor Assigned"
+            doctor = "No Doctor Assigned"
+            center = "Unknown Center"
+            center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+
     context = {
+        'doctor': doctor,
+        'coordinator': coordinator,
+        'center': center,
+        'center_label': center_label,
+        'pho': pho,
+        'karon': karon,
         'logo_url': logo_url,
         'municipality_name': municipality_name,
         'selected_quarter': selected_quarter,
         'signature_name': signature_name,
         'municipalities': municipalities,
+        'municipal': municipal,
         'barangays': barangays,
         'patients': patients,
         'histories': histories,
@@ -4161,14 +5523,33 @@ def pdf_cohort_create2(request):
         'total_none': total_none,
         'total_died': total_died,
     }
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'filename="2ndQuarter_Cohort.pdf"'#attachment;
-    template = get_template(template_path)
+    template = loader.get_template('monitoring/cohort_pdf2.html')
     html = template.render(context)
-    pisa_status = pisa.CreatePDF(
-        html,dest=response)
-    if pisa_status.err:
-        return HttpResponse('We had some errors <pre>'+html+'<prev>')
+
+    # Specify path to wkhtmltopdf executable
+    path_to_wkhtmltopdf = r"C:\wkhtmltox\bin\wkhtmltopdf.exe"
+    
+    # Configure pdfkit with the path
+    config = pdfkit.configuration(wkhtmltopdf=path_to_wkhtmltopdf)
+
+    # Options for landscape orientation
+    options = {
+        'orientation': 'Landscape',  # Set to Landscape
+        'page-size': 'A4',  # A4 paper size, you can adjust if needed
+        'footer-left': center_label,  # Add page numbers
+        'footer-right': 'Page [page] of [toPage]',  # Add page numbers
+        'footer-font-size': '10',  # Adjust font size for the footer
+        'footer-spacing': '5',  # Space between footer and content
+        'margin-bottom': '15mm',  # Ensure space for the footer
+    }
+    
+    # Generate PDF from HTML using pdfkit with configuration
+    pdf = pdfkit.from_string(html, configuration=config,options=options)
+
+    # Return the PDF as a responsev 
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment;filename="2nd Quarter Cohort.pdf"'
+
     return response
 
 def pdf_cohort_create3(request):
@@ -4189,6 +5570,12 @@ def pdf_cohort_create3(request):
     else:
         municipality_name = municipality_map.get(user.code, "Province")
 
+    if user.is_superuser:
+        municipal = "Province of Biliran"
+    else:
+        munici = municipality_map.get(user.code)
+        municipal = (f"Municipality of {munici}")
+        
     selected_quarter = '3'
     year = date.today().year
     start_date = date(year, 7, 1)
@@ -4241,22 +5628,25 @@ def pdf_cohort_create3(request):
     for history in histories.filter(category_of_exposure='II'):
         # Filter treatments associated with the patient within the date range
         treatments = Treatment.objects.filter(
+            patient_id=history.patient_id,
             patient_id__histories__date_registered__range=(start_date, end_date)
         ).distinct()
-        
+
         if history.human_rabies:
             category_ii_died += 1
             continue
 
         if treatments.exists():
-            # Check if all of day0, day3, and day7 are marked True
+            # Check if all of day0, day3, and day7 are marked True (Complete)
             if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
                 category_ii_complete += 1
-            # Check if at least one or two of day0, day3, or day7 are True (but not all)
-            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
+            # Check if any one of day0, day3, or day7 is False (Incomplete)
+            elif treatments.filter(day0_arrived=False).exists() or \
+                treatments.filter(day3_arrived=False).exists() or \
+                treatments.filter(day7_arrived=False).exists():
                 category_ii_incomplete += 1
-            # If none of the fields are True
-            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
+            # If all day0, day3, and day7 are False (None)
+            elif treatments.filter(day0_arrived=False, day3_arrived=False, day7_arrived=False).exists():
                 category_ii_none += 1
         else:
             category_ii_none += 1
@@ -4264,22 +5654,25 @@ def pdf_cohort_create3(request):
     # Process Category III outcomes
     for history in histories.filter(category_of_exposure='III'):
         treatments = Treatment.objects.filter(
+            patient_id=history.patient_id,
             patient_id__histories__date_registered__range=(start_date, end_date)
         ).distinct()
-        
+
         if history.human_rabies:
             category_iii_died += 1
             continue
 
         if treatments.exists():
-            # Check if all of day0, day3, and day7 are marked True
+            # Check if all of day0, day3, and day7 are marked True (Complete)
             if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
                 category_iii_complete += 1
-            # Check if at least one or two of day0, day3, or day7 are True (but not all)
-            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
+            # Check if any one of day0, day3, or day7 is False (Incomplete)
+            elif treatments.filter(day0_arrived=False).exists() or \
+                treatments.filter(day3_arrived=False).exists() or \
+                treatments.filter(day7_arrived=False).exists():
                 category_iii_incomplete += 1
-            # If none of the fields are True
-            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
+            # If all day0, day3, and day7 are False (None)
+            elif treatments.filter(day0_arrived=False, day3_arrived=False, day7_arrived=False).exists():
                 category_iii_none += 1
         else:
             category_iii_none += 1
@@ -4297,13 +5690,70 @@ def pdf_cohort_create3(request):
     else:
         logo_url = None  # If no logo is available, set logo_url to None
 
-    
-    template_path = 'monitoring/cohort_pdf3.html'
+    karon =  date.today().year
+
+    code_to_muni_name = {
+        'ALM': 'Almeria',
+        'BIL': 'Biliran',
+        'CABUC': 'Cabucgayan',
+        'CAIB': 'Caibiran',
+        'CUL': 'Culaba',
+        'KAW': 'Kawayan',
+        'MAR': 'Maripipi',
+        'NAV': 'Naval',
+    }
+
+    if user.is_superuser:
+        coordinator = "Provincial Rabies Coordinator"
+        pho = "PHO II"
+        # Get the first lead doctor
+        doct = Doctor.objects.filter(is_superdoctor=True).first()
+        doctor = doct.full_name() if doct else "No Doctor Assigned"
+        center = "Biliran Province Hospital"
+        center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+    else:
+        # Map user code to municipality name
+        muni_name = code_to_muni_name.get(user.code)
+
+        if muni_name:
+            try:
+                # Find the municipality with this name
+                municipality = Municipality.objects.get(muni_name=muni_name)
+                # Filter doctors by this municipality
+                doct = Doctor.objects.filter(muni_id=municipality).first()
+                doctor = doct.full_name() if doct else "No Doctor Assigned"
+                coordinator = f"Municipality of {municipality.muni_name}"
+                pho = f"Doctor of {municipality.muni_name}"
+                center = muni_name  # Use the user's code to determine the center
+                center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+            except Municipality.DoesNotExist:
+                # Handle case where the municipality name does not exist
+                coordinator = "Unknown Municipality"
+                pho = "No Doctor Assigned"
+                doctor = "No Doctor Assigned"
+                center = "Unknown Center"
+                center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+        else:
+            # Handle case where the user's code does not match any municipality
+            coordinator = "Unknown Municipality"
+            pho = "No Doctor Assigned"
+            doctor = "No Doctor Assigned"
+            center = "Unknown Center"
+            center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+
+
     context = {
+        'doctor': doctor,
+        'coordinator': coordinator,
+        'center': center,
+        'center_label': center_label,
+        'pho': pho,
+        'karon': karon,
         'logo_url': logo_url,
         'municipality_name': municipality_name,
         'signature_name': signature_name,
         'municipalities': municipalities,
+        'municipal': municipal,
         'barangays': barangays,
         'patients': patients,
         'histories': histories,
@@ -4327,14 +5777,33 @@ def pdf_cohort_create3(request):
         'total_none': total_none,
         'total_died': total_died,
     }
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment;filename="3rdQuarter_Cohort.pdf"'#attachment;
-    template = get_template(template_path)
+    template = loader.get_template('monitoring/cohort_pdf3.html')
     html = template.render(context)
-    pisa_status = pisa.CreatePDF(
-        html,dest=response)
-    if pisa_status.err:
-        return HttpResponse('We had some errors <pre>'+html+'<prev>')
+
+    # Specify path to wkhtmltopdf executable
+    path_to_wkhtmltopdf = r"C:\wkhtmltox\bin\wkhtmltopdf.exe"
+    
+    # Configure pdfkit with the path
+    config = pdfkit.configuration(wkhtmltopdf=path_to_wkhtmltopdf)
+
+    # Options for landscape orientation
+    options = {
+        'orientation': 'Landscape',  # Set to Landscape
+        'page-size': 'A4',  # A4 paper size, you can adjust if needed
+        'footer-left': center_label,  # Add page numbers
+        'footer-right': 'Page [page] of [toPage]',  # Add page numbers
+        'footer-font-size': '10',  # Adjust font size for the footer
+        'footer-spacing': '5',  # Space between footer and content
+        'margin-bottom': '15mm',  # Ensure space for the footer
+    }
+    
+    # Generate PDF from HTML using pdfkit with configuration
+    pdf = pdfkit.from_string(html, configuration=config,options=options)
+
+    # Return the PDF as a responsev 
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment;filename="3rd Quarter Cohort.pdf"'
+
     return response
 
 def pdf_cohort_create4(request):
@@ -4355,6 +5824,12 @@ def pdf_cohort_create4(request):
     else:
         municipality_name = municipality_map.get(user.code, "Province")
 
+    if user.is_superuser:
+        municipal = "Province of Biliran"
+    else:
+        munici = municipality_map.get(user.code)
+        municipal = (f"Municipality of {munici}")
+        
     # Only set for 2nd quarter (April 1 to June 30)
     selected_quarter = '4'
     year = date.today().year
@@ -4409,22 +5884,25 @@ def pdf_cohort_create4(request):
     for history in histories.filter(category_of_exposure='II'):
         # Filter treatments associated with the patient within the date range
         treatments = Treatment.objects.filter(
+            patient_id=history.patient_id,
             patient_id__histories__date_registered__range=(start_date, end_date)
         ).distinct()
-        
+
         if history.human_rabies:
             category_ii_died += 1
             continue
 
         if treatments.exists():
-            # Check if all of day0, day3, and day7 are marked True
+            # Check if all of day0, day3, and day7 are marked True (Complete)
             if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
                 category_ii_complete += 1
-            # Check if at least one or two of day0, day3, or day7 are True (but not all)
-            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
+            # Check if any one of day0, day3, or day7 is False (Incomplete)
+            elif treatments.filter(day0_arrived=False).exists() or \
+                treatments.filter(day3_arrived=False).exists() or \
+                treatments.filter(day7_arrived=False).exists():
                 category_ii_incomplete += 1
-            # If none of the fields are True
-            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
+            # If all day0, day3, and day7 are False (None)
+            elif treatments.filter(day0_arrived=False, day3_arrived=False, day7_arrived=False).exists():
                 category_ii_none += 1
         else:
             category_ii_none += 1
@@ -4432,26 +5910,28 @@ def pdf_cohort_create4(request):
     # Process Category III outcomes
     for history in histories.filter(category_of_exposure='III'):
         treatments = Treatment.objects.filter(
+            patient_id=history.patient_id,
             patient_id__histories__date_registered__range=(start_date, end_date)
         ).distinct()
-        
+
         if history.human_rabies:
             category_iii_died += 1
             continue
 
         if treatments.exists():
-            # Check if all of day0, day3, and day7 are marked True
+            # Check if all of day0, day3, and day7 are marked True (Complete)
             if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
                 category_iii_complete += 1
-            # Check if at least one or two of day0, day3, or day7 are True (but not all)
-            elif treatments.filter(day0_arrived=True).exists() + treatments.filter(day3_arrived=True).exists() + treatments.filter(day7_arrived=True).exists() == 2:
+            # Check if any one of day0, day3, or day7 is False (Incomplete)
+            elif treatments.filter(day0_arrived=False).exists() or \
+                treatments.filter(day3_arrived=False).exists() or \
+                treatments.filter(day7_arrived=False).exists():
                 category_iii_incomplete += 1
-            # If none of the fields are True
-            elif not treatments.filter(day0_arrived=True).exists() and not treatments.filter(day3_arrived=True).exists() and not treatments.filter(day7_arrived=True).exists():
+            # If all day0, day3, and day7 are False (None)
+            elif treatments.filter(day0_arrived=False, day3_arrived=False, day7_arrived=False).exists():
                 category_iii_none += 1
         else:
             category_iii_none += 1
-
 
     total_complete = category_ii_complete + category_iii_complete
     total_incomplete = category_ii_incomplete + category_iii_incomplete
@@ -4465,14 +5945,71 @@ def pdf_cohort_create4(request):
     else:
         logo_url = None  # If no logo is available, set logo_url to None
 
-    
-    template_path = 'monitoring/cohort_pdf4.html'
+    karon =  date.today().year
+
+    code_to_muni_name = {
+        'ALM': 'Almeria',
+        'BIL': 'Biliran',
+        'CABUC': 'Cabucgayan',
+        'CAIB': 'Caibiran',
+        'CUL': 'Culaba',
+        'KAW': 'Kawayan',
+        'MAR': 'Maripipi',
+        'NAV': 'Naval',
+    }
+
+    if user.is_superuser:
+        coordinator = "Provincial Rabies Coordinator"
+        pho = "PHO II"
+        # Get the first lead doctor
+        doct = Doctor.objects.filter(is_superdoctor=True).first()
+        doctor = doct.full_name() if doct else "No Doctor Assigned"
+        center = "Biliran Province Hospital"
+        center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+    else:
+        # Map user code to municipality name
+        muni_name = code_to_muni_name.get(user.code)
+
+        if muni_name:
+            try:
+                # Find the municipality with this name
+                municipality = Municipality.objects.get(muni_name=muni_name)
+                # Filter doctors by this municipality
+                doct = Doctor.objects.filter(muni_id=municipality).first()
+                doctor = doct.full_name() if doct else "No Doctor Assigned"
+                coordinator = f"Municipality of {municipality.muni_name}"
+                pho = f"Doctor of {municipality.muni_name}"
+                center = muni_name  # Use the user's code to determine the center
+                center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+            except Municipality.DoesNotExist:
+                # Handle case where the municipality name does not exist
+                coordinator = "Unknown Municipality"
+                pho = "No Doctor Assigned"
+                doctor = "No Doctor Assigned"
+                center = "Unknown Center"
+                center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+        else:
+            # Handle case where the user's code does not match any municipality
+            coordinator = "Unknown Municipality"
+            pho = "No Doctor Assigned"
+            doctor = "No Doctor Assigned"
+            center = "Unknown Center"
+            center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+
+
     context = {
+        'doctor': doctor,
+        'coordinator': coordinator,
+        'center': center,
+        'center_label': center_label,
+        'pho': pho,
+        'karon': karon,
         'logo_url': logo_url,
         'municipality_name': municipality_name,
         'selected_quarter': selected_quarter,
         'signature_name': signature_name,
         'municipalities': municipalities,
+        'municipal': municipal,
         'barangays': barangays,
         'patients': patients,
         'histories': histories,
@@ -4496,19 +6033,294 @@ def pdf_cohort_create4(request):
         'total_none': total_none,
         'total_died': total_died,
     }
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment;filename="4thQuarter_Cohort.pdf"'#attachment;
-    template = get_template(template_path)
+    template = loader.get_template('monitoring/cohort_pdf4.html')
     html = template.render(context)
-    pisa_status = pisa.CreatePDF(
-        html,dest=response)
-    if pisa_status.err:
-        return HttpResponse('We had some errors <pre>'+html+'<prev>')
+
+    # Specify path to wkhtmltopdf executable
+    path_to_wkhtmltopdf = r"C:\wkhtmltox\bin\wkhtmltopdf.exe"
+    
+    # Configure pdfkit with the path
+    config = pdfkit.configuration(wkhtmltopdf=path_to_wkhtmltopdf)
+
+    # Options for landscape orientation
+    options = {
+        'orientation': 'Landscape',  # Set to Landscape
+        'page-size': 'A4',  # A4 paper size, you can adjust if needed
+        'footer-left': center_label,  # Add page numbers
+        'footer-right': 'Page [page] of [toPage]',  # Add page numbers
+        'footer-font-size': '10',  # Adjust font size for the footer
+        'footer-spacing': '5',  # Space between footer and content
+        'margin-bottom': '15mm',  # Ensure space for the footer
+    }
+    
+    # Generate PDF from HTML using pdfkit with configuration
+    pdf = pdfkit.from_string(html, configuration=config,options=options)
+
+    # Return the PDF as a responsev 
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment;filename="4th Quarter Cohort.pdf"'
+
     return response
 
+def pdf_cohort_create_annual(request):
+    user = request.user
+
+    municipality_map = {
+        "MAR": "Maripipi",
+        "KAW": "Kawayan",
+        "NAV": "Naval",
+        "CAIB": "Caibiran",
+        "ALM": "Almeria",
+        "BIL": "Biliran",
+        "CUL": "Culaba",
+        "CABUC": "Cabucgayan"
+    }
+    if user.is_superuser and user.code == "NAV":
+        municipality_name = "BPH"
+    else:
+        municipality_name = municipality_map.get(user.code, "Province")
+
+    if user.is_superuser:
+        municipal = "Province of Biliran"
+    else:
+        munici = municipality_map.get(user.code)
+        municipal = (f"Municipality of {munici}")
+            
+    # Only set for 2nd quarter (April 1 to June 30)
+    selected_quarter = 'annual'
+    year = date.today().year
+    # 4th Quarter
+    start_date = date(year, 1, 1)
+    end_date = date(year, 12, 31)
+
+    # Retrieve data based on the user type and date range
+    if user.is_superuser:
+        municipalities = Municipality.objects.all()
+        barangays = Barangay.objects.all()
+        patients = Patient.objects.all()
+        histories = History.objects.filter(date_registered__range=(start_date, end_date))
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+    else:
+        patients = Patient.objects.filter(user=user)
+        histories = History.objects.filter(patient_id__in=patients, date_registered__range=(start_date, end_date))
+        treatments = Treatment.objects.filter(
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+        municipalities = Municipality.objects.filter(muni_id__in=patients.values_list('muni_id', flat=True))
+        barangays = Barangay.objects.filter(brgy_id__in=patients.values_list('brgy_id', flat=True))
+
+    # Calculate counts for each category of exposure
+    category_i_count = histories.filter(category_of_exposure='I').count()
+    category_ii_count = histories.filter(category_of_exposure='II').count()
+    category_iii_count = histories.filter(category_of_exposure='III').count()
+    total_count = category_i_count + category_ii_count + category_iii_count
+
+    # RIG counts by category
+    category_ii_with_rig = histories.filter(
+        category_of_exposure='II',
+        patient_id__treatments_patient__rig_given__isnull=False,
+        date_registered__range=(start_date, end_date)
+    ).distinct().count()
+
+    category_iii_with_rig = histories.filter(
+        category_of_exposure='III',
+        patient_id__treatments_patient__rig_given__isnull=False,
+        date_registered__range=(start_date, end_date)
+    ).distinct().count()
+
+    total_count_rig = category_ii_with_rig + category_iii_with_rig
+
+    # Outcome counters for each category and date range
+    category_ii_complete = category_ii_incomplete = category_ii_none = category_ii_died = 0
+    category_iii_complete = category_iii_incomplete = category_iii_none = category_iii_died = 0
+
+    # Process Category II outcomes
+    for history in histories.filter(category_of_exposure='II'):
+        # Filter treatments associated with the patient within the date range
+        treatments = Treatment.objects.filter(
+            patient_id=history.patient_id,
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+
+        if history.human_rabies:
+            category_ii_died += 1
+            continue
+
+        if treatments.exists():
+            # Check if all of day0, day3, and day7 are marked True (Complete)
+            if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
+                category_ii_complete += 1
+            # Check if any one of day0, day3, or day7 is False (Incomplete)
+            elif treatments.filter(day0_arrived=False).exists() or \
+                treatments.filter(day3_arrived=False).exists() or \
+                treatments.filter(day7_arrived=False).exists():
+                category_ii_incomplete += 1
+            # If all day0, day3, and day7 are False (None)
+            elif treatments.filter(day0_arrived=False, day3_arrived=False, day7_arrived=False).exists():
+                category_ii_none += 1
+        else:
+            category_ii_none += 1
+
+    # Process Category III outcomes
+    for history in histories.filter(category_of_exposure='III'):
+        treatments = Treatment.objects.filter(
+            patient_id=history.patient_id,
+            patient_id__histories__date_registered__range=(start_date, end_date)
+        ).distinct()
+
+        if history.human_rabies:
+            category_iii_died += 1
+            continue
+
+        if treatments.exists():
+            # Check if all of day0, day3, and day7 are marked True (Complete)
+            if treatments.filter(day0_arrived=True, day3_arrived=True, day7_arrived=True).exists():
+                category_iii_complete += 1
+            # Check if any one of day0, day3, or day7 is False (Incomplete)
+            elif treatments.filter(day0_arrived=False).exists() or \
+                treatments.filter(day3_arrived=False).exists() or \
+                treatments.filter(day7_arrived=False).exists():
+                category_iii_incomplete += 1
+            # If all day0, day3, and day7 are False (None)
+            elif treatments.filter(day0_arrived=False, day3_arrived=False, day7_arrived=False).exists():
+                category_iii_none += 1
+        else:
+            category_iii_none += 1
 
 
 
+    total_complete = category_ii_complete + category_iii_complete
+    total_incomplete = category_ii_incomplete + category_iii_incomplete
+    total_none = category_ii_none + category_iii_none
+    total_died = category_ii_died + category_iii_died
+
+    signature_name = f"{user.first_name} {user.last_name}".strip() if user.first_name or user.last_name else user.username
+
+    if user.logo_image:  # Ensure the user has a logo image
+        logo_url = request.build_absolute_uri(user.logo_image.url)
+    else:
+        logo_url = None  # If no logo is available, set logo_url to None
+
+    karon =  date.today().year
+    
+    code_to_muni_name = {
+        'ALM': 'Almeria',
+        'BIL': 'Biliran',
+        'CABUC': 'Cabucgayan',
+        'CAIB': 'Caibiran',
+        'CUL': 'Culaba',
+        'KAW': 'Kawayan',
+        'MAR': 'Maripipi',
+        'NAV': 'Naval',
+    }
+
+    if user.is_superuser:
+        coordinator = "Provincial Rabies Coordinator"
+        pho = "PHO II"
+        # Get the first lead doctor
+        doct = Doctor.objects.filter(is_superdoctor=True).first()
+        doctor = doct.full_name() if doct else "No Doctor Assigned"
+        center = "Biliran Province Hospital"
+        center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+    else:
+        # Map user code to municipality name
+        muni_name = code_to_muni_name.get(user.code)
+
+        if muni_name:
+            try:
+                # Find the municipality with this name
+                municipality = Municipality.objects.get(muni_name=muni_name)
+                # Filter doctors by this municipality
+                doct = Doctor.objects.filter(muni_id=municipality).first()
+                doctor = doct.full_name() if doct else "No Doctor Assigned"
+                coordinator = f"Municipality of {municipality.muni_name}"
+                pho = f"Doctor of {municipality.muni_name}"
+                center = muni_name  # Use the user's code to determine the center
+                center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+            except Municipality.DoesNotExist:
+                # Handle case where the municipality name does not exist
+                coordinator = "Unknown Municipality"
+                pho = "No Doctor Assigned"
+                doctor = "No Doctor Assigned"
+                center = "Unknown Center"
+                center_label = f"Animal Bite Treatment Center: {center}"  # Add the label
+        else:
+            # Handle case where the user's code does not match any municipality
+            coordinator = "Unknown Municipality"
+            pho = "No Doctor Assigned"
+            doctor = "No Doctor Assigned"
+            center = "Unknown Center"
+            center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
+
+        
+
+    context = {
+        'doctor': doctor,
+        'coordinator': coordinator,
+        'center': center,
+        'center_label': center_label,
+        'pho': pho,
+        'karon': karon,
+        'logo_url': logo_url,
+        'municipality_name': municipality_name,
+        'selected_quarter': selected_quarter,
+        'signature_name': signature_name,
+        'municipalities': municipalities,
+        'municipal': municipal,
+        'barangays': barangays,
+        'patients': patients,
+        'histories': histories,
+        'treatments': treatments,
+        'category_ii_count': category_ii_count,
+        'category_iii_count': category_iii_count,
+        'total_count': total_count,
+        'total_count_rig': total_count_rig,
+        'category_ii_with_rig': category_ii_with_rig,
+        'category_iii_with_rig': category_iii_with_rig,
+        'category_ii_complete': category_ii_complete,
+        'category_ii_incomplete': category_ii_incomplete,
+        'category_ii_none': category_ii_none,
+        'category_ii_died': category_ii_died,
+        'category_iii_complete': category_iii_complete,
+        'category_iii_incomplete': category_iii_incomplete,
+        'category_iii_none': category_iii_none,
+        'category_iii_died': category_iii_died,
+        'total_complete': total_complete,
+        'total_incomplete': total_incomplete,
+        'total_none': total_none,
+        'total_died': total_died,
+        'year': year,
+    }
+    template = loader.get_template('monitoring/cohort_pdf_annual.html')
+    html = template.render(context)
+
+    # Specify path to wkhtmltopdf executable
+    path_to_wkhtmltopdf = r"C:\wkhtmltox\bin\wkhtmltopdf.exe"
+    
+    # Configure pdfkit with the path
+    config = pdfkit.configuration(wkhtmltopdf=path_to_wkhtmltopdf)
+
+    # Options for landscape orientation
+    options = {
+        'orientation': 'Landscape',  # Set to Landscape
+        'page-size': 'A4',  # A4 paper size, you can adjust if needed
+        'footer-left': center_label,  # Add page numbers
+        'footer-right': 'Page [page] of [toPage]',  # Add page numbers
+        'footer-font-size': '10',  # Adjust font size for the footer
+        'footer-spacing': '5',  # Space between footer and content
+        'margin-bottom': '15mm',  # Ensure space for the footer
+    }
+    
+    # Generate PDF from HTML using pdfkit with configuration
+    pdf = pdfkit.from_string(html, configuration=config,options=options)
+
+    # Return the PDF as a responsev 
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment;filename="Annual Cohort.pdf"'
+
+    return response
 
 
 @login_required

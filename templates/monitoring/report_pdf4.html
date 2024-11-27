@@ -15,51 +15,56 @@
         }
 
         body {
-            padding-top: 70px; 
             font-family: Arial, sans-serif; /* Set a default font */
         }
 
-        .container {
-            margin: 20px;
+        .header {
+            width: 100%;
+            display: table;
         }
 
-        .custom-center {
-            text-align: center; /* Center the text */
+        .logo {
+            display: table-cell;
+            width: 20%;
+            vertical-align: middle;
+            text-align: left;
         }
 
-        .custom-h6 {
-            font-size: 20px;         /* Equivalent to Bootstrap's h1 */
-            margin: 10px 0 5px;      /* Adjust top and bottom margin */
-            font-weight: normal;     /* Remove bold */
-        }
-        .custom-h1 {
-            font-size: 20px; /* Equivalent to Bootstrap's h1 */
-            margin: 10px 0 5px; /* Adjust top and bottom margin */
+        .logo img {
+            max-height: 120px;
+            width: auto;
+            margin-left: 20px;
         }
 
-        .custom-h2 {
-            font-size: 18px; /* Equivalent to Bootstrap's h2 */
-            margin: 0; /* Remove default margins */
+        .text {
+            width: 80%; /* Set the width to a reasonable size */
+            margin: 0 auto; /* Center horizontally on the page */
+            text-align: center; /* Center the text inside */
+            position: relative; /* Allow offset adjustments */
+            margin-left: -30px;
         }
 
-        .custom-h3 {
-            font-size: 18px; /* Equivalent to Bootstrap's h3 */
-            margin: 0; /* Remove default margins */
-        }
-        .custom-h7 {
-            font-size: 18px; /* Equivalent to Bootstrap's h3 */
-            margin: 0; /* Remove default margins */
-            font-weight: normal;
-        }
-        .quarter {
-            margin: 0 auto; /* Center the div in its container */
-            padding: 0; /* Remove any default padding */
+        h1, h2, h3 {
+            margin: 5px 0; /* Adjust margins for consistent spacing */
         }
 
-        .grey {
-            background-color: yellow;
+        h1 {
+            font-size: 25px;
             font-weight: bold;
-            color: black;
+            margin-bottom: 15px;
+        }
+
+        h2 {
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+
+        h3 {
+            font-size: 18px;
+            text-decoration: underline;
+        }
+        .tableTop{
+                margin-top: 20px;
         }
 
         table {
@@ -75,8 +80,16 @@
             width: 4.17%; /* Adjust width based on the number of columns */
         }
 
-        th {
-            background-color: #f8f9fa; /* Light background color for headers */
+        th:first-child {
+            min-width: 50px; /* Ensure enough space for long names */
+            text-align: center; /* Align Barangay names to the left */
+            white-space: nowrap; /* Prevent text wrapping */
+            overflow: hidden; /* Hide overflow text */
+            text-overflow: ellipsis; /* Add ellipses if the text is too long */
+        }
+        
+        .highlightTotal{
+            font-weight: bold;
         }
 
         .signature-section {
@@ -103,31 +116,29 @@
 <body>
     <!-- report_pdf.html -->
     <div class="container">
-        <div class="d-flex" style="display: flex; align-items: flex-start; margin-bottom: 20px;"> <!-- Flexbox for logo and text -->
-            <!-- <div style="margin-right: 20px;"> 
-                <div class="d-flex align-items-center">
-                {% if logo_url  %}
-                    <img src="{{ logo_url }}" alt="Logo" style="height: 120px; margin-right: 20px; margin-left: 20px;">
+        <div class="header">
+            <div class="logo">
+                {% if logo_url %}
+                <img src="{{ logo_url }}" alt="Logo">
                 {% else %}
-                    <p>No logo available</p>
+                <p>No logo available</p>
                 {% endif %}
-            </div> -->
             </div>
-            <div class="custom-center quarter">
-                <h1 class="custom-h1">MUNICIPAL REPORT FORM ON ANIMAL BITE/HUMAN RABIES CASES</h1>
-                <h2 class="custom-h2">Municipality of {{ municipality_name }}</h2>
-                <h3 class="custom-h3">
-                    <u>
-                        4th Quarter 2024
-                    </u>
+            <div class="text">
+                <h1>MUNICIPAL REPORT FORM ON ANIMAL BITE/HUMAN RABIES CASES</h1>
+                <h2>
+                    {{ municipal }}
+                </h2>
+                <h3>
+                    4th Quarter Report {{ karon }}
                 </h3>
             </div>
         </div>
         <!-- Table area -->
-        <table>
+        <table class="tableTop">
             <thead>
                 <tr>
-                    <th rowspan="4" style="width: 20%; text-align: left;">{{ table }}</th>
+                    <th rowspan="4" style="width: 20%; text-align: center;">{{ table }}</th>
                     <th colspan="15">Human Case</th>
                     <th colspan="4" rowspan="3">Biting Animals</th>
                     <th colspan="2" rowspan="3">PEP Coverage</th>
@@ -172,7 +183,7 @@
             <tbody>
                 {% for entry in data %}
                 <tr>
-                    <th style="width: 15%; text-align: left;">{{ entry.barangay }}</th>
+                    <th style="width: 15%; text-align: center;">{{ entry.barangay }}</th>
                     <td>{{ entry.data_male }}</td> 
                     <td>{{ entry.data_female }}</td> 
                     <td>{{ entry.data_total }}</td> 
@@ -199,17 +210,17 @@
                 </tr>
                 {% endfor %}
                 <tr class="grey">
-                    <th style="width: 15%; text-align: left;">Total</th>
+                    <th style="width: 15%; text-align: center;">Total</th>
                     <td>{{ total_male }}</td> 
                     <td>{{ total_female }}</td> 
-                    <td>{{ total_all }}</td> 
+                    <td class="highlightTotal">{{ total_all }}</td> 
                     <td>{{ total_age_15_below }}</td> 
                     <td>{{ total_age_above_15 }}</td> 
-                    <td>{{ total_age_15_below|add:total_age_above_15 }}</td>
+                    <td class="highlightTotal">{{ total_age_15_below|add:total_age_above_15 }}</td>
                     <td>{{ total_animal_bite_I }}</td> 
                     <td>{{ total_animal_bite_II }}</td> 
                     <td>{{ total_animal_bite_III }}</td>
-                    <td>{{ total_all }}</td> 
+                    <td class="highlightTotal">{{ total_all }}</td> 
                     <td>{{ total_percent }}%</td>
                     <td>{{ total_human_rabies }}</td>
                     <td>{{ total_tcv_given }}</td>
@@ -218,24 +229,24 @@
                     <td>{{ total_dog_bites }}</td>
                     <td>{{ total_cat_bites }}</td>
                     <td>{{ total_other_bites }}</td>
-                    <td>{{ total_dog_bites|add:total_cat_bites|add:total_other_bites }}</td>
+                    <td class="highlightTotal">{{ total_dog_bites|add:total_cat_bites|add:total_other_bites }}</td>
                     <td>{{ total_tcv_percent }}%</td>
                     <td>{{ total_erig_percent }}%</td>
                     <td>{{ total_immunized }}</td>
                     <td>{{ total_unimmunized }}</td>
                 </tr>
                 <tr>
-                    <th style="width: 15%; text-align: left;">%</th>
+                    <th style="width: 15%; text-align: center;">%</th>
                     <td>{{ male_percentage }}%</td>
                     <td>{{ female_percentage }}%</td>
-                    <td>{{ total_percentage }}%</td>
+                    <td class="highlightTotal">{{ total_sex_percentage }}%</td>
                     <td>{{ age_15_below_percentage }}%</td>
                     <td>{{ age_above_15_percentage }}%</td>
-                    <td>{{ total_age_percentage }}%</td>
+                    <td class="highlightTotal">{{ total_age_percentage }}%</td>
                     <td>{{ total_animal_bite_I_percentage }}%</td>
                     <td>{{ total_animal_bite_II_percentage }}%</td>
                     <td>{{ total_animal_bite_III_percentage }}%</td>
-                    <td>{{ total_category_percentage }}%</td>
+                    <td class="highlightTotal">{{ total_category_percentage }}%</td>
                     <td></td>
                     <td></td>
                     <td></td>
@@ -244,7 +255,7 @@
                     <td>{{ dog_bite_percentage }}%</td>
                     <td>{{ cat_bite_percentage }}%</td>
                     <td>{{ other_bite_percentage }}%</td>
-                    <td>{{ total_animal_type_percentage }}%</td>
+                    <td class="highlightTotal">{{ total_animal_type_percentage }}%</td>
                     <td></td>
                     <td></td>
                     <td>{{ immunized_percentage }}%</td>
@@ -252,14 +263,29 @@
                 </tr>
             </tbody>
         </table>
-        <div class="custom-center quarter">
-            <h1 class="custom-h6">Prepared by:</h1>
-            <h3 class="custom-h3">
-                <u>
-                    {{ signature_name }}
-                </u>
-            </h3>
-            <h2 class="custom-h7">Municipality Report</h2>
-        </div> 
+        <div style="display: table; width: 100%; margin-top: 30px;">
+            <div style="display: table-row;">
+                <!-- Prepared By -->
+                <div style="display: table-cell; width: 50%; text-align: center; vertical-align: top;">
+                    <p style="margin: 0; font-weight: bold; text-align: left;">Prepared By:</p>
+                    <div style="margin-top: 10px;">
+                        <span style="display: block; font-weight: bold; text-align: center;">{{ signature_name }}</span>
+                        <div style="border-top: 1px solid black; margin: 5px auto 0; width: 50%;"></div>
+                    </div>
+                    <p style="margin-top: 10px; font-size: 14px; text-align: center;">{{ coordinator }}</p>
+                </div>
+                
+                <!-- Noted By -->
+                <div style="display: table-cell; width: 50%; text-align: center; vertical-align: top;">
+                    <p style="margin: 0; font-weight: bold; text-align: left;">Noted By:</p>
+                    <div style="margin-top: 10px;">
+                        <span style="display: block; font-weight: bold; text-align: center;">{{ doctor }}</span>
+                        <div style="border-top: 1px solid black; margin: 5px auto 0; width: 50%;"></div>
+                    </div>
+                    <p style="margin-top: 10px; font-size: 14px; text-align: center;">{{ pho }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

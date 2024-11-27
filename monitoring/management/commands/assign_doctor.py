@@ -1,12 +1,12 @@
 from django.core.management.base import BaseCommand
-from monitoring.models import Patient, Doctor, User
+from monitoring.models import Patient, Doctor, User, Treatment
 
 class Command(BaseCommand):
-    help = 'Assign all patients connected to a specific user to a specific doctor'
+    help = 'Assign a specific doctor to all treatments for patients associated with a specific user'
 
     def add_arguments(self, parser):
-        parser.add_argument('user_id', type=int, help='User ID to update patients for')
-        parser.add_argument('doctor_id', type=int, help='Doctor ID to assign to patients')
+        parser.add_argument('user_id', type=int, help='User ID to update treatments for')
+        parser.add_argument('doctor_id', type=int, help='Doctor ID to assign to treatments')
 
     def handle(self, *args, **options):
         user_id = options['user_id']
@@ -17,18 +17,25 @@ class Command(BaseCommand):
             doctor = Doctor.objects.get(id=doctor_id)
             user = User.objects.get(id=user_id)
 
-            # Fetch all patients associated with this user
+            # Get all patients associated with the specified user
             patients = Patient.objects.filter(user=user)
 
             if not patients.exists():
                 self.stdout.write(self.style.WARNING(f"No patients found for user with ID {user_id}."))
                 return
 
-            # Update each patient's doctor
-            updated_count = patients.update(doctor=doctor)
+            # Get all treatments for patients associated with this user
+            treatments = Treatment.objects.filter(patient_id__in=patients)
+
+            if not treatments.exists():
+                self.stdout.write(self.style.WARNING(f"No treatments found for patients associated with user ID {user_id}."))
+                return
+
+            # Update the doctor for all selected treatments
+            updated_count = treatments.update(doctor=doctor)
 
             self.stdout.write(self.style.SUCCESS(
-                f"Successfully assigned Doctor (ID: {doctor_id}) to {updated_count} patients associated with User (ID: {user_id})."
+                f"Successfully assigned Doctor (ID: {doctor_id}) to {updated_count} treatments associated with User (ID: {user_id})."
             ))
 
         except Doctor.DoesNotExist:

@@ -1,4 +1,5 @@
 # Standard Library Imports
+from django.utils import timezone
 from datetime import datetime, timedelta
 import io
 from io import BytesIO
@@ -36,7 +37,10 @@ from reportlab.lib.pagesizes import A4, letter, landscape
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer 
+from reportlab.platypus import HRFlowable
+from reportlab.lib.enums import TA_CENTER
 from import_export import resources
 
 # Local App Imports
@@ -55,12 +59,118 @@ csrf_protect_m = method_decorator(csrf_protect)
 sensitive_post_parameters_m = method_decorator(sensitive_post_parameters)
 
 
+class AgeFilter(SimpleListFilter):
+    title = 'Age of Patient' 
+    parameter_name = 'age' 
+
+    def lookups(self, request, model_admin):
+        
+        return (
+            ('below_15', 'Below or Equal 15'),
+            ('above_16', 'Above 15'),
+        )
+    
+    def queryset(self, request, queryset):
+        
+        today = datetime.today()
+        if self.value() == 'below_15':
+            return queryset.filter(birthday__gt=today - timedelta(days=365*15))
+        elif self.value() == 'above_16':
+            return queryset.filter(birthday__lt=today - timedelta(days=365*16))
+
+class BarangayFilter(SimpleListFilter):
+    title = 'Barangay'
+    parameter_name = 'brgy_id'
+    
+    def lookups(self, request, model_admin):
+        return Patient.objects.values_list('brgy_id__brgy_name', 'brgy_id__brgy_name').distinct()
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(brgy_id__brgy_name=self.value())
+
+class CodeFilter(admin.SimpleListFilter):
+    title = _('Animal Bite Center Code')
+    parameter_name = 'user__code'
+
+    def lookups(self, request, model_admin):
+        """Retrieve and display all distinct user codes, even if no patient exists yet."""
+        # Query distinct codes from the User model
+        codes = User.objects.values_list('code', flat=True).distinct()
+        return [(code, code) for code in codes if code]
+
+    def queryset(self, request, queryset):
+        """Filter queryset based on selected code."""
+        if self.value():
+            return queryset.filter(user__code=self.value())
+        return queryset
+
+class CodeForeign(admin.SimpleListFilter):
+    title = _('Animal Bite Center Code')
+    parameter_name = 'patient_id__user__code'
+
+    def lookups(self, request, model_admin):
+        # Get distinct codes associated with users who have patients
+        codes = User.objects.values_list('code', flat=True).distinct()
+        return [(code, code) for code in codes if code]  # filter out any null or empty values
+
+    def queryset(self, request, queryset):
+        # Filter the queryset based on the selected code value
+        if self.value():
+            return queryset.filter(patient_id__user__code=self.value())
+        return queryset
+
+class MunicipalityFilter(SimpleListFilter):
+    title = 'Municipality of Patient'
+    parameter_name = 'muni_id'
+
+    def lookups(self, request, model_admin):
+        return Patient.objects.values_list('muni_id__muni_name', 'muni_id__muni_name').distinct()
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(muni_id__muni_name=self.value())
+        
+class BarangayFilter(SimpleListFilter):
+    title = 'Barangay of Patient'
+    parameter_name = 'brgy_id'
+
+    def lookups(self, request, model_admin):
+        # Return unique Barangay names for filtering
+        return Patient.objects.values_list('brgy_id__brgy_name', 'brgy_id__brgy_name').distinct()
+
+    def queryset(self, request, queryset):
+        if self.value():
+            # Filter the queryset by the selected Barangay
+            return queryset.filter(brgy_id__brgy_name=self.value())
+        return queryset
+
+
+class DoctorFilter(SimpleListFilter):
+    title = 'Doctors'  # The title shown in the admin panel
+    parameter_name = 'doctor'  # The parameter used in the query string
+
+    def lookups(self, request, model_admin):
+        # Generate unique doctor full names for filtering
+        doctors = Doctor.objects.all()
+        return [
+            (doctor.id, f"{doctor.first_name} {doctor.middle_name or ''} {doctor.last_name}".strip())
+            for doctor in doctors
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            # Filter the queryset by the selected doctor ID
+            return queryset.filter(doctor_id=self.value())
+        return queryset
+
+
+
 class PatientResource(resources.ModelResource):
     class Meta:
         model = Patient
         fields = ('first_name','middle_name', 'last_name', 'muni_id','brgy_id', 'age', 'sex','contactNumber','doctor')
         export_order = ('doctor','first_name','middle_name', 'last_name', 'muni_id','brgy_id', 'age', 'sex','contactNumber')
-
 
 class CustomGeoAdmin(LeafletGeoAdmin):
     
@@ -81,11 +191,12 @@ class DoctorAdmin(admin.ModelAdmin):
     search_fields = ('first_name', 'middle_name', 'last_name', 'email', 'contact_number')
     ordering = ('last_name', 'first_name')
     list_per_page = 5
+    ordering = ('first_name',) 
 
     # Group fields logically in the form view
     fieldsets = (
         ('Personal Information', {
-            'fields': ('first_name', 'middle_name', 'last_name','licensed', 'specialization', 'gender')
+            'fields': ('first_name', 'middle_name', 'last_name','licensed', 'specialization', 'gender','is_superdoctor')
         }),
         ('Contact Information', {
             'fields': ('muni_id', 'brgy_id', 'email','contact_number' )
@@ -114,6 +225,24 @@ class DoctorAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         # Allow add permission for all users (superusers and non-superusers)
         return super().has_add_permission(request)
+    
+    # Optionally restrict the 'is_superdoctor' field visibility to superusers only
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == 'is_superdoctor' and not request.user.is_superuser:
+            kwargs['disabled'] = True  # Disable field for non-superusers
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+    
+    def save_model(self, request, obj, form, change):
+        if not request.user.is_superuser:
+            obj.is_superdoctor = False  # Prevent non-superusers from changing this field
+        super().save_model(request, obj, form, change)
+    
+    class Media:
+        css = {
+            'all': ('admin/css/theadColor.css','admin/css/checkbox.css',) 
+        }
+
+
 
 class PatientInline(admin.StackedInline):
     model = Patient
@@ -151,94 +280,38 @@ class HistoryInline(admin.StackedInline):
             formset.form.base_fields.pop('registration_no', None)
         return formset
 
-    def get_readonly_fields(self, request, obj=None):
-        readonly_fields = []
-        if obj and request.user.is_superuser:
-            readonly_fields = [field.name for field in self.model._meta.fields if field.name != 'id']
-        return readonly_fields
+    """ def has_change_permission(self, request, obj=None):
+        if obj:
+            return False  
+        return True   """
+    # Prevent editing of History inline records
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    # Override the has_delete_permission method to disable delete option
+    def has_delete_permission(self, request, obj=None):
+        return False  # Prevents deletion of Treatment inline records
 
 class TreatmentInline(admin.StackedInline):
     model = Treatment
     extra = 0
 
-class AgeFilter(SimpleListFilter):
-    title = 'Age' 
-    parameter_name = 'age' 
+    """ def has_change_permission(self, request, obj=None):
+        if obj:
+            
+            return False  
+        return True   """
 
-    def lookups(self, request, model_admin):
-        
-        return (
-            ('below_15', 'Below or Equal 15'),
-            ('above_16', 'Above 15'),
-        )
-    
-    def queryset(self, request, queryset):
-        
-        today = datetime.today()
-        if self.value() == 'below_15':
-            return queryset.filter(birthday__gt=today - timedelta(days=365*15))
-        elif self.value() == 'above_16':
-            return queryset.filter(birthday__lt=today - timedelta(days=365*16))
-
-class BarangayFilter(SimpleListFilter):
-    title = 'Barangay'
-    parameter_name = 'brgy_id'
-    
-    def lookups(self, request, model_admin):
-        return Patient.objects.values_list('brgy_id__brgy_name', 'brgy_id__brgy_name').distinct()
-
-    def queryset(self, request, queryset):
-        if self.value():
-            return queryset.filter(brgy_id__brgy_name=self.value())
-
-class CodeFilter(admin.SimpleListFilter):
-    title = _('Code')
-    parameter_name = 'user__code'
-
-    def lookups(self, request, model_admin):
-        """Retrieve and display only the distinct user codes in use."""
-        # Query distinct codes that are currently in the database
-        codes = Patient.objects.values_list('user__code', flat=True).distinct()
-        return [(code, code) for code in codes if code]
-
-    def queryset(self, request, queryset):
-        """Filter queryset based on selected code."""
-        if self.value():
-            return queryset.filter(user__code=self.value())
-        return queryset
-
-class CodeForeign(admin.SimpleListFilter):
-    title = _('Code')
-    parameter_name = 'patient_id__user__code'
-
-    def lookups(self, request, model_admin):
-        # Get distinct codes associated with users who have patients
-        codes = Patient.objects.values_list('user__code', flat=True).distinct()
-        return [(code, code) for code in codes if code]  # filter out any null or empty values
-
-    def queryset(self, request, queryset):
-        # Filter the queryset based on the selected code value
-        if self.value():
-            return queryset.filter(patient_id__user__code=self.value())
-        return queryset
-
-class MunicipalityFilter(SimpleListFilter):
-    title = 'Municipality'
-    parameter_name = 'muni_id'
-
-    def lookups(self, request, model_admin):
-        return Patient.objects.values_list('muni_id__muni_name', 'muni_id__muni_name').distinct()
-
-    def queryset(self, request, queryset):
-        if self.value():
-            return queryset.filter(muni_id__muni_name=self.value())
+    # Override the has_delete_permission method to disable delete option
+    def has_delete_permission(self, request, obj=None):
+        return False  # Prevents deletion of Treatment inline records
 
 @admin.register(Patient)
 class PatientAdmin(LeafletGeoAdmin):
-    list_display = ('code', 'first_name','middle_name', 'last_name', 'muni_id','brgy_id', 'age', 'sex','contactNumber','doctor' )
+    list_display = ('code', 'first_name','middle_name', 'last_name', 'muni_id','brgy_id', 'age', 'sex','contactNumber')
     list_per_page = 5
     search_fields = ['first_name','middle_name','last_name','muni_id__muni_name','brgy_id__brgy_name','sex__iexact']
-    list_filter = (CodeFilter,'doctor', AgeFilter,'muni_id', 'brgy_id', 'sex')
+    list_filter = (CodeFilter, MunicipalityFilter,BarangayFilter,AgeFilter, 'sex')
     inlines = [HistoryInline, TreatmentInline] 
     exclude = ('user',) 
     ordering = ('-patient_id',)
@@ -246,107 +319,160 @@ class PatientAdmin(LeafletGeoAdmin):
     actions = ['export_patient_data']
 
     def export_patient_data(self, request, queryset):
-        # Ensure only one patient is selected
         if queryset.count() != 1:
             self.message_user(request, "Please select exactly one patient to export data.", level='error')
             return
-        
-        # Get the selected patient
+
         patient = queryset.first()
-        
-        # Create a PDF response
+
+        # Create HTTP response
         response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="{patient.first_name}_{patient.last_name}_data.pdf"'
-        
-        # Use a BytesIO buffer to create the PDF in memory
+        response['Content-Disposition'] = f'attachment; filename="{patient.first_name} {patient.last_name} Rabies Exposure Registry.pdf"'
+ 
+        # Initialize buffer for PDF
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4)
-        elements = []  # List to store all document elements
+        doc = SimpleDocTemplate(buffer, pagesize=landscape(A4))
+        elements = []
 
-        # Title for Patient Info section
-        elements.append(Table([[f"Patient Information"]], style=[('FONT', (0, 0), (-1, -1), 'Helvetica-Bold', 16)]))
+        # Title of the document
+        elements.append(Paragraph(
+            "National Rabies Prevention and Control Program",
+            ParagraphStyle(name="Title", fontSize=13, alignment=1, textColor=colors.black, fontName="Helvetica-Bold", spaceAfter=10)
+        ))
 
-        # Patient Information Table
-        patient_info_data = [
-            ["Doctor", patient.doctor],
-            ["Name", f"{patient.first_name} {patient.middle_name} {patient.last_name}"],
-            ["Municipality", patient.muni_id],
-            ["Barangay", patient.brgy_id],
-            ["Birthday", patient.birthday],
-            ["Sex", patient.sex.capitalize()],
-            ["Contact Number", patient.contactNumber]
-        ]
-        patient_info_table = Table(patient_info_data, hAlign='LEFT')
-        patient_info_table.setStyle(TableStyle([
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
-            ('FONT', (0, 0), (-1, -1), 'Helvetica', 12),
-            ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.whitesmoke, colors.lightgrey]),
-        ]))
-        elements.append(patient_info_table)
+        elements.append(Paragraph(
+            "Rabies Exposure Registry",
+            ParagraphStyle(name="Title", fontSize=13, alignment=1, textColor=colors.black, fontName="Helvetica-Bold", spaceAfter=20)
+        ))
 
-        # History Records Title
-        elements.append(Table([["History Records"]], style=[('FONT', (0, 0), (-1, -1), 'Helvetica-Bold', 16)]))
-
-        # History Records Table
+        # Gather data for the table
         histories = History.objects.filter(patient_id=patient)
-        for history in histories:
-            history_data = [
-                ["Registration No", history.registration_no],
-                ["Date Registered", history.date_registered],
-                ["Date of Exposure", history.date_of_exposure],
-                ["Municipality of Exposure", history.muni_id],
-                ["Barangay of Exposure", history.brgy_id],
-                ["Category of Exposure", history.category_of_exposure],
-                ["Source of Exposure", history.source_of_exposure],
-                ["Exposure Type", history.exposure_type],
-                ["Bite Site", history.bite_site],
-                ["Provocation Status", history.provoked_status],
-                ["Animal Vaccination", history.immunization_status],
-                ["Animal Status", history.status_of_animal],
-                ["Confinement Status", history.confinement_status],
-                ["Washing of Hands", history.washing_hands]
-            ]
-            history_table = Table(history_data, hAlign='LEFT')
-            history_table.setStyle(TableStyle([
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-                ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
-                ('FONT', (0, 0), (-1, -1), 'Helvetica', 12),
-                ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.whitesmoke, colors.lightgrey]),
-            ]))
-            elements.append(history_table)
-
-        # Treatment Records Title
-        elements.append(Table([["Treatment Records"]], style=[('FONT', (0, 0), (-1, -1), 'Helvetica-Bold', 16)]))
-
-        # Treatment Records Table
         treatments = Treatment.objects.filter(patient_id=patient)
-        for treatment in treatments:
-            treatment_data = [
-                ["Vaccine Generic Name", treatment.vaccine_generic_name],
-                ["Vaccine Brand Name", treatment.vaccine_brand_name],
-                ["Vaccine Route", treatment.vaccine_route.capitalize()],
-                ["TCV Given", treatment.tcv_given],
-                ["Day 0", treatment.day0],
-                ["Day 3", treatment.day3],
-                ["Day 7", treatment.day7],
-                ["Day 14", treatment.day14],
-                ["Day 28", treatment.day28],
-                ["Booster 1", treatment.booster1],
-                ["Booster 2", treatment.booster2],
-                ["HRIG given", treatment.hrig_given],
-                ["ERIG given", treatment.rig_given],
-                ["Animal is alive", treatment.animal_alive],
-                ["Remarks", treatment.remarks]
+
+        # Define the table header with line breaks using \n for multi-line text
+        data = [
+            [
+                Paragraph("Registration\nNo", style=ParagraphStyle(name="Header", fontSize=8, alignment=1, textColor=colors.black)),
+                Paragraph("Registration\nDate", style=ParagraphStyle(name="Header", fontSize=8, alignment=1, textColor=colors.black)),
+                Paragraph("Name\nof\nPatient", style=ParagraphStyle(name="Header", fontSize=8, alignment=1, textColor=colors.black)),
+                Paragraph("Address\nof\nPatient", style=ParagraphStyle(name="Header", fontSize=8, alignment=1, textColor=colors.black)),
+                Paragraph("Age", style=ParagraphStyle(name="Header", fontSize=8, alignment=1, textColor=colors.black)),
+                Paragraph("Sex", style=ParagraphStyle(name="Header", fontSize=8, alignment=1, textColor=colors.black)),
+                Paragraph("Date\nof\nExposure", style=ParagraphStyle(name="Header", fontSize=8, alignment=1, textColor=colors.black)),
+                Paragraph("Place\nof\nExposure", style=ParagraphStyle(name="Header", fontSize=8, alignment=1, textColor=colors.black)),
+                Paragraph("Type\nof\nAnimal", style=ParagraphStyle(name="Header", fontSize=8, alignment=1, textColor=colors.black)),
+                Paragraph("Type", style=ParagraphStyle(name="Header", fontSize=8, alignment=1, textColor=colors.black)),
+                Paragraph("Category", style=ParagraphStyle(name="Header", fontSize=8, alignment=1, textColor=colors.black)),
+                Paragraph("Day\n0", style=ParagraphStyle(name="Header", fontSize=8, alignment=1, textColor=colors.black)),
+                Paragraph("Day\n3", style=ParagraphStyle(name="Header", fontSize=8, alignment=1, textColor=colors.black)),
+                Paragraph("Day\n7", style=ParagraphStyle(name="Header", fontSize=8, alignment=1, textColor=colors.black)),
+                Paragraph("Brand\nName", style=ParagraphStyle(name="Header", fontSize=8, alignment=1, textColor=colors.black)),
             ]
-            treatment_table = Table(treatment_data, hAlign='LEFT')
-            treatment_table.setStyle(TableStyle([
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-                ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
-                ('FONT', (0, 0), (-1, -1), 'Helvetica', 12),
-                ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.whitesmoke, colors.lightgrey]),
-            ]))
-            elements.append(treatment_table)
+        ]
+
+        # Add rows for each history and treatment
+        for history in histories:
+            treatment = treatments.filter(patient_id=patient).first()
+
+            # Break the patient's name into words using space as delimiter
+            name_words = f"{patient.first_name} {patient.middle_name} {patient.last_name}".split()
+            name = "<br/>".join(name_words)
+
+            # Wrap the patient address in Paragraphs to allow text wrapping
+            patient_address = f"{patient.muni_id}, {patient.brgy_id}"
+
+            # Break Place of Exposure as well
+            place_of_exposure = f"{history.muni_id}, {history.brgy_id}"
+
+            # Format the date in the desired format (e.g., "November 11, 2024")
+            formatted_date = history.date_of_exposure.strftime("%B %d, %Y")  # Converts to 'Month Day, Year'
+
+            # Add data to the table row
+            data.append([
+                history.registration_no,
+                Paragraph(formatted_date, style=ParagraphStyle(name="Data", fontSize=8, alignment=1, textColor=colors.black, wordWrap=True)),
+                Paragraph(name, style=ParagraphStyle(name="Data", fontSize=8, alignment=1, textColor=colors.black, wordWrap=True)),
+                Paragraph(patient_address, style=ParagraphStyle(name="Data", fontSize=8, alignment=1, textColor=colors.black, wordWrap=True)),
+                patient.get_age(),
+                patient.sex.capitalize(),
+                Paragraph(formatted_date, style=ParagraphStyle(name="Data", fontSize=8, alignment=1, textColor=colors.black, wordWrap=True)),
+                Paragraph(place_of_exposure, style=ParagraphStyle(name="Data", fontSize=8, alignment=1, textColor=colors.black, wordWrap=True)),
+                history.source_of_exposure,
+                history.exposure_type,
+                history.category_of_exposure,
+                Paragraph(
+                    treatment.day0.strftime("%B %d, %Y") if treatment and treatment.day0 else "N/A",
+                    style=ParagraphStyle(name="Data", fontSize=8, alignment=1, textColor=colors.black, wordWrap=True)
+                ),
+                Paragraph(
+                    treatment.day3.strftime("%B %d, %Y") if treatment and treatment.day3 else "N/A",
+                    style=ParagraphStyle(name="Data", fontSize=8, alignment=1, textColor=colors.black, wordWrap=True)
+                ),
+                Paragraph(
+                    treatment.day7.strftime("%B %d, %Y") if treatment and treatment.day7 else "N/A",
+                    style=ParagraphStyle(name="Data", fontSize=8, alignment=1, textColor=colors.black, wordWrap=True)
+                ),
+                treatment.vaccine_brand_name if treatment else "N/A"
+            ])
+
+        # Create the table with column widths adjusted for compactness
+        table = Table(data, repeatRows=1, hAlign="CENTER", colWidths=[60, 60, 60, 60, 30, 30, 60, 60, 40, 40, 40, 50, 50, 50, 50])  
+        table.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('FONT', (0, 0), (-1, -1), 'Helvetica', 8),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  
+            ('WORDSPACE', (0, 0), (-1, -1), 0.2),  
+        ]))
+
+        # Append the table to elements
+        elements.append(table)
+
+        # Add the "Noted By" section
+        elements.append(Spacer(1, 20))  # Space before "Noted By"
+        elements.append(Paragraph("Noted By:", style=ParagraphStyle(name="NotedBy", fontSize=10, alignment=1)))
+        elements.append(Spacer(1, 15))  # Slightly more space between "Noted By" and the name
+        elements.append(Paragraph(
+            f"{request.user.first_name} {request.user.last_name}",
+            style=ParagraphStyle(name="NotedByName", fontSize=10, fontName="Helvetica-Bold", alignment=1, spaceAfter=5)
+        ))
+
+        # Add the horizontal line directly beneath the name (no extra space)
+        elements.append(HRFlowable(width="20%", thickness=0.5, color=colors.black, spaceBefore=0, spaceAfter=0))
+
+
+
+        # Add footer (Treatment Center)
+        municipality_name = {
+            'ALM': 'Almeria', 'BIL': 'Biliran', 'CABUC': 'Cabucgayan', 'CAIB': 'Caibiran',
+            'CUL': 'Culaba', 'KAW': 'Kawayan', 'MAR': 'Maripipi', 'NAV': 'Naval'
+        }
+        treatment_center = municipality_name.get(request.user.code, "Biliran Province Hospital")
+
+        # Add some space before the footer, pushing it down to the bottom of the page
+        elements.append(Spacer(1, 200))  # Adjust spacer to place it at the bottom
+
+        # Create the footer text with bold only for the treatment_center
+        footer_text = f"Name of Animal Bite Treatment Center: <b>{treatment_center} Animal Bite Center</b>"
+
+        # Set footer style with left alignment
+        footer_style = ParagraphStyle(
+            name="Footer", 
+            fontSize=8, 
+            fontName="Helvetica", 
+            alignment=0,  # Left alignment
+            spaceBefore=10
+        )
+
+        # Add footer
+        elements.append(Paragraph(
+            footer_text,
+            style=footer_style
+        ))
+
+        # Adjusting the layout to mov
 
         # Build the PDF
         doc.build(elements)
@@ -356,6 +482,10 @@ class PatientAdmin(LeafletGeoAdmin):
         return response
 
     export_patient_data.short_description = "Export patient data"
+
+
+
+
 
     def get_search_results(self, request, queryset, search_term):
         # Allow search across all patients for all users, also show user code during search
@@ -371,11 +501,11 @@ class PatientAdmin(LeafletGeoAdmin):
         # If not searching or for regular users, remove 'code' from the list view
         if not request.GET.get('q'):  # When no search query
             if request.user.is_superuser:
-                return ('code', 'first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id', 'age', 'sex', 'contactNumber','doctor')
+                return ('code', 'first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id', 'age', 'sex', 'contactNumber')
             else:
-                return ('first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id', 'age', 'sex', 'contactNumber','doctor')
+                return ('first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id', 'age', 'sex', 'contactNumber')
         else:  # When search query is present
-            return ('code', 'first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id', 'age', 'sex', 'contactNumber','doctor')
+            return ('code', 'first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id', 'age', 'sex', 'contactNumber')
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -446,14 +576,15 @@ class PatientAdmin(LeafletGeoAdmin):
     def get_list_filter(self, request):
         if request.user.is_superuser:
             return self.list_filter
-        return (AgeFilter, 'muni_id', 'brgy_id')
+        return (MunicipalityFilter,BarangayFilter,AgeFilter, 'sex')
 
     class Media:
         js = ('assets/js/admin.js',)
         css = {
-            'all': ('assets/css/admin.css',),
+            'all': ('assets/css/admin.css','admin/css/theadColor.css','admin/css/checkbox.css',),
         }
-    
+
+
 @admin.register(History)
 class HistoryAdmin(CustomGeoAdmin):
     
@@ -514,6 +645,14 @@ class HistoryAdmin(CustomGeoAdmin):
         # Otherwise, show all records even if the user is not the owner (search case)
         return qs
     
+    # Allow editing patients by ensuring the correct patient object is retrieved
+    def get_object(self, request, object_id, from_field=None):
+        try:
+            # Get the patient by its ID, bypassing user-based filtering for editing
+            return History.objects.get(pk=object_id)
+        except History.DoesNotExist:
+            return None  # Return None if the patient doesn't exist
+
     def get_search_results(self, request, queryset, search_term):
         # Allow search across all patients for all users, also show user code during search
         if search_term:
@@ -528,8 +667,6 @@ class HistoryAdmin(CustomGeoAdmin):
         fields = super().get_fields(request, obj)
         if obj is None:  # If adding a new object, remove 'registration_no'
             fields = [field for field in fields if field != 'registration_no']
-        """ if obj is not None:  
-            fields = [field for field in fields if field not in ['geom', 'latitude', 'longitude']] """
         return fields
  
     def patient_name(self, obj):
@@ -577,19 +714,64 @@ class HistoryAdmin(CustomGeoAdmin):
 
     actions = ['']
 
+    class Media:
+        css = {
+            'all': ('admin/css/theadColor.css','admin/css/checkbox.css',) 
+        }
+
+
 @admin.register(Treatment)    
 class TreatmentAdmin(admin.ModelAdmin):
     list_display = ('code', 'patient_name','category_of_exposure', 'vaccine_generic_name', 'vaccine_brand_name',
-                    'vaccine_route', 'day0','day0_arrived', 'day3','day3_arrived', 'day7','day7_arrived',
+                    'vaccine_route', 'get_day0','day0_arrived_status', 'get_day3','day3_arrived_status', 'get_day7','day7_arrived_status',
                     'day28','tcv_given', 'rig_given','remarks')
                 
     search_fields = ['patient_id__first_name','patient_id__last_name','vaccine_route__iexact','vaccine_generic_name']
     list_per_page = 5
-    list_filter = [CodeForeign, 'patient_id__histories__category_of_exposure', 'vaccine_brand_name','vaccine_generic_name']
+    list_filter = [CodeForeign,DoctorFilter, 'patient_id__histories__category_of_exposure', 'vaccine_brand_name','vaccine_generic_name']
 
     # Exclude the 'day0_arrived' field from the form
     exclude = ('day0_arrived', 'day3_arrived', 'day7_arrived','day28_arrived',)
     ordering = ('-patient_id',)
+
+    def day0_arrived_status(self, obj):
+        return format_html('<b style="color: green;">✓</b>' if obj.day0_arrived else '<b style="color: red;">X</b>')
+    day0_arrived_status.short_description = format_html("")
+
+    def day3_arrived_status(self, obj):
+        return format_html('<b style="color: green;">✓</b>' if obj.day3_arrived else '<b style="color: red;">X</b>')
+    day3_arrived_status.short_description = format_html("")
+
+    def day7_arrived_status(self, obj):
+        return format_html('<b style="color: green;">✓</b>' if obj.day7_arrived else '<b style="color: red;">X</b>')
+    day7_arrived_status.short_description = format_html("")
+
+
+    # Custom methods to display Day 0, Day 3, Day 7 without extra labels in list display
+    def get_day0(self, obj):
+        return obj.day0
+    get_day0.short_description = format_html(_("(Day0)<br>1st Dose"))
+
+    def get_day3(self, obj):
+        return obj.day3
+    get_day3.short_description = format_html(_("(Day3)<br>2nd Dose"))
+
+    def get_day7(self, obj):
+        return obj.day7
+    get_day7.short_description =format_html(_("(Day7)<br>3rd Dose"))
+
+    # Customizing the form labels for add/edit views
+    def formfield_for_dbfield(self, db_field, **kwargs):
+        field = super().formfield_for_dbfield(db_field, **kwargs)
+        
+        if db_field.name == "day0":
+            field.label = _("Day 0 (First Dose)")
+        elif db_field.name == "day3":
+            field.label = _("Day 3 (Second Dose)")
+        elif db_field.name == "day7":
+            field.label = _("Day 7 (Third Dose)")
+        
+        return field
 
     def get_search_results(self, request, queryset, search_term):
         # Allow search across all patients for all users, also show user code during search
@@ -607,27 +789,38 @@ class TreatmentAdmin(admin.ModelAdmin):
         if not request.GET.get('q'):  # When no search query
             if request.user.is_superuser:
                 return ('code', 'patient_name','category_of_exposure', 'vaccine_generic_name', 'vaccine_brand_name',
-                    'vaccine_route', 'day0','day0_arrived', 'day3','day3_arrived', 'day7','day7_arrived',
+                    'vaccine_route', 'get_day0','day0_arrived_status', 'get_day3','day3_arrived_status', 'get_day7','day7_arrived_status',
                     'day28','tcv_given', 'rig_given','remarks')
             else:
                 return ('patient_name','category_of_exposure', 'vaccine_generic_name', 'vaccine_brand_name',
-                    'vaccine_route', 'day0','day0_arrived', 'day3','day3_arrived', 'day7','day7_arrived',
+                    'vaccine_route', 'get_day0','day0_arrived_status', 'get_day3','day3_arrived_status', 'get_day7','day7_arrived_status',
                     'day28','tcv_given', 'rig_given','remarks')
-            return ('code', 'patient_name','category_of_exposure', 'vaccine_generic_name', 'vaccine_brand_name',
-                    'vaccine_route', 'day0','day0_arrived', 'day3','day3_arrived', 'day7','day7_arrived',
+        return ('code', 'patient_name','category_of_exposure', 'vaccine_generic_name', 'vaccine_brand_name',
+                    'vaccine_route', 'get_day0','day0_arrived_status', 'get_day3','day3_arrived_status', 'get_day7','day7_arrived_status',
                     'day28','tcv_given', 'rig_given','remarks')
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         
-        # If user is superuser, show all records
+        # If user is a superuser, show all records
         if request.user.is_superuser:
-            return qs     
-        # If not searching, filter by the current user (for regular users)
-        if not request.GET.get('q'):  # No search query
-            return qs.filter(patient_id__user=request.user)       
-        # Otherwise, show all records even if the user is not the owner (search case)
-        return qs
+            return qs  
+        
+        # If there is a search query, do not filter by user ownership
+        if request.GET.get('q'):
+            return qs  # Allows search to show all results without filtering by user ownership
+        
+        # Filter by the current user if no search query is provided (regular access)
+        return qs.filter(patient_id__user=request.user)
+
+    # Allow editing patients by ensuring the correct patient object is retrieved
+    def get_object(self, request, object_id, from_field=None):
+        try:
+            # Get the patient by its ID, bypassing user-based filtering for editing
+            return Treatment.objects.get(pk=object_id)
+        except Treatment.DoesNotExist:
+            return None  # Return None if the patient doesn't exist
+
 
     def patient_name(self, obj):
         return  f"{obj.patient_id.first_name} {obj.patient_id.last_name}"
@@ -664,15 +857,24 @@ class TreatmentAdmin(admin.ModelAdmin):
         return super().has_add_permission(request)
     
     def has_change_permission(self, request, obj=None):
+        # Superusers always have permission
         if request.user.is_superuser:
             return False
-        return super().has_change_permission(request, obj)
+        elif request.user.is_staff:
+            return True
+
+        # If there is a search query, allow change permission without checking ownership
+        if request.GET.get('q'):
+            return True
+        
+        # Otherwise, restrict to objects owned by the user
+        return obj is not None and obj.patient_id.user == request.user
 
     def has_delete_permission(self, request, obj=None):
         if request.user.is_superuser and request.user.is_staff:
             return False
         """ return super().has_delete_permission(request, obj) """
-    
+       
     def get_actions(self, request):
         actions = super().get_actions(request)
         if request.user.is_superuser:
@@ -688,20 +890,23 @@ class TreatmentAdmin(admin.ModelAdmin):
     def mark_day0(self, request, queryset):
         for treatment in queryset:
             treatment.day0_arrived = not treatment.day0_arrived
+            treatment.day0 = datetime.today()
             treatment.save()
-    mark_day0.short_description = "Day 0"
+    mark_day0.short_description = "Day0(First Dose)"
 
     def mark_day3(self, request, queryset):
         for treatment in queryset:
             treatment.day3_arrived = not treatment.day3_arrived
+            treatment.day3 =datetime.today()
             treatment.save()
-    mark_day3.short_description = "Day 3"
+    mark_day3.short_description = "Day3(Second Dose)"
 
     def mark_day7(self, request, queryset):
         for treatment in queryset:
             treatment.day7_arrived = not treatment.day7_arrived
+            treatment.day7 = datetime.today()
             treatment.save()
-    mark_day7.short_description = "Day 7"
+    mark_day7.short_description = "Day7(Third Dose)"
 
     def mark_day28(self, request, queryset):
         for treatment in queryset:
@@ -717,13 +922,19 @@ class TreatmentAdmin(admin.ModelAdmin):
 
     actions = ['mark_day0','mark_day3','mark_day7','mark_day28', 'mark_as_animal',]
 
+    class Media:
+        css = {
+            'all': ('admin/css/theadColor.css','admin/css/checkbox.css',) 
+        }
+
 @admin.register(Barangay)
 class BarangayAdmin(CustomGeoAdmin):
-    list_display = ('brgy_name','muni_id',)#'tmp_muni'
-    list_filter = ['brgy_name','muni_id']
+    list_display = ('muni_id','brgy_name',)#'tmp_muni'
+    list_filter = ['muni_id','brgy_name',]
     #search_fields = ['brgy_name','muni_id']
-    ordering = ('brgy_name', 'muni_id__muni_name') 
+    ordering = ('muni_id__muni_name','brgy_name') 
     list_per_page = 10
+    exclude = ('boundary',)
     
 
     def muni_name(self, obj):
@@ -737,23 +948,41 @@ class BarangayAdmin(CustomGeoAdmin):
         if request.user.is_superuser and request.user.is_staff:
             return False """
     """ return super().has_change_permission(request, obj) """
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser and request.user.is_staff:
+            return False
+        """ return super().has_delete_permission(request, obj) """
     
     class Media:
         js = ('assets/js/admin.js',)
         css = {
-            'all': ('assets/css/admin.css',),
+            'all': ('assets/css/admin.css','admin/css/theadColor.css','admin/css/checkbox.css',) 
+            
         }
+        
         
 @admin.register(Municipality)
 class MunicipalityAdmin(CustomGeoAdmin):
     list_display = ('muni_name',)#'muni_logo'
-    fields = ('muni_name','geom',)#'logo'
+    fields = ('muni_name',)#'logo'
     ordering = ('muni_name',)
+    exclude = ('geom',)
 
     """ def has_change_permission(self, request, obj=None):
         if request.user.is_superuser and request.user.is_staff:
             return False """
     """ return super().has_change_permission(request, obj) """
+
+    def has_delete_permission(self, request, obj=None):
+        if request.user.is_superuser and request.user.is_staff:
+            return False
+        """ return super().has_delete_permission(request, obj) """
+
+    class Media:
+        css = {
+            'all': ('admin/css/theadColor.css','admin/css/checkbox.css',) 
+        }
 
 class LogEntryAdmin(admin.ModelAdmin):
     list_display = ('user', 'action_flag','object_repr', 'content_type','action_time', )
@@ -782,6 +1011,12 @@ class LogEntryAdmin(admin.ModelAdmin):
         if request.user.is_superuser:
             return False
         return super().has_change_permission(request, obj)
+    
+    class Media:
+        css = {
+            'all': ('admin/css/theadColor.css','admin/css/checkbox.css',) 
+        }
+
 admin.site.register(LogEntry, LogEntryAdmin)
 
 # Override UserAdmin
@@ -852,11 +1087,13 @@ class CustomUserAdmin(DefaultUserAdmin):
         )
     
     def get_readonly_fields(self, request, obj=None):
+        """
+        Restrict editing of certain fields for non-superusers.
+        """
         if request.user.is_superuser:
-            return ()  # Superadmin has no readonly fields
-        if obj and obj != request.user:
-            return ("username", "first_name", "last_name", "email")
-        return ("username","code", "password")
+            return ()  # Superuser has no readonly fields
+        # For non-superusers, restrict editing of specific fields
+        return ("username", "first_name", "last_name", "email","code","number","logo_image")
 
     def get_list_filter(self, request):
         if request.user.is_superuser:
@@ -883,6 +1120,11 @@ class CustomUserAdmin(DefaultUserAdmin):
             form.base_fields['user_permissions'].queryset = Permission.objects.exclude(content_type_id__in=content_type_ids)
         return form
 
+    class Media:
+        css = {
+            'all': ('admin/css/theadColor.css','admin/css/checkbox.css',) 
+        }
+
 class CustomGroupAdmin(GroupAdmin):
     search_fields = ("name",)
     ordering = ("name",)
@@ -908,6 +1150,11 @@ class CustomGroupAdmin(GroupAdmin):
 
             form.base_fields['permissions'].queryset = Permission.objects.exclude(content_type_id__in=content_type_ids)
         return form
+
+    class Media:
+        css = {
+            'all': ('admin/css/theadColor.css','admin/css/checkbox.css',) 
+        }
 
 if admin.site.is_registered(DefaultUserAdmin):
     admin.site.unregister(get_user_model())

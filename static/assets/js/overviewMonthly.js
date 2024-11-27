@@ -320,7 +320,6 @@ function initAnnualChart(years, annualCounts) {
     });
 }
 
-
 // This function will be called to initialize charts
 function initializeCharts(data) {
     initMonthlyChart(data.months, data.caseCounts);
@@ -329,3 +328,51 @@ function initializeCharts(data) {
     initQuarterlyChart(data.quarters, data.quarterlyCounts);
     initAnnualChart(data.years, data.annualCounts);
 }
+
+document.getElementById("downloadPDF").addEventListener("click", function () {
+    // Identify the currently visible chart section
+    const visibleChart = document.querySelector(".chart-container:not([style*='display: none']) canvas");
+
+    if (visibleChart) {
+        const imageData = visibleChart.toDataURL("image/png");
+
+        // Create jsPDF instance for landscape mode
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF("l", "mm", "a4");
+
+        // Page dimensions for A4 landscape
+        const pageWidth = 297; // A4 width in mm
+        const pageHeight = 210; // A4 height in mm
+
+        // Image size (adjust as needed)
+        const imgWidth = 250; // Width of the image (adjustable)
+        const imgHeight = 120; // Height of the image (adjustable)
+
+        // Calculate positions to center the image
+        const xOffset = (pageWidth - imgWidth) / 2; // Center horizontally
+        const yOffset = (pageHeight - imgHeight) / 2.5; // Center vertically, adjusted for title spacing
+
+        // Add the title dynamically from the visible chart's title
+        const title = visibleChart.closest(".chart-container").querySelector("h2").textContent;
+        doc.setFontSize(18);
+        doc.text(title, pageWidth / 2, 15, { align: "center" });
+
+        // Add the treatment center to the top-left corner
+        const treatmentCenter = "{{ treatment_center }}"; // Using the passed `treatment_center` value
+        doc.setFontSize(14);
+        doc.text(treatmentCenter, 10, 10); // Position at top-left (10mm from left, 10mm from top)
+
+        // Add the date range below the title (centered)
+        const dateRange = document.getElementById("date-range-display").textContent; // Get the date range text
+        doc.setFontSize(12);
+        doc.text(dateRange, pageWidth / 2.8, 20);
+
+        // Add the chart image (centered below the title and date range)
+        doc.addImage(imageData, "PNG", xOffset, yOffset, imgWidth, imgHeight);
+
+        // Save the PDF with the specified name
+        doc.save(`${title}.pdf`);
+    } else {
+        console.error("No visible chart found.");
+    }
+});

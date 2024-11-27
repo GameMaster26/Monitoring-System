@@ -9,68 +9,61 @@
     <link href="{% static 'assets/images/seal.png' %}" rel="icon" type="image/png">
     <style>
         /* Report Page Container */
-        @page {
+        /* @page {
             size: A4 landscape;
             margin: 5mm;
-        }
+        } */
         body {
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
         }
 
-        .container {
-            padding: 20px;
+        .header {
+            width: 100%;
+            display: table;
         }
 
-        /* Flexbox container to hold logo and text in the same row */
-        .header-row {
-            display: flex;
-            align-items: center;
-            justify-content: flex-start; /* Aligns logo to the left */
-            margin-bottom: 40px;
-        }
-        
-
-        .logo-container {
-            display: flex;
-            align-items: center;
-            margin-right: 30px; /* Space between logo and text */
+        .logo {
+            display: table-cell;
+            width: 20%;
+            vertical-align: middle;
+            text-align: left;
         }
 
-        .logo-container img {
-            height: 120px;
+        .logo img {
+            max-height: 120px;
             width: auto;
+            margin-left: 20px;
         }
 
-        .custom-center {
-            text-align: center; /* Center the text */
+        .text {
+            width: 80%; /* Set the width to a reasonable size */
+            margin: 0 auto; /* Center horizontally on the page */
+            text-align: center; /* Center the text inside */
+            position: relative; /* Allow offset adjustments */
+            margin-left: -30px;
+
         }
 
-        .custom-h1 {
-            font-size: 20px; /* Equivalent to Bootstrap's h1 */
-            margin: 10px 0 5px; /* Adjust top and bottom margin */
+        h1, h2, h3 {
+            margin: 5px 0; /* Adjust margins for consistent spacing */
         }
 
-        .custom-h2 {
-            font-size: 18px; /* Equivalent to Bootstrap's h2 */
-            margin: 0; /* Remove default margins */
-        }
-
-        .custom-h3 {
-            font-size: 18px; /* Equivalent to Bootstrap's h3 */
-            margin: 0; /* Remove default margins */
-        }
-
-        .quarter {
-            margin: 0 auto; /* Center the div in its container */
-            padding: 0; /* Remove any default padding */
-        }
-
-        .grey {
-            background-color: yellow;
+        h1 {
+            font-size: 25px;
             font-weight: bold;
-            color: black;
+            margin-bottom: 15px;
+        }
+
+        h2 {
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+
+        h3 {
+            font-size: 18px;
+            text-decoration: underline;
         }
 
         /* Styling for the table */
@@ -78,6 +71,7 @@
             width: 100%;
             border-collapse: collapse;
             border: 1px solid #000;
+            margin-top: 20px;
         }
 
         th, td {
@@ -115,27 +109,26 @@
     </style>
 </head>
 <div class="container">
-    <div class="header-row"> 
-        <!-- <div class="logo-container">
+    <div class="header">
+        <div class="logo">
             {% if logo_url %}
-                <img src="{{ logo_url }}" alt="Logo">
+            <img src="{{ logo_url }}" alt="Logo">
             {% else %}
-                <p>No logo available</p>
+            <p>No logo available</p>
             {% endif %}
-        </div> -->
-        
-        <div class="custom-center quarter">
-            <h1 class="custom-h1">POST-EXPOSURE PROPHYLAXIS COHORT REPORT FORM</h1>
-            <h2 class="custom-h2">Municipality of {{ municipality_name }}</h2>
-            <h3 class="custom-h3">
-                <u>
-                    1st Quarter 2024
-                </u>
+        </div>
+        <div class="text">
+            <h1>POST-EXPOSURE PROPHYLAXIS COHORT REPORT FORM</h1>
+            <h2>
+                {{ municipal }}
+            </h2>
+            <h3>
+                1st Quarter Cohort {{ karon }}
             </h3>
         </div>
     </div>
     
-    <table>
+    <table >
         <thead>
             <tr>
                 <th rowspan="2">Category of Exposure</th>
@@ -181,15 +174,29 @@
         </tbody>
     </table>
     
-    <div class="custom-center quarter">
-        <h1 class="custom-h1">Prepared by:</h1>
-        <h3 class="custom-h3">
-            <u>
-                {{ signature_name }}
-            </u>
-        </h3>
-        <h2 class="custom-h3">Municipality Report</h2>
-    </div> 
+    <div style="display: table; width: 100%; margin-top: 30px;">
+        <div style="display: table-row;">
+            <!-- Prepared By -->
+            <div style="display: table-cell; width: 50%; text-align: center; vertical-align: top;">
+                <p style="margin: 0; font-weight: bold; text-align: left;">Prepared By:</p>
+                <div style="margin-top: 10px;">
+                    <span style="display: block; font-weight: bold; text-align: center;">{{ signature_name }}</span>
+                    <div style="border-top: 1px solid black; margin: 5px auto 0; width: 50%;"></div>
+                </div>
+                <p style="margin-top: 10px; font-size: 14px; text-align: center;">{{ coordinator }}</p>
+            </div>
+            
+            <!-- Noted By -->
+            <div style="display: table-cell; width: 50%; text-align: center; vertical-align: top;">
+                <p style="margin: 0; font-weight: bold; text-align: left;">Noted By:</p>
+                <div style="margin-top: 10px;">
+                    <span style="display: block; font-weight: bold; text-align: center;">{{ doctor }}</span>
+                    <div style="border-top: 1px solid black; margin: 5px auto 0; width: 50%;"></div>
+                </div>
+                <p style="margin-top: 10px; font-size: 14px; text-align: center;">{{ pho }}</p>
+            </div>
+        </div>
+    </div>
     
 </div>
 </body>

@@ -197,8 +197,8 @@ function initAnimalChart(animalLabels, animalData) {
                 datalabels: {
                     formatter: (value, ctx) => {
                         let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                        let percentage = (value * 100 / sum).toFixed(2) + "%";
-                        return percentage;
+                        let percentage = (value * 100 / sum).toFixed(2);
+                        return percentage > 0 ? percentage + "%" : ''; // Exclude 0% labels
                     },
                     color: '#fff',
                     font: {
@@ -211,3 +211,4 @@ function initAnimalChart(animalLabels, animalData) {
         plugins: [ChartDataLabels]
     });
 }
+

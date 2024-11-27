@@ -34,7 +34,7 @@
                     <a class="nav-link text-primary custom-hover {% if request.path == '/admin/overview/cohort/' %}active{% endif %}" href="{% url 'cohort' %}">Cohort</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link text-primary custom-hover {% if request.path == '/admin/overview/download/' %}active{% endif %}" href="{% url 'download' %}">Master List</a>
+                    <a class="nav-link text-primary custom-hover {% if request.resolver_match.url_name == 'download' %}active{% endif %}" href="{% url 'download' %}">Master List</a>
                 </li>
             </ul>
 

@@ -47,6 +47,14 @@ Overview
 
 {% block chart %}
 <div class="container-fluid mt-2">
+    <div class="d-flex justify-content-between mb-3">
+        <div id="date-range-display" class="ms-3">
+            <!-- This will be dynamically updated with the selected date range -->
+        </div>
+        <button class="btn btn-success me-3" id="downloadAllPDFs">
+            <i class="fas fa-download "></i> Download to PDF
+        </button>
+    </div>
     <div class="row">
         <div class="d-flex">
             <div class="card mb-4 col-xl-6 col-lg-6 d-flex flex-column" id="municipalityDownload">
@@ -59,10 +67,9 @@ Overview
                     </div>
                 </div>
                 <div class="card-footer d-flex justify-content-end">
-                    <button class="btn btn-success btn-sm mr-2" id="downloadMunicipalityPDF" style="width: 100px;">
+                    <!-- <button class="btn btn-success btn-sm mr-2" id="downloadMunicipalityPDF" style="width: 100px;">
                         <i class="fas fa-download"></i> PDF
-                    </button>
-                    
+                    </button> -->
                 </div>
             </div>
 
@@ -84,13 +91,49 @@ Overview
                     </div>  
                 </div>
                 <div class="card-footer d-flex justify-content-end">
-                    <button class="btn btn-success btn-sm mr-2" id="downloadGenderPDF" style="width: 120px;">
+                    <!-- <button class="btn btn-success btn-sm mr-2" id="downloadGenderPDF" style="width: 120px;">
                         <i class="fas fa-download"></i> Sex PDF
                     </button>
                     <button class="btn btn-success btn-sm mr-2" id="downloadAnimalPDF" style="width: 120px;">
                         <i class="fas fa-download"></i> Animal PDF
-                    </button>
+                    </button> -->
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Modal for selecting PDF download options -->
+<div class="modal fade" id="downloadModal" tabindex="-1" aria-labelledby="downloadModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="downloadModalLabel">Select Charts to Download</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Please select the charts you want to download:</p>
+                <form id="chartSelectionForm">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="municipality" id="municipalityCheckbox">
+                        <label class="form-check-label" for="municipalityCheckbox">Municipality</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="gender" id="genderCheckbox">
+                        <label class="form-check-label" for="genderCheckbox">Gender</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="animal" id="animalCheckbox">
+                        <label class="form-check-label" for="animalCheckbox">Animal</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="all" id="allCheckbox">
+                        <label class="form-check-label" for="allCheckbox">All Charts</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="confirmDownload">Download</button>
             </div>
         </div>
     </div>
@@ -147,7 +190,7 @@ Overview
     }
 </script>
 
-<div class="container" id="monthlyCasesScroll">
+<div class="container-fluid" id="monthlyCasesScroll">
     <div class="row">
         <div class="col-12 d-flex justify-content-between">
             <div class="btn-group" role="group" aria-label="Download options">
@@ -168,7 +211,7 @@ Overview
     <div class="row canvaChart">
             <div class="container card mb-2 chart-container" id="monthlyCasesSection">
                 <div class="card-body">
-                    <h2 class="text-primary font-weight-bold">Monthly Cases</h2>
+                    <h2 class="text-primary font-weight-bold" id="chartTitle">Monthly Cases</h2>
                     <hr>
                     <canvas id="monthlyCasesChart" class="canvasChart"></canvas>
                 </div>
@@ -176,7 +219,7 @@ Overview
             
             <div class="container card mb-2 chart-container" id="weeklyCasesSection" style="display: none;">
                 <div class="card-body">
-                    <h2 class="text-primary font-weight-bold">Weekly Cases</h2>
+                    <h2 class="text-primary font-weight-bold" id="chartTitle">Weekly Cases</h2>
                     <hr>
                     <canvas id="weeklyCasesChart" class="canvasChart"></canvas>
                 </div>
@@ -184,7 +227,7 @@ Overview
 
             <div class="container card mb-2 chart-container" id="dailyCasesSection" style="display: none;">
                 <div class="card-body">
-                    <h2 class="font-weight-bold">Daily Cases</h2>
+                    <h2 class="font-weight-bold" id="chartTitle">Daily Cases</h2>
                     <hr>
                     <canvas id="dailyCasesChart" class="canvasChart"></canvas>
                 </div>
@@ -192,7 +235,7 @@ Overview
 
             <div class="container card mb-2 chart-container" id="quarterlyCasesSection" style="display: none;">
                 <div class="card-body">
-                    <h2 class="text-primary font-weight-bold">Quarterly Cases</h2>
+                    <h2 class="text-primary font-weight-bold" id="chartTitle">Quarterly Cases</h2>
                     <hr>
                     <canvas id="quarterlyCasesChart" class="canvasChart"></canvas>
                 </div>
@@ -200,18 +243,123 @@ Overview
 
             <div class="container card mb-2 chart-container" id="annualCasesSection" style="display: none;">
                 <div class="card-body">
-                    <h2 class="font-weight-bold">Annual Cases</h2>
+                    <h2 class="font-weight-bold" id="chartTitle">Annual Cases</h2>
                     <hr>
                     <canvas id="annualCasesChart" class="canvasChart"></canvas>
                 </div>
             </div>
     </div>
 </div>
+<div id="treatment-center-display" style="display: none;">
+    {{ treatment_center }}
+</div>
+<!-- Modal for Checkbox Selection -->
+<!-- <div class="modal fade" id="checkboxModal" tabindex="-1" aria-labelledby="checkboxModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="checkboxModalLabel">Select Options</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="checkboxForm">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="monthly" id="monthlyCheckbox" checked>
+                        <label class="form-check-label" for="monthlyCheckbox">
+                            Monthly Cases
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="weekly" id="weeklyCheckbox">
+                        <label class="form-check-label" for="weeklyCheckbox">
+                            Weekly Cases
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="daily" id="dailyCheckbox">
+                        <label class="form-check-label" for="dailyCheckbox">
+                            Daily Cases
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="quarterly" id="quarterlyCheckbox">
+                        <label class="form-check-label" for="quarterlyCheckbox">
+                            Quarterly Cases
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="annual" id="annualCheckbox">
+                        <label class="form-check-label" for="annualCheckbox">
+                            Annual Cases
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="applySelection">Apply</button>
+            </div>
+        </div>
+    </div>
+</div> -->
 
+<!-- <button id="downloadAllCharts" class="btn btn-success btn-lg rounded-circle" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
+    <i class="fas fa-download"></i>
+</button> -->
+<!-- Modal for downloading chart options -->
 
+<div class="modal fade" id="downloadChartModal" tabindex="-1" aria-labelledby="downloadChartModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="downloadChartModalLabel">Select Chart(s) to Download</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Select the chart(s) you want to download:</p>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="weeklyCase" value="weekly">
+                    <label class="form-check-label" for="weeklyCase">Weekly Cases</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="monthlyCase" value="monthly">
+                    <label class="form-check-label" for="monthlyCase">Monthly Cases</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="quarterlyCase" value="quarterly">
+                    <label class="form-check-label" for="quarterlyCase">Quarterly Cases</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="annualCase" value="annual">
+                    <label class="form-check-label" for="annualCase">Annual Cases</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="allCases" value="all">
+                    <label class="form-check-label" for="allCases">All Charts</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" id="downloadChartBtn">Download</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block script %}
+
+<!-- Add this to your HTML file -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+ 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.js"></script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/jsPDF@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@0.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
 
 <!-- html2canvas and jsPDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -229,84 +377,10 @@ Overview
 
 <script src="{% static 'assets/js/map.js' %}"></script>
 <script src="{% static 'assets/js/overviewDistribution.js' %}"></script>
+<script src="{% static 'assets/js/overviewAll.js' %}"></script>
 <script src="{% static 'assets/js/overviewMonthly.js' %}"></script>
-
-<script>
-    // Variables to track the active chart and filename for the main download button
-    let activeChartId = "monthlyCasesChart"; // Default to monthly
-    let activeFilename = "Monthly_Cases.pdf"; 
-
-    // Event listeners for Municipality, Gender, and Animal charts
-    document.getElementById("downloadMunicipalityPDF").addEventListener("click", function() {
-        downloadChartAsPDF("municipalityChart", "Municipality_Distribution.pdf");
-    });
-
-    document.getElementById("downloadGenderPDF").addEventListener("click", function() {
-        downloadChartAsPDF("genderChart", "Gender_Distribution.pdf");
-    });
-
-    document.getElementById("downloadAnimalPDF").addEventListener("click", function() {
-        downloadChartAsPDF("animalChart", "Animal_Distribution.pdf");
-    });
-
-    // Event listeners for filter buttons
-    document.getElementById("showWeekly").addEventListener("click", function() {
-        setActiveChart("weeklyCasesChart", "Weekly_Cases.pdf");
-    });
-
-    document.getElementById("showMonthly").addEventListener("click", function() {
-        setActiveChart("monthlyCasesChart", "Monthly_Cases.pdf");
-    });
-
-    document.getElementById("showQuarterly").addEventListener("click", function() {
-        setActiveChart("quarterlyCasesChart", "Quarterly_Cases.pdf");
-    });
-
-    document.getElementById("showAnnual").addEventListener("click", function() {
-        setActiveChart("annualCasesChart", "Annual_Cases.pdf");
-    });
-
-    // Function to set the active chart for the main download button
-    function setActiveChart(chartId, filename) {
-        // Hide all cases charts
-        document.querySelectorAll(".chart-container").forEach(chart => chart.style.display = "none");
-
-        // Show the selected chart
-        document.getElementById(chartId).style.display = "block";
-        
-        // Update active chart and filename for download
-        activeChartId = chartId;
-        activeFilename = filename;
-    }
-
-    // Main Download PDF button for cases (dynamic based on active chart)
-    document.getElementById("downloadPDF").addEventListener("click", function() {
-        downloadChartAsPDF(activeChartId, activeFilename);
-    });
-
-    // Function to download a specific chart as PDF
-    function downloadChartAsPDF(chartId, filename) {
-        const { jsPDF } = window.jspdf;
-        const chartElement = document.getElementById(chartId);
-
-        if (chartElement) {
-            html2canvas(chartElement).then((canvas) => {
-                const imgData = canvas.toDataURL("image/png");
-                const pdf = new jsPDF({
-                    orientation: "landscape",
-                    unit: "px",
-                    format: [canvas.width, canvas.height]
-                });
-
-                pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
-                pdf.save(filename);
-            });
-        } else {
-            console.warn(`Chart with ID ${chartId} not found.`);
-        }
-    }
-</script>
-
+<script src="{% static 'assets/js/monthlymodal.js' %}"></script>
+<script src="{% static 'assets/js/dateDisplay.js' %}"></script>
 
 
 <script>
@@ -317,6 +391,12 @@ Overview
     const genderData = {{ dataGender|safe }};
     const animalLabels = {{ animal|safe }};
     const animalData = {{ dataAnimal|safe }};
+    const username = "{{ username }}";
+    const fname = "{{ fname }}";
+    const lname = "{{ lname }}";
+    const municipality = "{{ municipality }}";
+
+
     
     // Initialize charts
     initMunicipalityChart(municipalities, municipalityCaseCounts);
@@ -337,6 +417,8 @@ Overview
     const quarterly_case_counts = {{ quarterly_case_counts|safe }};
     const years = {{ years|safe }};
     const annual_case_counts = {{ annual_case_counts|safe }};
+    const treatment_center = "{{ treatment_center }}";
+    
     
     // Initialize charts
     initDailyChart(days, daily_case_counts);

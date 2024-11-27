@@ -236,3 +236,17 @@ body {
     top: 0; /* Align to the top */
     left: 0; /* Align to the left */
 }
+
+#downloadAllPDFs {
+    padding: 4px 8px; /* Smaller padding for a compact button */
+    font-size: 14px; /* Reduce font size */
+    line-height: 1.2; /* Adjust line height */
+    border-radius: 4px; /* Optional: Add a slight border radius */
+    display: inline-flex; /* Align the icon and text */
+    align-items: center; /* Center content vertically */
+    justify-content: center; /* Center content horizontally */
+}
+#downloadAllPDFs i {
+    margin-right: 4px; /* Add space between icon and text */
+    font-size: 12px; /* Reduce icon size */
+}
