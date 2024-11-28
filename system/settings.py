@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 import os
 from pathlib import Path
-from .jasmine import JAZZMIN_SETTINGS,JAZZMIN_UI_TWEAKS
+from .jazzmin import JAZZMIN_SETTINGS,JAZZMIN_UI_TWEAKS
 from datetime import timedelta
 
 
