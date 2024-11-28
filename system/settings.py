@@ -28,10 +28,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-(x=$$$f(ky8%a(2ei#q3*arlp^^*kw87=zth3dkzty81lrhmd@'
+SECRET_KEY = os.environ.get('SECRET_KEY','')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -195,9 +195,11 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Expire session when browser closes
 SESSION_COOKIE_SECURE = False  # Set to True if using HTTPS
 SESSION_COOKIE_HTTPONLY = True  # Set to True for security
-
+SECURE_SSL_REDIRECT = False
 
 # Login URL setting to redirect non-authenticated users
 LOGIN_URL = '/admin/login/'
 AUTH_USER_MODEL = 'monitoring.User'
 LOGIN_REDIRECT_URL = '/admin/'  # Redirect to the overview page after login
+
+

@@ -1,104 +1,79 @@
-.table-bordered th,.table-bordered td {
-    border: 1px solid #e2e8ef;
-}
-
-.table thead th {
-    border-bottom: 2px solid #c1cbd4;
-}
-
-.table {
-    border-collapse: collapse;
-}
-
-#text-center {
-    text-align: center;
+body {
+    padding-top: 75px ; 
 }
 
 
-.filter-container {
-    background-color: #f8f9fa;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    margin-bottom: 30px;
-}
-
-.filter-container label {
-    font-weight: bold;
-}
-
-.filter-container .form-select,
-    .filter-container .btn {
-     border-radius: 5px;
-}
-
-.filter-container .btn-primary {
-    background-color: #007bff;
-    border-color: #007bff;
-}
-#filter{
-    margin-top: 200rem;
-}
-.filter-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px;
-}
-.filter-container label {
-    margin-right: 5px;
-}
-.filter-container select {
-    width: 200px;
-}
-.filter-container button {
-    margin-top: 0;
-}
-
-#barangay option {
-    width: 150px; /* Adjust width as needed */
-}
-
-body, html {
-    overflow-x: hidden;
-}
-.container-fluid {
-    max-width: 100%;
-    padding: 0;
-    margin: 0;
-}
-
-.navbar-brand-logo {
-    max-width: 50px; /* Ensure the image does not overflow */
-    height: auto; /* Maintain aspect ratio */
-}
 
 /* Custom CSS for button width and icon size */
 .filter-button {
-    width: auto;/* Adjust width as needed */
+    width: 100px; /* Adjust width as needed */
+    height: 35px; /* Adjust height as needed */
+    /* background-color:grey;
+    color: white; */
 }
-
 
 .filter-button .fas {
-    font-size: 12px; /* Adjust icon size */
-    margin-right: 5px; /* Optional: Add space between icon and text */
+    font-size: 16px; /* Adjust icon size */
+    margin-right: 8px; /* Add space between icon and text */
 }
+
 #userDropdown::after {
     display: none !important;
 }
-#admin-text{
-    font-size: 1.2rem;
+
+.filter-container select, .filter-container input {
+    width: 120px;
 }
-.table-responsive {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    width: 100%;
-    margin-bottom: 1rem;
+
+.filter-container .btn {
+    width: 100px;
 }
-#download-admin{
-    font-size: 18px; /* Adjust the size as per your requirement */
-    color: #6c757d; /* Adjust the color if needed */
+.searchButton{
+    height: 30px;
 }
-#download-icon-admin{
-    color: #6c757d;
+
+
+.wraptext td:nth-child(5),  /* Target the 4th column */
+.wraptext td:nth-child(14) { /* Target the 13th column */
+
+
+    white-space: normal; /* Allow text to wrap */
+}
+
+/* table,td,th{
+    border: 1px solid black !important;
+    
+}
+th{
+    font-size: 12px !important;
+} */
+
+.card {
+    border: none;
+}
+
+.card-body {
+    border: none;
+}
+
+.signature-section {
+    text-align: center;
+}
+
+.signature-line {
+    margin-top: 50px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid black;
+    width: 300px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.signature-name {
+    font-weight: bold;
+    margin-top: -25px;
+}
+
+.signature-title {
+    margin-top: -10px;
 }
