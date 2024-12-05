@@ -66,15 +66,15 @@ tbody th, tbody td {
     /* font-size: 16px !important; */
     
 }
-.total-patients {
-    color: red; /* Set color to red for total patients */
-    font-weight: bold; /* Optional: make it bold */
-}
+/* .total-patients {
+    color: red;
+    font-weight: bold;
+} */
 
-.red-text {
-    color: rgb(159, 20, 20); /* Change row color to red for patient cases */
-    font-weight: bold; /* Make it bold */
-}
+/* .red-text {
+    color: rgb(159, 20, 20);
+    font-weight: bold; 
+} */
 .total {
     border-top: 1px blue solid;
 }

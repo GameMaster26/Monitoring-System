@@ -28,10 +28,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY','')
+SECRET_KEY = 'django-insecure-(x=$$$f(ky8%a(2ei#q3*arlp^^*kw87=zth3dkzty81lrhmd@'
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
@@ -113,8 +114,11 @@ DATABASES = {
 #GDAL_LIBRARY_PATH = os.path.join("C:\\", "OSGeo4W", "bin", "geos_c.dll")
 
 
+
 GDAL_LIBRARY_PATH = os.path.join("C:\\", "OSGeo4W", "bin", "gdal309.dll")
 GEOS_LIBRARY_PATH = os.path.join("C:\\", "OSGeo4W", "bin", "geos_c.dll")
+
+
 
 
 # GDAL and GEOS library paths for Windows

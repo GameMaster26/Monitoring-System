@@ -17,11 +17,12 @@ Choropleth Map
 {% endblock %}
 
 {% block choro %}
+<!-- Choropleth Map -->
 <div class="container-fluid mt-2 mb-3" id="choropleth">
 </div>
 <div id="total-rabies-data" data-rabies-cases="{{ total_rabies_cases|default:'0' }}"></div>
 
-
+<!-- Below Choropleth Map -->
 <div class="container-fluid filter ms-5">
     <div class="d-flex flex-column flex-md-row table-legend-container">
         <!-- Filter Section -->
@@ -59,107 +60,107 @@ Choropleth Map
         </div>
 
         <!-- Table Section -->
-<div class="table-container table-responsive me-2">
-    <table class="table table-bordered">
-        <thead>
-            <tr class="below-border">
-                <th>Municipality</th>
-                <th>Barangay</th>
-                <th>Total Patients</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% if barangay_search %}
-                {% for record in barangay_summary %}
-                    <tr>
-                        <td>{{ record.muni_name }}</td>
-                        <td style="color: {% if record.total_patients > 0 %}red{% else %}black{% endif %};">{{ record.brgy_name }}</td>
-                        <td style="color: {% if record.total_patients > 0 %}red{% else %}black{% endif %};">
-                            {{ record.total_patients }}
-                        </td>
+        <div class=" table-responsive "><!-- table-container -->
+            <table class="table table-bordered">
+                <thead>
+                    <tr class="below-border">
+                        <th>Municipality</th>
+                        <th>Barangay</th>
+                        <th>Total Patients</th>
                     </tr>
-                {% endfor %}
-                <tr class="total">
-                    <td><strong>Total</strong></td>
-                    <td><strong>{{ total_barangays }}</strong></td>
-                    <td><strong style="color: red;">{{ total_patients }}</strong></td>
-                </tr>
-            {% elif selected_municipality == "ALL" %}
-                {% for record in municipality_summary %}
-                    <tr>
-                        <td>{{ record.muni_id__muni_name }}</td>
-                        <td >{{ record.total_barangays }}</td>
-                        <td >
-                            {{ record.total_cases }}
-                        </td>
-                    </tr>
-                {% endfor %}
-                <tr class="total">
-                    <td><strong>Total</strong></td>
-                    <td><strong>{{ total_barangays }}</strong></td>
-                    <td><strong>{{ total_patients }}</strong></td>
-                </tr>
-            {% else %}
-                {% for record in barangay_summary %}
-                    <tr>
-                        <td>{{ selected_municipality }}</td>
-                        <td style="color: {% if record.total_patients > 0 %}red{% else %}black{% endif %};">{{ record.brgy_name }}</td>
-                        <td style="color: {% if record.total_patients > 0 %}red{% else %}black{% endif %};">
-                            {{ record.total_patients }}
-                        </td>
-                    </tr>
-                {% endfor %}
-                <tr class="total">
-                    <td><strong>Total</strong></td>
-                    <td><strong style="color: {% if record.total_patients > 0 %}red{% else %}black{% endif %};">{{ total_barangays }}</strong></td>
-                    <td><strong style="color: {% if record.total_patients > 0 %}red{% else %}black{% endif %};">{{ total_patients }}</strong></td>
-                </tr>
-            {% endif %}
-        </tbody>
-    </table>
-</div>
+                </thead>
+                <tbody>
+                    {% if barangay_search %}
+                        {% for record in barangay_summary %}
+                            <tr>
+                                <td>{{ record.muni_name }}</td>
+                                <td style="color: {% if record.total_patients > 0 %}red{% else %}black{% endif %};">{{ record.brgy_name }}</td>
+                                <td style="color: {% if record.total_patients > 0 %}red{% else %}black{% endif %};">
+                                    {{ record.total_patients }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        <tr class="total">
+                            <td><strong>Total</strong></td>
+                            <td><strong>{{ total_barangays }}</strong></td>
+                            <td><strong style="color: red;">{{ total_patients }}</strong></td>
+                        </tr>
+                    {% elif selected_municipality == "ALL" %}
+                        {% for record in municipality_summary %}
+                            <tr>
+                                <td>{{ record.muni_id__muni_name }}</td>
+                                <td >{{ record.total_barangays }}</td>
+                                <td >
+                                    {{ record.total_cases }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        <tr class="total">
+                            <td><strong>Total</strong></td>
+                            <td><strong>{{ total_barangays }}</strong></td>
+                            <td><strong>{{ total_patients }}</strong></td>
+                        </tr>
+                    {% else %}
+                        {% for record in barangay_summary %}
+                            <tr>
+                                <td>{{ selected_municipality }}</td>
+                                <td style="color: {% if record.total_patients > 0 %}red{% else %}black{% endif %};">{{ record.brgy_name }}</td>
+                                <td style="color: {% if record.total_patients > 0 %}red{% else %}black{% endif %};">
+                                    {{ record.total_patients }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        <tr class="total">
+                            <td><strong>Total</strong></td>
+                            <td><strong style="color: {% if record.total_patients > 0 %}red{% else %}black{% endif %};">{{ total_barangays }}</strong></td>
+                            <td><strong style="color: {% if record.total_patients > 0 %}red{% else %}black{% endif %};">{{ total_patients }}</strong></td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
 
-
-        <!-- Info Legend Section -->
-        {% if selected_municipality == "ALL" %}
-        <div class="infolegend ms-4 text-center fw-bolder ">
-            <span class="fs-5 mb-2 text-primary text-center">More Info</span>
-            <div class="p-3 border">
-                <ul class="list-unstyled mb-0">
-                    {% for record in municipality_summary %}
-                        <li class="d-flex flex-column align-items-start mb-3">
-                            <!-- Municipality Name -->
-                            <div class="fw-bold mb-2">{{ record.muni_id__muni_name }}</div>
-                            <!-- Progress Bar Below Municipality Name -->
-                            <div class="progress" style="height: 20px; width: 100%;">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated"
-                                    style="width: {{ record.percentage|floatformat:0 }}%;">
-                                    {{ record.percentage|floatformat:2 }}%
+        <div style="margin-left: 20px;">
+            <!-- Info Legend Section -->
+            {% if selected_municipality == "ALL" %}
+            <div class="infolegend ms-4 text-center fw-bolder ">
+                <span class="fs-5 mb-2 text-primary text-center">More Info</span>
+                <div class="p-3 border">
+                    <ul class="list-unstyled mb-0">
+                        {% for record in municipality_summary %}
+                            <li class="d-flex flex-column align-items-start mb-3">
+                                <!-- Municipality Name -->
+                                <div class="fw-bold mb-2">{{ record.muni_id__muni_name }}</div>
+                                <!-- Progress Bar Below Municipality Name -->
+                                <div class="progress" style="height: 20px; width: 100%;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                        style="width: {{ record.percentage|floatformat:0 }}%;">
+                                        {{ record.percentage|floatformat:2 }}%
+                                    </div>
                                 </div>
-                            </div>
-                        </li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
-        {% else %}
-        <div class="infolegend ms-4 mt-2">
-            <div class="fw-bold fs-5 mb-2 text-primary text-center">Legend</div>
-            <div class="d-flex justify-content-start align-items-center gap-3 mb-3">
-                <!-- Red Box for Areas with Patients -->
-                <div class="d-flex align-items-center">
-                    <div style="width: 20px; height: 20px; background-color: red; margin-right: 8px;"></div>
-                    <span>With Patients</span>
-                </div>
-                <!-- Black Box for Areas without Patients -->
-                <div class="d-flex align-items-center">
-                    <div style="width: 20px; height: 20px; background-color: black; margin-right: 8px;"></div>
-                    <span>No Patients</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
                 </div>
             </div>
+            {% else %}
+            <div class="infolegend ms-4 mt-2">
+                <div class="fw-bold fs-5 mb-2 text-primary text-center">Legend</div>
+                <div class="d-flex justify-content-start align-items-center gap-3 mb-3">
+                    <!-- Red Box for Areas with Patients -->
+                    <div class="d-flex align-items-center">
+                        <div style="width: 20px; height: 20px; background-color: red; margin-right: 8px;"></div>
+                        <span>With Patients</span>
+                    </div>
+                    <!-- Black Box for Areas without Patients -->
+                    <div class="d-flex align-items-center">
+                        <div style="width: 20px; height: 20px; background-color: black; margin-right: 8px;"></div>
+                        <span>No Patients</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
-        {% endif %}
-
     </div>
 </div>
 

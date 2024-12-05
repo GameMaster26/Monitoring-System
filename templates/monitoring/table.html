@@ -63,10 +63,10 @@ Table
                             {% for record in barangay_summary %}
                                 <tr>
                                     <td>{{ record.muni_name }}</td>
-                                    <td class="{% if record.total_patients > 0 %}red-text{% endif %}">
+                                    <td class="{% if record.total_patients > 0 %}{% endif %}">
                                         {{ record.brgy_name }}
                                     </td>
-                                    <td class="{% if record.total_patients > 0 %}red-text{% endif %}">
+                                    <td class="{% if record.total_patients > 0 %}{% endif %}">
                                         {{ record.total_patients }}
                                     </td>
                                 </tr>
@@ -74,7 +74,7 @@ Table
                             <tr class="total">
                                 <td><strong>Total</strong></td>
                                 <td><strong>{{ total_barangays }}</strong></td>
-                                <td class="total-patients"><strong>{{ total_patients }}</strong></td>
+                                <td class=""><strong>{{ total_patients }}</strong></td>
                             </tr>
                         {% elif selected_municipality == "ALL" %}
                             <!-- Show municipality-level summary when "ALL" is selected -->
@@ -88,17 +88,17 @@ Table
                             <tr class="total">
                                 <td><strong>Total</strong></td>
                                 <td><strong>{{ total_barangays }}</strong></td>
-                                <td class="total-patients"><strong>{{ total_patients }}</strong></td>
+                                <td class=""><strong>{{ total_patients }}</strong></td>
                             </tr>
                         {% else %}
                             <!-- Show barangay-level summary for selected municipality -->
                             {% for record in barangay_summary %}
                                 <tr>
                                     <td>{{ selected_municipality }}</td>
-                                    <td class="{% if record.total_patients > 0 %}red-text{% endif %}">
+                                    <td class="{% if record.total_patients > 0 %}{% endif %}">
                                         {{ record.brgy_name }}
                                     </td>
-                                    <td class="{% if record.total_patients > 0 %}red-text{% endif %}">
+                                    <td class="{% if record.total_patients > 0 %}{% endif %}">
                                         {{ record.total_patients }}
                                     </td>
                                 </tr>
@@ -106,7 +106,7 @@ Table
                             <tr class="total">
                                 <td><strong>Total</strong></td>
                                 <td><strong>{{ total_barangays }}</strong></td>
-                                <td class="total-patients"><strong>{{ total_patients }}</strong></td>
+                                <td class=""><strong>{{ total_patients }}</strong></td>
                             </tr>
                         {% endif %}
                     </tbody>

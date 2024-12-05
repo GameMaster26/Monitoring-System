@@ -4822,8 +4822,6 @@ def cohort(request):
     else:
         municipality_name = municipality_map.get(user.code, "Province")
 
-    
-
     selected_quarter = request.GET.get('quarter', '1')  # Default to '1' if no quarter is selected
     year = date.today().year
 
@@ -4894,16 +4892,15 @@ def cohort(request):
     category_ii_complete = category_ii_incomplete = category_ii_none = category_ii_died = 0
     category_iii_complete = category_iii_incomplete = category_iii_none = category_iii_died = 0
 
-    
     # Process Category II outcomes
     for history in histories.filter(category_of_exposure='II'):
-        # Filter treatments associated with the patient within the date range
         treatments = Treatment.objects.filter(
             patient_id=history.patient_id,
             patient_id__histories__date_registered__range=(start_date, end_date)
         ).distinct()
 
-        if history.human_rabies:
+        # Check if the patient has a "Died" remark in the treatment records
+        if treatments.filter(remarks='Died').exists():
             category_ii_died += 1
             continue
 
@@ -4929,7 +4926,8 @@ def cohort(request):
             patient_id__histories__date_registered__range=(start_date, end_date)
         ).distinct()
 
-        if history.human_rabies:
+        # Check if the patient has a "Died" remark in the treatment records
+        if treatments.filter(remarks='Died').exists():
             category_iii_died += 1
             continue
 
@@ -4948,7 +4946,7 @@ def cohort(request):
         else:
             category_iii_none += 1
 
-
+    
     total_complete = category_ii_complete + category_iii_complete
     total_incomplete = category_ii_incomplete + category_iii_incomplete
     total_none = category_ii_none + category_iii_none

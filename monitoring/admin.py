@@ -209,12 +209,12 @@ class DoctorAdmin(admin.ModelAdmin):
 
     readonly_fields = ('full_name',)
 
-    # Override to restrict permissions for non-superusers
+    """ # Override to restrict permissions for non-superusers
     def has_change_permission(self, request, obj=None):
         # Allow change permission only for superusers
         if not request.user.is_superuser:
             return False  # Non-superusers cannot change
-        return super().has_change_permission(request, obj)
+        return super().has_change_permission(request, obj) """
 
     def has_delete_permission(self, request, obj=None):
         # Allow delete permission only for superusers
@@ -664,9 +664,17 @@ class HistoryAdmin(CustomGeoAdmin):
         return queryset, False  # Return the modified queryset
 
     def get_fields(self, request, obj=None):
-        fields = super().get_fields(request, obj)
-        if obj is None:  # If adding a new object, remove 'registration_no'
-            fields = [field for field in fields if field != 'registration_no']
+        fields = [
+            'patient_id', 'registration_no', 'date_registered', 'date_of_exposure', 
+            'muni_id', 'brgy_id', 'category_of_exposure', 'source_of_exposure', 
+            'exposure_type', 'bite_site', 'provoked_status', 'immunization_status', 
+            'status_of_animal', 'confinement_status', 'washing_hands', 
+            'human_rabies', 'latitude', 'longitude', 'geom'
+        ]
+        if request.user.is_superuser:
+            fields.remove('latitude')  # Remove `latitude` for superadmins
+            fields.remove('longitude')  # Remove `longitude` for superadmins
+            fields.remove('geom')  # Remove `geom` for superadmins
         return fields
  
     def patient_name(self, obj):
@@ -680,9 +688,13 @@ class HistoryAdmin(CustomGeoAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         if request.user.is_superuser:
-            readonly_fields = [field.name for field in self.model._meta.fields if field.name != 'geom']
+            readonly_fields = [field.name for field in self.model._meta.fields]  # All fields read-only
+            readonly_fields.remove('latitude')  # Remove `latitude` from readonly
+            readonly_fields.remove('longitude')  # Remove `longitude` from readonly
+            readonly_fields.remove('geom')  # `geom` will not be shown
             return readonly_fields
-        return self.readonly_fields
+        return []# Regular users can edit all fields
+
     
     def has_add_permission(self, request):
         if request.user.is_superuser:
@@ -936,7 +948,6 @@ class BarangayAdmin(CustomGeoAdmin):
     list_per_page = 10
     exclude = ('boundary',)
     
-
     def muni_name(self, obj):
         return  f"{obj.muni_id.muni_name}"
     muni_name.short_description = 'Municipality Name'
@@ -1065,17 +1076,15 @@ class CustomUserAdmin(DefaultUserAdmin):
         return "No Logo"
     image_logo_display.short_description = "Municipality Logo"
     
-
+    # Override to prevent non-superusers from accessing "Change" pages
     def has_change_permission(self, request, obj=None):
-        if obj is not None:
-            if request.user.is_superuser:
-                return True
-            elif obj == request.user:
-                return True
-            else:
-                return False
-        return True
-
+        """
+        Only superusers can access the 'Change' functionality.
+        """
+        if request.user.is_superuser:
+            return True
+        return False
+    
     def get_fieldsets(self, request, obj=None):
         if obj is None:
             return self.add_fieldsets  # When adding a user

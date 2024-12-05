@@ -137,6 +137,8 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username 
+
+  
     
 class Doctor(models.Model):
 
@@ -547,4 +549,4 @@ class Treatment(models.Model):
         verbose_name_plural = "Patient's Treatment"
 
     def __str__(self):
-        return f"Treatment for {self.patient_id.first_name} {self.patient_id.last_name}"
+        return f"Treatment for {self.patient_id.first_name} {self.patient_id.last_name} on his/her {self.day0}"
