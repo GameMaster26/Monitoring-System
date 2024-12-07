@@ -2,7 +2,11 @@ services:
   - type: web
     name: my-django-app
     env: python
-    buildCommand: 'pip install -r requirements.txt'
-    startCommand: 'gunicorn system.wsgi:application --bind 0.0.0.0:$PORT'
-    ports:
-      - port: 80
+    buildCommand: |
+      apt-get update && apt-get install -y software-properties-common
+      add-apt-repository ppa:ubuntugis/ubuntugis-unstable -y
+      apt-get update && apt-get install -y gdal-bin libgdal-dev    
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      
+    startCommand: gunicorn system.wsgi:application --bind 0.0.0.0:$PORT

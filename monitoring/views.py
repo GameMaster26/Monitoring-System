@@ -254,7 +254,7 @@ def index(request):
 
     # Count occurrences of each municipality using Django ORM
     municipality_counts = History.objects.values('muni_id__muni_name').annotate(count=Count('muni_id')).order_by('muni_id__muni_name')
-
+    """ print(municipality_counts.muni_name) """
     # Prepare data for chart
     municipalities = [data['muni_id__muni_name'] for data in municipality_counts]
     municipality_case_counts = [data['count'] for data in municipality_counts]
