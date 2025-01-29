@@ -243,7 +243,6 @@ class DoctorAdmin(admin.ModelAdmin):
         }
 
 
-
 class PatientInline(admin.StackedInline):
     model = Patient
     extra = 0
@@ -285,8 +284,8 @@ class HistoryInline(admin.StackedInline):
             return False  
         return True   """
     # Prevent editing of History inline records
-    def has_change_permission(self, request, obj=None):
-        return False
+    """ def has_change_permission(self, request, obj=None):
+        return False """
 
     # Override the has_delete_permission method to disable delete option
     def has_delete_permission(self, request, obj=None):
@@ -308,7 +307,7 @@ class TreatmentInline(admin.StackedInline):
 
 @admin.register(Patient)
 class PatientAdmin(LeafletGeoAdmin):
-    list_display = ('code', 'first_name','middle_name', 'last_name', 'muni_id','brgy_id', 'age', 'sex','contactNumber')
+    list_display = ('code', 'first_name','middle_name', 'last_name', 'muni_id','brgy_id','street', 'age', 'sex','contactNumber')
     list_per_page = 5
     search_fields = ['first_name','middle_name','last_name','muni_id__muni_name','brgy_id__brgy_name','sex__iexact']
     list_filter = (CodeFilter, MunicipalityFilter,BarangayFilter,AgeFilter, 'sex')
@@ -484,9 +483,6 @@ class PatientAdmin(LeafletGeoAdmin):
     export_patient_data.short_description = "Export patient data"
 
 
-
-
-
     def get_search_results(self, request, queryset, search_term):
         # Allow search across all patients for all users, also show user code during search
         if search_term:
@@ -501,11 +497,11 @@ class PatientAdmin(LeafletGeoAdmin):
         # If not searching or for regular users, remove 'code' from the list view
         if not request.GET.get('q'):  # When no search query
             if request.user.is_superuser:
-                return ('code', 'first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id', 'age', 'sex', 'contactNumber')
+                return ('code', 'first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id','street', 'age', 'sex', 'contactNumber')
             else:
-                return ('first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id', 'age', 'sex', 'contactNumber')
+                return ('first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id','street', 'age', 'sex', 'contactNumber')
         else:  # When search query is present
-            return ('code', 'first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id', 'age', 'sex', 'contactNumber')
+            return ('code', 'first_name', 'middle_name', 'last_name', 'muni_id', 'brgy_id','street', 'age', 'sex', 'contactNumber')
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)

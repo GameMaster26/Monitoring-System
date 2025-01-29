@@ -191,7 +191,56 @@ class Doctor(models.Model):
 
 class Patient(models.Model):
     #app_label = 'monitoring'
-    
+    STREET_CHOICES = [
+        ("Abad Street", "Abad Street"),
+        ("Adobo Compound Road", "Adobo Compound Road"),
+        ("Ballesteros Street", "Ballesteros Street"),
+        ("Biliran Circumferential Road", "Biliran Circumferential Road"),
+        ("Biliran Rotunda", "Biliran Rotunda"),
+        ("Bonifacio Street", "Bonifacio Street"),
+        ("Burgos Street", "Burgos Street"),
+        ("Cabadiangan Road", "Cabadiangan Road"),
+        ("Calambis Bridge", "Calambis Bridge"),
+        ("Caneja Street", "Caneja Street"),
+        ("Castin Street", "Castin Street"),
+        ("Corvera Street", "Corvera Street"),
+        ("Garrido", "Garrido"),
+        ("Gomez", "Gomez"),
+        ("Imelda Road", "Imelda Road"),
+        ("Jaguros Street", "Jaguros Street"),
+        ("Leyte-Biliran Road", "Leyte-Biliran Road"),
+        ("Lico Road", "Lico Road"),
+        ("Limpiado", "Limpiado"),
+        ("Lomboy Road", "Lomboy Road"),
+        ("Looc Diversion Road", "Looc Diversion Road"),
+        ("Mabini Pier", "Mabini Pier"),
+        ("Mabini Street", "Mabini Street"),
+        ("Magallanes Street", "Magallanes Street"),
+        ("Mapuyo Loop", "Mapuyo Loop"),
+        ("Maripipi Circumferential Road", "Maripipi Circumferential Road"),
+        ("Mission", "Mission"),
+        ("Naval-Caibiran Cross Country Road", "Naval-Caibiran Cross Country Road"),
+        ("Padre Garcia Street", "Padre Garcia Street"),
+        ("Padre Innocentes Street", "Padre Innocentes Street"),
+        ("Real Street", "Real Street"),
+        ("Redaza Street", "Redaza Street"),
+        ("Rizal Street", "Rizal Street"),
+        ("Rojas Street", "Rojas Street"),
+        ("Sabenorio Street", "Sabenorio Street"),
+        ("Salazar", "Salazar"),
+        ("Salut", "Salut"),
+        ("San Isidro Street", "San Isidro Street"),
+        ("San Juan Street", "San Juan Street"),
+        ("San Roque Street", "San Roque Street"),
+        ("Santa Cruz Street", "Santa Cruz Street"),
+        ("Santissimo Rosario", "Santissimo Rosario"),
+        ("Santo Niño Road", "Santo Niño Road"),
+        ("Sitio Hayahay Road", "Sitio Hayahay Road"),
+        ("Sitio Lupa Road", "Sitio Lupa Road"),
+        ("Vicentillo Extension", "Vicentillo Extension"),
+        ("Vicentillo Street", "Vicentillo Street"),
+        ("Zamora", "Zamora"),
+    ]
     user = models.ForeignKey(User,on_delete=models.CASCADE, verbose_name="User", related_name='patients')
     
     patient_id = models.AutoField(primary_key=True)
@@ -200,6 +249,12 @@ class Patient(models.Model):
     last_name = models.CharField(max_length=200, verbose_name="Last Name", blank=False)
     muni_id = models.ForeignKey(Municipality, on_delete=models.CASCADE, blank=False,verbose_name="Municipality", related_name='patients_muni')#7 cabucgayan,6 culaba, 5 almeria, 8 kaw
     brgy_id = models.ForeignKey(Barangay, on_delete=models.CASCADE, blank=False,null=True, verbose_name="Barangay",related_name='patients_brgy')#88 Caib, 50 cabuc, 47 kaw, 67 cula
+    street = models.CharField(
+        max_length=100,
+        choices=STREET_CHOICES,
+        blank=True,
+        null=True,
+    )
     birthday = models.DateField(verbose_name="Birthday", )#default=date(2001, 12, 2)
     sex_choice =(
         ('male','Male'),
