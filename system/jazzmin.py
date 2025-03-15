@@ -62,6 +62,7 @@ JAZZMIN_SETTINGS = {
         
         # Custom link to 'monitoring:table'
         {"name": "Overview", "url": "overview"},
+        {"name": "Date", "url": "overview"},
     ],
 
     #############

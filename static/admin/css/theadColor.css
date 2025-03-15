@@ -6,5 +6,5 @@
 
 .change-list thead th a,
 .change-list thead th a:visited {
-    color: rgba(0, 0, 0, .7) !important; /* Ensures links are white */
+    color: rgba(200, 168, 168, 0.7) !important; /* Ensures links are white */
 }

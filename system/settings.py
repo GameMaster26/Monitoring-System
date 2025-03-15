@@ -110,10 +110,10 @@ DATABASES = {
     }
 }
 
-#GDAL_LIBRARY_PATH = os.path.join("C:\\", "OSGeo4W", "bin", "geos.dll")
-#GDAL_LIBRARY_PATH = os.path.join("C:\\", "OSGeo4W", "bin", "geos_c.dll")
 
-GDAL_LIBRARY_PATH = os.path.join("C:\\", "OSGeo4W", "bin", "gdal309.dll")
+
+GDAL_LIBRARY_PATH = os.path.join("C:\\", "OSGeo4W", "bin", "gdal310.dll")
+
 GEOS_LIBRARY_PATH = os.path.join("C:\\", "OSGeo4W", "bin", "geos_c.dll")
 
 

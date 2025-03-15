@@ -36,7 +36,6 @@ def validate_contact_number(value):
         )
 
 
-
 class Municipality(models.Model):
     muni_id = models.AutoField(primary_key=True)
     muni_name = models.CharField(max_length=100,blank=False, verbose_name="Municipality Name")
@@ -137,9 +136,7 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username 
-
-  
-    
+ 
 class Doctor(models.Model):
 
     SPECIALIZATION_CHOICES = (

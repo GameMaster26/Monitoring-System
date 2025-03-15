@@ -4445,6 +4445,10 @@ def tables(request):
 @login_required
 def download(request):
     user = request.user
+    current_year = datetime.now().year
+
+    # Fetch available years from history data
+    available_years = History.objects.dates('date_registered', 'year', order='DESC').values_list('date_registered__year', flat=True)
 
     municipality_map = {
         "MAR": "Maripipi",
@@ -4462,10 +4466,12 @@ def download(request):
     selected_user = request.GET.get('searchUsername') 
     start_month = request.GET.get('startMonth')
     end_month = request.GET.get('endMonth')
+    # Get selected year from request, default to current year
+    selected_year = request.GET.get('year', str(current_year))
     search_name = request.GET.get('searchName')
     
-    # Fetch the histories with related patient, municipality, and barangay data
-    histories = History.objects.select_related('patient_id', 'muni_id', 'brgy_id').order_by('-registration_no')
+    # Fetch histories and apply year filtering
+    histories = History.objects.select_related('patient_id', 'muni_id', 'brgy_id').filter(date_registered__year=selected_year).order_by('-registration_no')
 
     if not user.is_superuser:
         # Filter histories for the current user if not a superuser
@@ -4532,11 +4538,9 @@ def download(request):
     cat_count = source_of_exposure_counter.get('Cat', 0)
     other_animal_count = source_of_exposure_counter.get('Others', 0)
 
-    
     # Calculate total number of distinct patients
     total_patients = histories.values('patient_id').distinct().count()
     
-
     paginator = Paginator(histories,10)  
     page_number = request.GET.get('page',1)
     try:
@@ -4601,8 +4605,6 @@ def download(request):
             pho = "No Doctor Assigned"
             doctor = "No Doctor Assigned"
 
-        
-
     context = {
         'doctor':doctor,
         'signature_name':signature_name,
@@ -4616,6 +4618,9 @@ def download(request):
         'selected_user':selected_user,
         'start_month': start_month,
         'end_month': end_month,
+        'selected_year': selected_year,
+        'available_years': available_years,
+
         'search_name': search_name,
         'months': months,
         'male' : male,
@@ -4629,7 +4634,6 @@ def download(request):
         'users':users,
         'total_patients': total_patients,
     }
-
     return render(request, 'monitoring/download.html',context)
 
 
@@ -4655,6 +4659,7 @@ def pdf_masterlist_create(request):
     selected_user = request.GET.get('searchUsername') 
     start_month = request.GET.get('startMonth', '')
     end_month = request.GET.get('endMonth', '')
+    selected_year = request.GET.get('year', datetime.now().year)
     search_name = request.GET.get('searchName')
     
     # Base queryset with filters applied
@@ -4669,6 +4674,13 @@ def pdf_masterlist_create(request):
         Q(patient_id__user__username=selected_user) if user.is_superuser and selected_user else Q(),
         Q(patient_id__first_name__icontains=search_name) | Q(patient_id__last_name__icontains=search_name) if search_name else Q()
     )
+
+    # Apply Year Filter
+    try:
+        selected_year = int(selected_year)
+        histories = histories.filter(date_registered__year=selected_year)
+    except ValueError:
+        messages.error(request, "Invalid year selected.")
 
     # Date filter
     try:
@@ -4747,9 +4759,7 @@ def pdf_masterlist_create(request):
             doctor = "No Doctor Assigned"
             center = "Unknown Center"
             center_label = f"Animal Bite Treatment Center: {center} Animal Bite Treatment Center"  # Add the label
-        
-    
-    
+           
     karon = date.today().year
     # Set context for the PDF template
     context = {
@@ -4774,6 +4784,8 @@ def pdf_masterlist_create(request):
         'barangays': Barangay.objects.all(),
         'start_month': start_month,
         'end_month': end_month,
+        'selected_year': selected_year,
+
     }
     template = loader.get_template('monitoring/download_pdf.html')
     html = template.render(context)

@@ -164,8 +164,6 @@ class DoctorFilter(SimpleListFilter):
             return queryset.filter(doctor_id=self.value())
         return queryset
 
-
-
 class PatientResource(resources.ModelResource):
     class Meta:
         model = Patient
